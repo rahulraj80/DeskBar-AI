@@ -6,6 +6,7 @@
 This project integrates a versatile music player and internet radio with practical daily utilities—including real-time weather, air quality monitoring, and a digital clock—offering a functional and aesthetically unique experience whether stationary or on the go.
 
 ![TuneBar Example](document/showcase.jpg)
+![Climate](document/weather.jpg)
 
 
 ## [🎬 Youtube](https://www.youtube.com/watch?v=7HEO5P5ezfM) Recommend watch the YouTube video for usage instructions.
