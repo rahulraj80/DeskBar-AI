@@ -80,7 +80,7 @@ Go to the **Config -> Music** tab, then click **LOAD** to index the music files.
 Is your idea of a "good time" *not* debugging C++? Just want the shiny gadget to work?
 We did the nerd stuff so you don't have to.
 
-- [Flash TuneBar here](https://vaandcob.github.io/webpage/src/index.html)
+- [Flash TuneBar here](https://vaandcob.github.io/webpage/src/index.html?tab=tunebar)
 
 ## License
 
