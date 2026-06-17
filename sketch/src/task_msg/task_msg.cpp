@@ -194,12 +194,22 @@ void process_ui_status_queue() {
       break;
 
     // Real time clock
-    case STATUS_UPDATE_CLOCK:
+    case STATUS_UPDATE_CLOCK: {
       char timeBuf[16];
       char dateBuf[40];
       char datetimeBuf[60];
-      snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d", msg.hour, msg.minute, msg.second);
-      snprintf(dateBuf, sizeof(dateBuf), "%s, %s %d, %d", weekdayNames[msg.dayOfWeek], monthNames[msg.month - 1], msg.dayOfMonth, 2000 + msg.year);
+      bool validTime = msg.hour < 24 && msg.minute < 60 && msg.second < 60;
+      bool validDate = msg.month >= 1 && msg.month <= 12 && msg.dayOfWeek <= 6 && msg.dayOfMonth >= 1 && msg.dayOfMonth <= 31;
+      if (!validTime) {
+        log_w("Skip invalid RTC time: %u:%u:%u", msg.hour, msg.minute, msg.second);
+        break;
+      }
+      snprintf(timeBuf, sizeof(timeBuf), "%02u:%02u:%02u", msg.hour, msg.minute, msg.second);
+      if (validDate) {
+        snprintf(dateBuf, sizeof(dateBuf), "%s, %s %u, %u", weekdayNames[msg.dayOfWeek], monthNames[msg.month - 1], msg.dayOfMonth, 2000 + msg.year);
+      } else {
+        snprintf(dateBuf, sizeof(dateBuf), "RTC date unavailable");
+      }
       snprintf(datetimeBuf, sizeof(datetimeBuf), "%s - %s", dateBuf, timeBuf);
       log_d("%s", datetimeBuf);
 
@@ -217,6 +227,7 @@ void process_ui_status_queue() {
       // update weather condition widget every 15 min.
       if (msg.minute % 15 == 0 && msg.second == 0 && wifiEnable) updateWeatherPanel();
       break;
+    }
 
     // audio play position
     case STATUS_UPDATE_PLAY_POSITION:

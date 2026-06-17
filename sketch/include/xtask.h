@@ -146,7 +146,6 @@ void rtc_read_task(void *param) {
   for (;;) {
     // read RTC
     if (rtc.getDateTime()) {
-
       UIStatusPayload msg = {
          .type = STATUS_UPDATE_CLOCK, 
          .hour = now.hour, 
@@ -447,6 +446,13 @@ void audio_loop_task(void *param) {
             //---------
             // detect end of file track -> next track
             if ((mediaType == 1) && (current_total - current_pos <= 1)) {
+              if (trackListLength <= 0) {
+                log_w("Cannot auto-select next track: empty music library");
+                audio.stopSong();
+                last_pos = current_pos;
+                last_total = current_total;
+                continue;
+              }
               switch (playMode) {
               case 0: { // normal play mode
                 trackIndex++;
@@ -454,10 +460,7 @@ void audio_loop_task(void *param) {
                 break;
               }
               case 1: { // random play, avoid same track twice
-                uint16_t old = trackIndex;
-                do {
-                  trackIndex = random(trackListLength);
-                } while (trackListLength > 1 && trackIndex == old);
+                trackIndex = randomIndexExcept(trackListLength, trackIndex);
                 break;
               }
               case 2: { // repeat

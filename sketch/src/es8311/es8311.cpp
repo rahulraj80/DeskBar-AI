@@ -158,26 +158,26 @@ bool ES8311::begin() {
     bool ok = true;
     uint8_t reg = 0;
 
-    ok |= WriteReg(0x00, 0x1F);  // Reset
+    ok &= WriteReg(0x00, 0x1F);  // Reset
     vTaskDelay(pdMS_TO_TICKS(20));
-    ok |= WriteReg(0x00, 0x00);  // Release reset
-    ok |= WriteReg(0x00, 0x80);  // Power on
+    ok &= WriteReg(0x00, 0x00);  // Release reset
+    ok &= WriteReg(0x00, 0x80);  // Power on
 
-    ok |= WriteReg(0x01, 0x3F);  // Enable all clocks
+    ok &= WriteReg(0x01, 0x3F);  // Enable all clocks
 
     reg = ReadReg(0x06);
     reg &= ~BIT(5); // SCLK (BCLK) pin not inverted
-    ok |= WriteReg(0x06, reg);   //
+    ok &= WriteReg(0x06, reg);   //
 
-    ok |= setSampleRate(ES8311_SAMPLE_RATE48);         // default
-    ok |= setBitsPerSample(ES8311_BITS_PER_SAMPLE16);  // default
+    ok &= setSampleRate(ES8311_SAMPLE_RATE48);         // default
+    ok &= setBitsPerSample(ES8311_BITS_PER_SAMPLE16);  // default
 
-    ok |= WriteReg(0x0D, 0x01); // Power up analog circuitry
-    ok |= WriteReg(0x0E, 0x02); // Enable analog PGA, enable ADC modulator
-    ok |= WriteReg(0x12, 0x00); // Power-up DAC
-    ok |= WriteReg(0x13, 0x10); // Enable output to HP drive
-    ok |= WriteReg(0x1C, 0x6A); // ADC Equalizer bypass, cancel DC offset in digital domain
-    ok |= WriteReg(0x37, 0x08); // Bypass DAC equalizer
+    ok &= WriteReg(0x0D, 0x01); // Power up analog circuitry
+    ok &= WriteReg(0x0E, 0x02); // Enable analog PGA, enable ADC modulator
+    ok &= WriteReg(0x12, 0x00); // Power-up DAC
+    ok &= WriteReg(0x13, 0x10); // Enable output to HP drive
+    ok &= WriteReg(0x1C, 0x6A); // ADC Equalizer bypass, cancel DC offset in digital domain
+    ok &= WriteReg(0x37, 0x08); // Bypass DAC equalizer
 
     return ok;
 }
@@ -243,7 +243,7 @@ bool ES8311::setBitsPerSample(uint8_t bps){
         default: return false; // Invalid bits per sample
     }
     bool ok = WriteReg(0x09, reg09);
-    ok |= WriteReg(0x0A, reg0A);
+    ok &= WriteReg(0x0A, reg0A);
     return ok;
 }
 
@@ -253,7 +253,7 @@ bool ES8311::enableMicrophone(bool enable){
         reg |= BIT(6);
     }
     bool ok = WriteReg(0x17, 0xC8); // ADC_VOLUME
-    ok |= WriteReg(0x14, reg); // Enable MIC
+    ok &= WriteReg(0x14, reg); // Enable MIC
     return ok;
 }
 

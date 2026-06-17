@@ -16,28 +16,32 @@ TCA9554::TCA9554(i2c_master_dev_handle_t handle) {
     configState = 0xFF;
 }
 
-void TCA9554::begin() {
-    writeRegister(CONFIG_REGISTER, configState);
-    writeRegister(OUTPUT_REGISTER, outputState);
-    log_i("TCA9554 OK");
+bool TCA9554::begin() {
+    bool ok = writeRegister(CONFIG_REGISTER, configState);
+    ok &= writeRegister(OUTPUT_REGISTER, outputState);
+    if (ok)
+        log_i("TCA9554 OK");
+    else
+        log_e("TCA9554 init failed");
+    return ok;
 }
 
-void TCA9554::setPinMode(uint8_t pin_mask, uint8_t mode) {
+bool TCA9554::setPinMode(uint8_t pin_mask, uint8_t mode) {
     if (mode == 0)
         configState &= ~pin_mask;
     else
         configState |= pin_mask;
 
-    writeRegister(CONFIG_REGISTER, configState);
+    return writeRegister(CONFIG_REGISTER, configState);
 }
 
-void TCA9554::digitalWrite(uint8_t pin_mask, uint8_t state) {
+bool TCA9554::digitalWrite(uint8_t pin_mask, uint8_t state) {
     if (state)
         outputState |= pin_mask;
     else
         outputState &= ~pin_mask;
 
-    writeRegister(OUTPUT_REGISTER, outputState);
+    return writeRegister(OUTPUT_REGISTER, outputState);
 }
 
 uint8_t TCA9554::digitalRead(uint8_t pin_mask) {
@@ -45,9 +49,9 @@ uint8_t TCA9554::digitalRead(uint8_t pin_mask) {
     return (value & pin_mask) ? 1 : 0;
 }
 
-void TCA9554::writeRegister(uint8_t reg, uint8_t data) {
+bool TCA9554::writeRegister(uint8_t reg, uint8_t data) {
     uint8_t buf[1] = { data };
-    i2c_write_buff(dev, reg, buf, 1);
+    return i2c_write_buff(dev, reg, buf, 1) == ESP_OK;
 }
 
 uint8_t TCA9554::readRegister(uint8_t reg) {

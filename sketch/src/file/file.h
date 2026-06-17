@@ -30,6 +30,7 @@ lv_fs_res_t fs_seek(lv_fs_drv_t *drv, void *file_p, uint32_t pos);
 void initLittleFS();
 void initSDCard();
 bool getTrackPath(int index, char *outBuf, size_t outBufSize);
+uint16_t randomIndexExcept(uint16_t count, uint16_t currentIndex);
 void scanMusic();
 void initSongList();
 

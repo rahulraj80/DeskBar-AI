@@ -7,6 +7,7 @@
 #include "task_msg/task_msg.h"
 #include "ui/ui.h"
 #include <Arduino.h>
+#include "esp_system.h"
 #include <LittleFS.h>
 #include <driver/i2s_std.h>
 #include <vector>
@@ -262,6 +263,21 @@ int getTrackCount() {
   }
   playlist.close();
   return count;
+}
+
+uint16_t randomIndexExcept(uint16_t count, uint16_t currentIndex) {
+  if (count == 0) return 0;
+  if (count == 1) return 0;
+
+  uint32_t entropy = esp_random();
+  entropy ^= micros();
+  entropy ^= (uint32_t)xTaskGetTickCount() << 16;
+
+  uint16_t next = entropy % count;
+  if (next == currentIndex) {
+    next = (next + 1 + ((entropy / count) % (count - 1))) % count;
+  }
+  return next;
 }
 
 // ==========================================

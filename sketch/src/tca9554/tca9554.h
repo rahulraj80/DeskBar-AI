@@ -20,14 +20,13 @@ public:
 
     TCA9554(i2c_master_dev_handle_t handle);
 
-    void begin();
-    void setPinMode(uint8_t pin_mask, uint8_t mode);
-    void digitalWrite(uint8_t pin_mask, uint8_t state);
+    bool begin();
+    bool setPinMode(uint8_t pin_mask, uint8_t mode);
+    bool digitalWrite(uint8_t pin_mask, uint8_t state);
     uint8_t digitalRead(uint8_t pin_mask);
 
 private:
-    void writeRegister(uint8_t reg, uint8_t data);
+    bool writeRegister(uint8_t reg, uint8_t data);
     uint8_t readRegister(uint8_t reg);
 };
-
 

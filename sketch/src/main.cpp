@@ -62,6 +62,18 @@ TCA9554 *io = nullptr;
 QueueHandle_t ui_status_queue = NULL;
 QueueHandle_t audio_cmd_queue = NULL;
 
+static void createTaskChecked(TaskFunction_t task,
+                              const char *name,
+                              const uint32_t stackDepth,
+                              UBaseType_t priority,
+                              const BaseType_t core) {
+  BaseType_t ok = xTaskCreatePinnedToCore(task, name, stackDepth, NULL, priority, NULL, core);
+  if (ok != pdPASS) {
+    log_e("Failed to create task: %s", name);
+    assert(false);
+  }
+}
+
 // ############################################################
 void setup() {
   
@@ -89,20 +101,22 @@ void setup() {
    // audio library
   Audio::audio_info_callback = my_audio_info;
   audio.setAudioTaskCore(1); // audio default run on core 1 (lvgl run on core 0 in lvgl_port.c)
-  audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DSOUT, I2S_MCLK, I2S_DSIN);
+  if (!audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DSOUT, I2S_MCLK, I2S_DSIN))
+    log_e("Audio I2S pinout setup failed");
   audio.forceMono(true);
   audio.setConnectionTimeout(2000, 4000); // connection timeout ms, ms_ssl
   // audio.setVolume(audio_volume);  // default 0...21
 
   // exapnder init
   io = new TCA9554(tca9554_dev_handle);
-  io->begin();
-  io->setPinMode(EXIO6_BIT, 0); // set output mode
+  bool io_ok = io->begin();
+  if (!io_ok) log_e("Power and amplifier controls may not work");
+  io_ok &= io->setPinMode(EXIO6_BIT, 0); // set output mode
 
   // turn on power button
   if (digitalRead(SYS_OUT) == LOW) {
     log_d("< POWER ON >");
-    io->digitalWrite(EXIO6_BIT, 1); // hold turn on
+    io_ok &= io->digitalWrite(EXIO6_BIT, 1); // hold turn on
   }
 
   // init lvgl
@@ -110,21 +124,22 @@ void setup() {
   lcd_bl_pwm_bsp_init(LCD_PWM_MODE_255); // max out the brightness
 
   // power amp control
-  io->setPinMode(EXIO7_BIT, 0); // 0 = OUTPUT
+  io_ok &= io->setPinMode(EXIO7_BIT, 0); // 0 = OUTPUT
   delay(100);
-  io->digitalWrite(EXIO7_BIT, 1); // enable amp
+  io_ok &= io->digitalWrite(EXIO7_BIT, 1); // enable amp
   delay(100);
-  if (io->digitalRead(EXIO7_BIT) == 0)
+  if (!io_ok || io->digitalRead(EXIO7_BIT) == 0)
     log_e("Power Amp not turn on!");
   else
     log_i("Power Amp -> ON");
 
   // es8311 audio codec
-  speaker.setVolume(80); // 80 is best max
-  if (!speaker.begin())
+  if (!speaker.begin()) {
     log_e("ES8311 begin failed");
-  else
+  } else {
+    speaker.setVolume(80); // 80 is best max
     log_i("ES8311 OK");
+  }
 
 
  if (mic.init()) {
@@ -134,14 +149,16 @@ void setup() {
   }
 
   // Free RTOS Task
-  xTaskCreatePinnedToCore(audio_loop_task, "audio_loop", 5 * 1024, NULL, 4, NULL, 1);
-  xTaskCreatePinnedToCore(rtc_read_task, "getDateTimeTask", 3 * 1024, NULL, 3, NULL, 1);
-  xTaskCreatePinnedToCore(button_input_task, "buttonInputTask", 2 * 1024, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(batt_level_read_task, "readBatteryLevel", 2 * 1024, NULL, 1, NULL, 1);
+  createTaskChecked(audio_loop_task, "audio_loop", 6 * 1024, 4, 1);
+  createTaskChecked(rtc_read_task, "getDateTimeTask", 3 * 1024, 3, 1);
+  createTaskChecked(button_input_task, "buttonInputTask", 2 * 1024, 2, 1);
+  createTaskChecked(batt_level_read_task, "readBatteryLevel", 2 * 1024, 1, 1);
   //xTaskCreatePinnedToCore(imu_read_task, "imu_read_task", 2 * 1024, NULL , 1, NULL,1);
 
 
 }
 // ############################################################
-void loop() {}
+void loop() {
+  vTaskDelay(pdMS_TO_TICKS(1000));
+}
 //---------------------------------------------------

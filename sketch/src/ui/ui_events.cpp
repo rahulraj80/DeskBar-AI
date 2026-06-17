@@ -236,6 +236,10 @@ void previoustrack(lv_event_t *e) {
   switch (mediaType) {
 
   case 0: { // livestream mode
+    if (stationListLength == 0) {
+      lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
+      return;
+    }
     // playing mode
     if (playMode == 0) {
       if (stationIndex == 0) {
@@ -244,10 +248,7 @@ void previoustrack(lv_event_t *e) {
         stationIndex--;
       }
     } else if (playMode == 1) {
-      uint16_t old = stationIndex;
-      do {
-        stationIndex = random(stationListLength);
-      } while (stationListLength > 1 && stationIndex == old);
+      stationIndex = randomIndexExcept(stationListLength, stationIndex);
 
     } else if (mediaType == 2) {
       // play same current trackIndex
@@ -259,6 +260,11 @@ void previoustrack(lv_event_t *e) {
   }
 
   case 1: { // music player mode
+    if (trackListLength <= 0) {
+      lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
+      lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nPlease scan music first.");
+      return;
+    }
     int pos = audio.getAudioCurrentTime();
     if (pos > 5) { // rewind if pos > 5 sec
       AudioCommandPayload msg = {
@@ -276,11 +282,7 @@ void previoustrack(lv_event_t *e) {
         trackIndex--;
       }
     } else if (playMode == 1) {
-
-      uint16_t old = trackIndex;
-      do {
-        trackIndex = random(trackListLength);
-      } while (trackListLength > 1 && trackIndex == old);
+      trackIndex = randomIndexExcept(trackListLength, trackIndex);
 
     } else if (mediaType == 2) {
       // play same current trackIndex
@@ -343,12 +345,21 @@ void playpause(lv_event_t *e) {
     char status_buffer[50];
     switch (mediaType) {
     case 0: { // livestream mode
+      if (stationListLength == 0) {
+        lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
+        return;
+      }
       snprintf(status_buffer, sizeof(status_buffer), "%d of %d", stationIndex + 1, stationListLength);
       lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
       audioPlayHOST(stations[stationIndex].url, stations[stationIndex].name);
       break; // break should be outside the scope block if not used for variable declaration
     }
     case 1: { // music player mode
+      if (trackListLength <= 0) {
+        lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
+        lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nPlease scan music first.");
+        return;
+      }
       if (paused) {
         audioPauseResume();
         paused = false;
@@ -407,16 +418,17 @@ void nexttrack(lv_event_t *e) {
   switch (mediaType) {
 
   case 0: { // livestream mode
+    if (stationListLength == 0) {
+      lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
+      return;
+    }
     if (playMode == 0) { // normal play
       stationIndex++;
       if (stationIndex == stationListLength) {
         stationIndex = 0;
       }
     } else if (playMode == 1) { // random
-      uint16_t old = stationIndex;
-      do {
-        stationIndex = random(stationListLength);
-      } while (stationListLength > 1 && stationIndex == old);
+      stationIndex = randomIndexExcept(stationListLength, stationIndex);
     } else if (mediaType == 2) { // single
       // play same current trackIndex
     }
@@ -427,16 +439,18 @@ void nexttrack(lv_event_t *e) {
   }
 
   case 1: { // music player mode
+    if (trackListLength <= 0) {
+      lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
+      lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nPlease scan music first.");
+      return;
+    }
     if (playMode == 0) { // normal play
       trackIndex++;
       if (trackIndex == trackListLength) {
         trackIndex = 0;
       }
     } else if (playMode == 1) { // random
-      uint16_t old = trackIndex;
-      do {
-        trackIndex = random(trackListLength);
-      } while (trackListLength > 1 && trackIndex == old);
+      trackIndex = randomIndexExcept(trackListLength, trackIndex);
 
     } else if (mediaType == 2) { // single
       // play same current trackIndex

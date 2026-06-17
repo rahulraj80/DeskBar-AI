@@ -23,6 +23,7 @@ uint8_t PCF85063::bcdToDec(uint8_t val) {
 
 void PCF85063::begin() {
 
+  WriteReg(REG_CTRL1, CAP_SEL_12_5PF);
   if(cap_sel(CAP_SEL_12_5PF))
     log_i("PCF85063 OK");
   else 
