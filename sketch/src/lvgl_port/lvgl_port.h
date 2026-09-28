@@ -9,7 +9,8 @@ extern "C" {
 
 
 void lvgl_port_init(void);
-
+void bsp_display_sleep(void);
+void bsp_display_wake(void);
 
 #ifdef __cplusplus
 }

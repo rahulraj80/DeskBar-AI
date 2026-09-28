@@ -13,6 +13,7 @@
 #include "i2c_bsp/i2c_bsp.h"
 #include "lvgl.h"
 #include "user_config.h"
+#include "lcd_bl_bsp/lcd_bl_pwm_bsp.h"
 
 #include "esp_task_wdt.h"
 #include "task_msg/task_msg.h"
@@ -22,6 +23,7 @@
 
 static const char *TAG = "lvgl_port";
 static SemaphoreHandle_t lvgl_mux = NULL;
+static esp_lcd_panel_handle_t s_panel_handle = NULL;
 
 static uint16_t *lvgl_dma_buf = NULL;
 static SemaphoreHandle_t lvgl_flush_semap;
@@ -46,6 +48,10 @@ static void WAVESHARE_349_increase_lvgl_tick(void *arg) {
 }
 
 static void WAVESHARE_349_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map) {
+  if (BL_OFF) {
+    lv_disp_flush_ready(drv);
+    return;
+  }
 #if (Rotated == USER_DISP_ROT_90)
   uint32_t index = 0;
   uint16_t *data_ptr = (uint16_t *)color_map;
@@ -84,6 +90,10 @@ static void WAVESHARE_349_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *are
 }
 
 static void WAVESHARE_349_lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
+  if (BL_OFF) {
+    data->state = LV_INDEV_STATE_REL;
+    return;
+  }
   static uint8_t read_touchpad_cmd[8] = {0xb5, 0xab, 0xa5, 0x5a, 0x0, 0x0, 0x0, 0x8};
   // uint8_t read_touchpad_cmd[11] = {0xb5, 0xab, 0xa5, 0x5a, 0x0, 0x0, 0x0, 0x0e,0x0, 0x0, 0x0};
   uint8_t buff[32] = {0};
@@ -133,6 +143,14 @@ void WAVESHARE_349_lvgl_port_task(void *arg)
    uint32_t task_delay_ms = WAVESHARE_349_LVGL_TASK_MAX_DELAY_MS;
 
   for(;;) {
+    if (BL_OFF) {
+      if (WAVESHARE_349_lvgl_lock(50)) {
+        process_ui_status_queue();
+        WAVESHARE_349_lvgl_unlock();
+      }
+      vTaskDelay(pdMS_TO_TICKS(100));
+      continue;
+    }
     if (WAVESHARE_349_lvgl_lock(-1)) {
       process_ui_status_queue();
       task_delay_ms = lv_timer_handler();
@@ -216,6 +234,7 @@ void lvgl_port_init(void) {
   ESP_ERROR_CHECK(gpio_set_level(WAVESHARE_349_PIN_NUM_LCD_RST, 1));
   vTaskDelay(pdMS_TO_TICKS(30));
   ESP_ERROR_CHECK(esp_lcd_panel_init(panel));
+  s_panel_handle = panel;
 
   lv_init();
 
@@ -260,5 +279,16 @@ void lvgl_port_init(void) {
 
     ui_init();
     WAVESHARE_349_lvgl_unlock();
+  }
+}
+extern "C" void bsp_display_sleep(void) {
+  if (s_panel_handle) {
+    esp_lcd_panel_disp_on_off(s_panel_handle, false);
+  }
+}
+
+extern "C" void bsp_display_wake(void) {
+  if (s_panel_handle) {
+    esp_lcd_panel_disp_on_off(s_panel_handle, true);
   }
 }

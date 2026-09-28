@@ -4,6 +4,7 @@
 #include "driver/ledc.h"
 #include "driver/gpio.h"
 #include "user_config.h"
+#include "esp_timer.h"
 
 volatile uint8_t BL_OFF = false;
 volatile uint8_t backlight_state = 2;
@@ -51,4 +52,29 @@ void setUpduty(uint16_t duty)
 {
   ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty));
   ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1));
+}
+extern void bsp_set_backlight_power(bool enable);
+extern void bsp_display_sleep(void);
+extern void bsp_display_wake(void);
+
+void screenPowerOff(void)
+{
+  setUpduty(LCD_PWM_MODE_0); // 0% PWM duty
+  bsp_set_backlight_power(false); // Cut EXIO1 boost rail
+  bsp_display_sleep(); // Send DISPOFF / SLPIN to AXS15231B
+  BL_OFF = true;
+}
+
+void screenPowerOn(void)
+{
+  bsp_display_wake(); // Send SLPOUT / DISPON to AXS15231B
+  bsp_set_backlight_power(true); // Enable EXIO1 boost rail
+  switch (backlight_state) {
+    case 0: setUpduty(LCD_PWM_MODE_100); break;
+    case 1: setUpduty(LCD_PWM_MODE_150); break;
+    case 2: setUpduty(LCD_PWM_MODE_255); break;
+    default: setUpduty(LCD_PWM_MODE_255); break;
+  }
+  BL_OFF = false;
+  SCREEN_OFF_TIMER = (uint32_t)(esp_timer_get_time() / 1000ULL);
 }

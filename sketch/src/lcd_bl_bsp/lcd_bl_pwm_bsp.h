@@ -30,6 +30,8 @@ extern volatile uint32_t SCREEN_OFF_DELAY;
 
 void lcd_bl_pwm_bsp_init(uint16_t duty);
 void setUpduty(uint16_t duty);
+void screenPowerOff(void);
+void screenPowerOn(void);
 
 #ifdef __cplusplus
 }

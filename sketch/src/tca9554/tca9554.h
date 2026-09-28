@@ -30,3 +30,12 @@ private:
     uint8_t readRegister(uint8_t reg);
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+void bsp_set_backlight_power(bool enable);
+void bsp_set_audio_amp_power(bool enable);
+#ifdef __cplusplus
+}
+#endif
+

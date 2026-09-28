@@ -1,4 +1,4 @@
-#include "TCA9554.h"
+#include "tca9554.h"
 
 // --- TCA9554 IO Expander DEFINITIONS ---
 
@@ -58,4 +58,20 @@ uint8_t TCA9554::readRegister(uint8_t reg) {
     uint8_t buf = 0;
     i2c_read_buff(dev, reg, &buf, 1);
     return buf;
+}
+
+extern TCA9554 *io;
+
+extern "C" void bsp_set_backlight_power(bool enable) {
+    if (io) {
+        io->setPinMode(EXIO1_BIT, 0); // 0 = OUTPUT
+        io->digitalWrite(EXIO1_BIT, enable ? 1 : 0);
+    }
+}
+
+extern "C" void bsp_set_audio_amp_power(bool enable) {
+    if (io) {
+        io->setPinMode(EXIO7_BIT, 0); // 0 = OUTPUT
+        io->digitalWrite(EXIO7_BIT, enable ? 1 : 0);
+    }
 }

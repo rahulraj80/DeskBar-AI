@@ -12,6 +12,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <stdint.h>
+#include "esp_wifi.h"
 
 extern PCF85063 rtc;
 
@@ -360,6 +361,7 @@ void wifi_connect_task(void *param) {
           }
           // check wifi connection status
           if (WiFi.status() == WL_CONNECTED) {
+            esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
             char connectedMsg[128];
             IPAddress ip = WiFi.localIP();
             snprintf(connectedMsg, sizeof(connectedMsg), "Connected to %s (IP: %u.%u.%u.%u)", networkName, ip[0], ip[1], ip[2], ip[3]);

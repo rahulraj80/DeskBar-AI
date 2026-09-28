@@ -54,25 +54,22 @@ void button_input_task(void *param) {
       vTaskDelay(pdMS_TO_TICKS(500));
       if (BL_OFF) {
         log_d("< Unlock Screen with button >");
-        switch (backlight_state) {
-        case 0: setUpduty(LCD_PWM_MODE_100); break;
-        case 1: setUpduty(LCD_PWM_MODE_150); break;
-        case 2: setUpduty(LCD_PWM_MODE_255); break;
-        }
+        screenPowerOn();
+        bsp_set_audio_amp_power(true);
         UIStatusPayload msg = {
             .type = STATUS_SCREEN_UNLOCK,
         };
         xQueueSend(ui_status_queue, &msg, 100); // send message
-        SCREEN_OFF_TIMER = millis(); // reset timer
-        BL_OFF = false;
       } else { // force screen off
         log_d("< Lock Screen with button >");
         UIStatusPayload msg = {
             .type = STATUS_SCREEN_LOCK,
         };
         xQueueSend(ui_status_queue, &msg, 100); // send message
-        setUpduty(LCD_PWM_MODE_0);
-        BL_OFF = true;
+        screenPowerOff();
+        if (!audio.isRunning()) {
+          bsp_set_audio_amp_power(false);
+        }
       }
     }
     //-----------------------
@@ -89,8 +86,10 @@ void button_input_task(void *param) {
         };
         xQueueSend(ui_status_queue, &msg, 100);
 
-        setUpduty(LCD_PWM_MODE_0);
-        BL_OFF = true;
+        screenPowerOff();
+        if (!audio.isRunning()) {
+          bsp_set_audio_amp_power(false);
+        }
       }
     }
 
