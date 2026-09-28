@@ -61,13 +61,11 @@ void screenPowerOff(void)
 {
   setUpduty(LCD_PWM_MODE_0); // 0% PWM duty
   bsp_set_backlight_power(false); // Cut EXIO1 boost rail
-  bsp_display_sleep(); // Send DISPOFF / SLPIN to AXS15231B
   BL_OFF = true;
 }
 
 void screenPowerOn(void)
 {
-  bsp_display_wake(); // Send SLPOUT / DISPON to AXS15231B
   bsp_set_backlight_power(true); // Enable EXIO1 boost rail
   switch (backlight_state) {
     case 0: setUpduty(LCD_PWM_MODE_100); break;

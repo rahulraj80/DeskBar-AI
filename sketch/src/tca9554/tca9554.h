@@ -7,9 +7,10 @@
 #define OUTPUT_REGISTER  0x01
 #define CONFIG_REGISTER  0x03
 
-extern const uint8_t EXIO1_BIT; // backlight
-extern const uint8_t EXIO6_BIT; // Power
-extern const uint8_t EXIO7_BIT; // audio amp
+extern const uint8_t EXIO1_BIT; // backlight (Bit 1 = BL_EN)
+extern const uint8_t EXIO5_BIT; // LCD Reset (Bit 5 = LCD_RST)
+extern const uint8_t EXIO6_BIT; // Power (Bit 6 = SYS_EN)
+extern const uint8_t EXIO7_BIT; // audio amp (Bit 7 = NS_MODE)
 
 class TCA9554 {
 public:
@@ -33,6 +34,7 @@ private:
 #ifdef __cplusplus
 extern "C" {
 #endif
+void bsp_lcd_reset(void);
 void bsp_set_backlight_power(bool enable);
 void bsp_set_audio_amp_power(bool enable);
 #ifdef __cplusplus

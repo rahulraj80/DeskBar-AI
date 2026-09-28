@@ -24,6 +24,7 @@
 static const char *TAG = "lvgl_port";
 static SemaphoreHandle_t lvgl_mux = NULL;
 static esp_lcd_panel_handle_t s_panel_handle = NULL;
+extern "C" void bsp_lcd_reset(void);
 
 static uint16_t *lvgl_dma_buf = NULL;
 static SemaphoreHandle_t lvgl_flush_semap;
@@ -176,8 +177,8 @@ void lvgl_port_init(void) {
 
   static lv_disp_draw_buf_t disp_buf; // contains internal graphic buffer(s) called draw buffer(s)
   static lv_disp_drv_t disp_drv; // contains callback functions
+#if (WAVESHARE_349_PIN_NUM_LCD_RST >= 0)
   ESP_LOGI(TAG, "Initialize LCD RESET GPIO");
-
   gpio_config_t gpio_conf = {};
   gpio_conf.intr_type = GPIO_INTR_DISABLE;
   gpio_conf.mode = GPIO_MODE_OUTPUT;
@@ -185,6 +186,7 @@ void lvgl_port_init(void) {
   gpio_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
   gpio_conf.pull_up_en = GPIO_PULLUP_ENABLE;
   ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_config(&gpio_conf));
+#endif
 
   ESP_LOGI(TAG, "Initialize QSPI bus");
   spi_bus_config_t buscfg = {};
@@ -227,12 +229,16 @@ void lvgl_port_init(void) {
   ESP_LOGI(TAG, "Install panel driver");
   ESP_ERROR_CHECK(esp_lcd_new_panel_axs15231b(panel_io, &panel_config, &panel));
 
-  ESP_ERROR_CHECK(gpio_set_level(WAVESHARE_349_PIN_NUM_LCD_RST, 1));
+#if (WAVESHARE_349_PIN_NUM_LCD_RST >= 0)
+  ESP_ERROR_CHECK(gpio_set_level((gpio_num_t)WAVESHARE_349_PIN_NUM_LCD_RST, 1));
   vTaskDelay(pdMS_TO_TICKS(30));
-  ESP_ERROR_CHECK(gpio_set_level(WAVESHARE_349_PIN_NUM_LCD_RST, 0));
+  ESP_ERROR_CHECK(gpio_set_level((gpio_num_t)WAVESHARE_349_PIN_NUM_LCD_RST, 0));
   vTaskDelay(pdMS_TO_TICKS(250));
-  ESP_ERROR_CHECK(gpio_set_level(WAVESHARE_349_PIN_NUM_LCD_RST, 1));
+  ESP_ERROR_CHECK(gpio_set_level((gpio_num_t)WAVESHARE_349_PIN_NUM_LCD_RST, 1));
   vTaskDelay(pdMS_TO_TICKS(30));
+#else
+  bsp_lcd_reset();
+#endif
   ESP_ERROR_CHECK(esp_lcd_panel_init(panel));
   s_panel_handle = panel;
 
@@ -282,13 +288,11 @@ void lvgl_port_init(void) {
   }
 }
 extern "C" void bsp_display_sleep(void) {
-  if (s_panel_handle) {
-    esp_lcd_panel_disp_on_off(s_panel_handle, false);
-  }
+  // Screen blanking is fully handled by cutting the backlight rail (EXIO1)
+  // and setting PWM duty to 0, plus short-circuiting LVGL flush.
+  // We avoid sending QSPI sleep commands across cores to prevent bus collision/deadlocks.
 }
 
 extern "C" void bsp_display_wake(void) {
-  if (s_panel_handle) {
-    esp_lcd_panel_disp_on_off(s_panel_handle, true);
-  }
+  // Screen wake is handled by re-enabling EXIO1 boost rail and restoring PWM duty.
 }

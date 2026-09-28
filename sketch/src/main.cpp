@@ -74,6 +74,8 @@ static void createTaskChecked(TaskFunction_t task,
   }
 }
 
+void serial_debug_beacon_task(void *param);
+
 // ############################################################
 void setup() {
   
@@ -121,6 +123,7 @@ void setup() {
 
   // init lvgl
   lvgl_port_init();
+  bsp_set_backlight_power(true); // Enable AP3032 boost rail on EXIO1
   lcd_bl_pwm_bsp_init(LCD_PWM_MODE_255); // max out the brightness
 
   // power amp control
@@ -154,9 +157,24 @@ void setup() {
   createTaskChecked(button_input_task, "buttonInputTask", 2 * 1024, 2, 1);
   createTaskChecked(batt_level_read_task, "readBatteryLevel", 2 * 1024, 1, 1);
   //xTaskCreatePinnedToCore(imu_read_task, "imu_read_task", 2 * 1024, NULL , 1, NULL,1);
-
+  createTaskChecked(serial_debug_beacon_task, "debugBeacon", 2 * 1024, 1, 1);
 
 }
+
+void serial_debug_beacon_task(void *param) {
+  vTaskDelay(pdMS_TO_TICKS(3000));
+  for (;;) {
+    size_t free_heap = esp_get_free_heap_size();
+    size_t min_heap = esp_get_minimum_free_heap_size();
+    size_t free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    log_i("[BEACON] Heap: %u (min: %u) | PSRAM: %u | BL_OFF: %d | Audio: %s | WiFi: %s",
+          (unsigned)free_heap, (unsigned)min_heap, (unsigned)free_psram, (int)BL_OFF,
+          audio.isRunning() ? "PLAYING" : "IDLE",
+          (WiFi.status() == WL_CONNECTED) ? "CONNECTED" : "OFFLINE");
+    vTaskDelay(pdMS_TO_TICKS(2000));
+  }
+}
+
 // ############################################################
 void loop() {
   vTaskDelay(pdMS_TO_TICKS(1000));

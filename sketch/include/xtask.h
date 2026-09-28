@@ -49,29 +49,37 @@ void button_input_task(void *param) {
       powerBTN_pressed = false;
 
     //-----------------------
-    // screen on button
-    if (digitalRead(BOOT) == LOW) { // Right most button
-      vTaskDelay(pdMS_TO_TICKS(500));
-      if (BL_OFF) {
-        log_d("< Unlock Screen with button >");
-        screenPowerOn();
-        bsp_set_audio_amp_power(true);
-        UIStatusPayload msg = {
-            .type = STATUS_SCREEN_UNLOCK,
-        };
-        xQueueSend(ui_status_queue, &msg, 100); // send message
-      } else { // force screen off
-        log_d("< Lock Screen with button >");
-        UIStatusPayload msg = {
-            .type = STATUS_SCREEN_LOCK,
-        };
-        xQueueSend(ui_status_queue, &msg, 100); // send message
-        screenPowerOff();
-        if (!audio.isRunning()) {
-          bsp_set_audio_amp_power(false);
+    // screen on button (edge-triggered + debounce)
+    static bool boot_btn_prev = HIGH;
+    bool boot_btn_curr = digitalRead(BOOT);
+    if (boot_btn_prev == HIGH && boot_btn_curr == LOW) {
+      vTaskDelay(pdMS_TO_TICKS(50)); // Debounce
+      if (digitalRead(BOOT) == LOW) {
+        if (BL_OFF) {
+          log_i("< Unlock Screen with button >");
+          screenPowerOn();
+          bsp_set_audio_amp_power(true);
+          UIStatusPayload msg = {
+              .type = STATUS_SCREEN_UNLOCK,
+          };
+          xQueueSend(ui_status_queue, &msg, 100);
+        } else {
+          log_i("< Lock Screen with button >");
+          UIStatusPayload msg = {
+              .type = STATUS_SCREEN_LOCK,
+          };
+          xQueueSend(ui_status_queue, &msg, 100);
+          screenPowerOff();
+          if (!audio.isRunning()) {
+            bsp_set_audio_amp_power(false);
+          }
+        }
+        while (digitalRead(BOOT) == LOW) {
+          vTaskDelay(pdMS_TO_TICKS(20));
         }
       }
     }
+    boot_btn_prev = boot_btn_curr;
     //-----------------------
     uint32_t now = millis();
     uint32_t start = SCREEN_OFF_TIMER;

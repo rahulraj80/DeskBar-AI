@@ -4,8 +4,8 @@
 
 
 // Pin mapping: EXIO7 corresponds to the Most Significant Bit (MSB) P7
-const uint8_t EXIO1_BIT = 0b00000001; // backlight
-
+const uint8_t EXIO1_BIT = 0b00000010; // backlight (Bit 1 = BL_EN on V1.1/V2)
+const uint8_t EXIO5_BIT = 0b00100000; // LCD Reset (Bit 5 = LCD_RST on V1.1/V2)
 const uint8_t EXIO6_BIT = 0b01000000; // Power
 const uint8_t EXIO7_BIT = 0b10000000; // audio amp
 
@@ -61,6 +61,18 @@ uint8_t TCA9554::readRegister(uint8_t reg) {
 }
 
 extern TCA9554 *io;
+
+extern "C" void bsp_lcd_reset(void) {
+    if (io) {
+        io->setPinMode(EXIO5_BIT, 0); // 0 = OUTPUT
+        io->digitalWrite(EXIO5_BIT, 1);
+        vTaskDelay(pdMS_TO_TICKS(30));
+        io->digitalWrite(EXIO5_BIT, 0);
+        vTaskDelay(pdMS_TO_TICKS(250));
+        io->digitalWrite(EXIO5_BIT, 1);
+        vTaskDelay(pdMS_TO_TICKS(30));
+    }
+}
 
 extern "C" void bsp_set_backlight_power(bool enable) {
     if (io) {
