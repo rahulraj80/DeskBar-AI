@@ -82,6 +82,24 @@ We did the nerd stuff so you don't have to.
 
 - [Flash TuneBar here](https://vaandcob.github.io/webpage/src/index.html?tab=tunebar)
 
+## 🛠️ Building from Source
+
+For a complete step-by-step guide on environment setup, dependencies, compiling, and flashing, see **[BUILD_GUIDE.md](BUILD_GUIDE.md)**.
+
+Quick Build:
+```bash
+# Clone the repository
+git clone https://github.com/rahulraj80/TuneBar.git
+cd TuneBar
+
+# Build firmware
+pio run -d sketch
+
+# Flash firmware via USB
+pio run -d sketch -t upload
+```
+
+
 ## License
 
 This project is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/) license.
