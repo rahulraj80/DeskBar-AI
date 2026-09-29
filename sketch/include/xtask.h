@@ -25,12 +25,10 @@ CORE 0:
 //==============================================
 // BUTTON INPUT TASK:
 void button_input_task(void *param) {
-  //   UBaseType_t hwm = uxTaskGetStackHighWaterMark(NULL);
-  // log_d("{ Task stack remaining MIN: %u bytes }", hwm);
-  vTaskDelay(pdMS_TO_TICKS(3000)); // delay 1 sec avoid hold button too long and turn to off again
+  vTaskDelay(pdMS_TO_TICKS(3000));
   bool powerBTN_pressed = false;
   long hold_timer = 0;
-  AudioCommandPayload msg = {};
+  static UIStatusPayload ui_msg = {};
   for (;;) {
     // turn off power button
     if (digitalRead(SYS_OUT) == LOW) {
@@ -59,16 +57,12 @@ void button_input_task(void *param) {
           log_i("< Unlock Screen with button >");
           screenPowerOn();
           bsp_set_audio_amp_power(true);
-          UIStatusPayload msg = {
-              .type = STATUS_SCREEN_UNLOCK,
-          };
-          xQueueSend(ui_status_queue, &msg, 100);
+          ui_msg.type = STATUS_SCREEN_UNLOCK;
+          xQueueSend(ui_status_queue, &ui_msg, 100);
         } else {
           log_i("< Lock Screen with button >");
-          UIStatusPayload msg = {
-              .type = STATUS_SCREEN_LOCK,
-          };
-          xQueueSend(ui_status_queue, &msg, 100);
+          ui_msg.type = STATUS_SCREEN_LOCK;
+          xQueueSend(ui_status_queue, &ui_msg, 100);
           screenPowerOff();
           if (!audio.isRunning()) {
             bsp_set_audio_amp_power(false);
@@ -88,11 +82,8 @@ void button_input_task(void *param) {
     if (delay != 0 && !BL_OFF) {
       if ((now - start) >= delay) {
         log_d("< Lock Screen >");
-
-        UIStatusPayload msg = {
-            .type = STATUS_SCREEN_LOCK,
-        };
-        xQueueSend(ui_status_queue, &msg, 100);
+        ui_msg.type = STATUS_SCREEN_LOCK;
+        xQueueSend(ui_status_queue, &ui_msg, 100);
 
         screenPowerOff();
         if (!audio.isRunning()) {

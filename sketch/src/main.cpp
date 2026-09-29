@@ -161,8 +161,8 @@ void setup() {
   // Free RTOS Task
   createTaskChecked(audio_loop_task, "audio_loop", 6 * 1024, 4, 1);
   createTaskChecked(rtc_read_task, "getDateTimeTask", 3 * 1024, 3, 1);
-  createTaskChecked(button_input_task, "buttonInputTask", 2 * 1024, 2, 1);
-  createTaskChecked(batt_level_read_task, "readBatteryLevel", 2 * 1024, 1, 1);
+  createTaskChecked(button_input_task, "buttonInputTask", 4 * 1024, 2, 1);
+  createTaskChecked(batt_level_read_task, "readBatteryLevel", 3 * 1024, 1, 1);
   //xTaskCreatePinnedToCore(imu_read_task, "imu_read_task", 2 * 1024, NULL , 1, NULL,1);
   createTaskChecked(serial_debug_beacon_task, "debugBeacon", 2 * 1024, 1, 1);
 
