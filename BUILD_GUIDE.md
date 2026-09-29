@@ -1,10 +1,10 @@
 # TuneBar: Environment Setup & Compilation Guide
 
-This guide provides complete instructions to set up the build environment, compile the firmware, build/upload the LittleFS asset filesystem, and flash the device on any Linux, macOS, or Windows machine.
+This guide provides complete instructions to set up the build environment, compile the firmware, build/upload the LittleFS asset filesystem, and flash the device on **Windows**, **Linux**, and **macOS**.
 
 ---
 
-## 1. Hardware Target Specifications
+## 1. Target Hardware Specifications
 
 - **Board:** Waveshare ESP32-S3-Touch-LCD-3.49 (Rev 1.1)
 - **MCU:** ESP32-S3 (Dual-core Xtensa® 32-bit LX7 @ 240 MHz)
@@ -20,74 +20,146 @@ This guide provides complete instructions to set up the build environment, compi
 
 ---
 
-## 2. Prerequisites & Toolchain Setup
+## 2. Windows Complete Step-by-Step Setup Guide
 
-### A. Python 3.9+ & Git
-Ensure Python 3 and Git are installed:
-```bash
-# Ubuntu / Debian
-sudo apt update && sudo apt install -y python3 python3-pip python3-venv git
+This section is self-contained for users building and flashing directly on **Windows 10 / 11** using PowerShell or Command Prompt.
 
-# macOS (Homebrew)
-brew install python git
-
-# Windows (PowerShell with Winget)
+### Step 2.1: Install Python & Git on Windows
+Open **PowerShell as Administrator** or standard PowerShell:
+```powershell
+# Install Python 3.11 and Git via Windows Package Manager
 winget install Python.Python.3.11 Git.Git
 ```
+*(Make sure to check "Add Python to PATH" if installing manually from python.org).*
 
-### B. PlatformIO Core (CLI)
-Install PlatformIO using `pip` or the standalone installer:
-```bash
-pip install --upgrade platformio
+Enable script execution in PowerShell:
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
-Verify the installation:
-```bash
+
+### Step 2.2: Install PlatformIO and Tools
+In PowerShell:
+```powershell
+python -m pip install --upgrade pip
+pip install --upgrade platformio esptool pyserial
+```
+
+Verify that PlatformIO is available:
+```powershell
 pio --version
 ```
-*(Optionally, you can use Visual Studio Code with the **PlatformIO IDE** extension).*
 
-### C. USB Serial Permissions (Linux only)
-If building on Linux and flashing via USB:
-```bash
-sudo usermod -a -G dialout $USER
-# Add udev rules for Espressif chips:
-curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/system/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
----
-
-## 3. Clone the Repository
-
-```bash
+### Step 2.3: Clone the Repository
+```powershell
 git clone https://github.com/rahulraj80/TuneBar.git
 cd TuneBar
 ```
 
-Project Directory Layout:
+### Step 2.4: Identify your Device COM Port
+Connect the TuneBar board via USB-C to your PC. Find the assigned COM port in PowerShell:
+```powershell
+[System.IO.Ports.SerialPort]::getportnames()
 ```
-TuneBar/
-├── BUILD_GUIDE.md                       # This setup & build guide
-├── README.md                            # Project overview
-├── build_phase1/                        # Pre-compiled flashable binaries
-│   └── firmware.bin
-└── sketch/                              # PlatformIO project root
-    ├── platformio.ini                   # Build configuration & dependencies
-    ├── partitions/
-    │   └── 7MB_app_ota_2MB_littlefs.csv # Custom 16MB partition table
-    ├── data/                            # LittleFS asset files (UI icons, audio, config)
-    │   ├── audio/                       # Notification & effect MP3s
-    │   ├── img/                         # UI PNG/BIN icons
-    │   ├── stations.csv                 # Default radio stations
-    │   └── wifi.json                    # Saved WiFi credentials
-    ├── include/                         # Header files (xtask.h, user_config.h, etc.)
-    └── src/                             # Source code (main.cpp, lvgl_port, ui, drivers)
+or inspect connected serial devices:
+```powershell
+Get-CimInstance Win32_SerialPort | Select-Object DeviceID, Description
+```
+*(Example: `COM11`)*
+
+### Step 2.5: Compile the Firmware on Windows
+```powershell
+pio run -d sketch
+```
+Output files generated:
+- Application Binary: `sketch\.pio\build\esp32-s3-devkitc1-n16r8\firmware.bin`
+- Bootloader: `sketch\.pio\build\esp32-s3-devkitc1-n16r8\bootloader.bin`
+- Partitions: `sketch\.pio\build\esp32-s3-devkitc1-n16r8\partitions.bin`
+
+### Step 2.6: Build LittleFS Asset Filesystem Image
+```powershell
+pio run -d sketch -t buildfs
+```
+Output LittleFS image:
+- Filesystem Binary: `sketch\.pio\build\esp32-s3-devkitc1-n16r8\littlefs.bin`
+
+### Step 2.7: Flash to Device on Windows
+
+#### Option A: Automated via PlatformIO
+```powershell
+# 1. Upload Application Firmware
+pio run -d sketch -t upload
+
+# 2. Upload LittleFS Filesystem (Icons, Audio, WiFi, Stations)
+pio run -d sketch -t uploadfs
+```
+
+#### Option B: Standalone Flashing via `esptool.py` (e.g. on `COM11`)
+```powershell
+# Flash Application Firmware Only (0x10000)
+python -m esptool --chip esp32s3 -p COM11 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m 0x10000 sketch\.pio\build\esp32-s3-devkitc1-n16r8\firmware.bin
+```
+
+```powershell
+# Full Initial Flash (Bootloader, Partition Table, App Firmware, and LittleFS)
+python -m esptool --chip esp32s3 -p COM11 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m `
+  0x0000   sketch\.pio\build\esp32-s3-devkitc1-n16r8\bootloader.bin `
+  0x8000   sketch\.pio\build\esp32-s3-devkitc1-n16r8\partitions.bin `
+  0x10000  sketch\.pio\build\esp32-s3-devkitc1-n16r8\firmware.bin `
+  0x710000 sketch\.pio\build\esp32-s3-devkitc1-n16r8\littlefs.bin
+```
+
+### Step 2.8: Serial Debug Monitor on Windows
+```powershell
+# Via PlatformIO Monitor
+pio device monitor -d sketch -b 115200
+
+# Or via the included Python monitor script
+python monitor_serial.py
 ```
 
 ---
 
-## 4. PlatformIO Configuration (`sketch/platformio.ini`)
+## 3. Linux & macOS Setup Guide
+
+### Step 3.1: Install Dependencies
+```bash
+# Ubuntu / Debian
+sudo apt update && sudo apt install -y python3 python3-pip python3-venv git
+sudo usermod -a -G dialout $USER
+
+# Install udev rules for USB flashing (Linux)
+curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/system/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+
+# macOS
+brew install python git
+```
+
+### Step 3.2: Install PlatformIO
+```bash
+pip3 install --upgrade platformio esptool pyserial
+```
+
+### Step 3.3: Clone, Build, and Flash
+```bash
+# Clone
+git clone https://github.com/rahulraj80/TuneBar.git
+cd TuneBar
+
+# Compile firmware
+pio run -d sketch
+
+# Build LittleFS data partition
+pio run -d sketch -t buildfs
+
+# Flash firmware & filesystem
+pio run -d sketch -t upload
+pio run -d sketch -t uploadfs
+```
+
+---
+
+## 4. PlatformIO Configuration Details (`sketch/platformio.ini`)
 
 The project uses the `pioarduino` platform fork which provides Arduino ESP32 Core v3+ with full ESP32-S3 Octal PSRAM & USB CDC support:
 
@@ -122,99 +194,13 @@ monitor_filters =
 
 ---
 
-## 5. Compilation & Building
+## 5. Troubleshooting Matrix
 
-All PlatformIO commands should target the `sketch` subfolder (`-d sketch`):
-
-### A. Compile Firmware
-```bash
-pio run -d sketch
-```
-Upon completion, the compiled binaries are located at:
-- Firmware: `sketch/.pio/build/esp32-s3-devkitc1-n16r8/firmware.bin`
-- ELF Debug File: `sketch/.pio/build/esp32-s3-devkitc1-n16r8/firmware.elf`
-- Bootloader: `sketch/.pio/build/esp32-s3-devkitc1-n16r8/bootloader.bin`
-- Partition Table: `sketch/.pio/build/esp32-s3-devkitc1-n16r8/partitions.bin`
-
-### B. Build LittleFS Filesystem Image (Data Partition)
-The UI assets, audio alerts, and station lists in `sketch/data/` must be packed into a LittleFS binary:
-```bash
-pio run -d sketch -t buildfs
-```
-Generated filesystem binary:
-- `sketch/.pio/build/esp32-s3-devkitc1-n16r8/littlefs.bin`
-
----
-
-## 6. Flashing to Device
-
-Connect the device via USB-C to your computer.
-
-### Method 1: Using PlatformIO (Automated)
-
-1. **Flash Firmware:**
-   ```bash
-   pio run -d sketch -t upload
-   ```
-2. **Flash LittleFS Data (Required on initial setup or asset changes):**
-   ```bash
-   pio run -d sketch -t uploadfs
-   ```
-
-### Method 2: Standalone `esptool.py` (No PlatformIO needed on target PC)
-
-If flashing on a machine without PlatformIO, install `esptool`:
-```bash
-pip install esptool
-```
-
-1. **Flash Application Firmware (`0x10000`):**
-   ```bash
-   # Windows (e.g. COM11)
-   python -m esptool --chip esp32s3 -p COM11 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m 0x10000 sketch/.pio/build/esp32-s3-devkitc1-n16r8/firmware.bin
-
-   # Linux / macOS (e.g. /dev/ttyACM0 or /dev/cu.usbmodem*)
-   python3 -m esptool --chip esp32s3 -p /dev/ttyACM0 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m 0x10000 sketch/.pio/build/esp32-s3-devkitc1-n16r8/firmware.bin
-   ```
-
-2. **Full Flash (Bootloader, Partition Table, App, and LittleFS):**
-   ```bash
-   python -m esptool --chip esp32s3 -p COM11 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m \
-     0x0000   sketch/.pio/build/esp32-s3-devkitc1-n16r8/bootloader.bin \
-     0x8000   sketch/.pio/build/esp32-s3-devkitc1-n16r8/partitions.bin \
-     0x10000  sketch/.pio/build/esp32-s3-devkitc1-n16r8/firmware.bin \
-     0x710000 sketch/.pio/build/esp32-s3-devkitc1-n16r8/littlefs.bin
-   ```
-
----
-
-## 7. Serial Monitoring & Live Debugging
-
-TuneBar includes a high-frequency serial debug beacon reporting FreeRTOS heap, PSRAM, screen lock state, audio status, and WiFi state every 2 seconds.
-
-### View Serial Log via PlatformIO:
-```bash
-pio device monitor -d sketch -b 115200
-```
-
-### View Serial Log via Python:
-```bash
-python monitor_serial.py
-```
-
-Expected beacon output format:
-```text
-[BEACON] Heap: 6710840 (min: 6693840) | PSRAM: 6678636 | BL_OFF: 0 | Audio: PLAYING | WiFi: CONNECTED
-```
-
----
-
-## 8. Common Build & Runtime Troubleshooting
-
-| Issue | Cause | Solution |
+| Symptom | Probable Cause | Fix / Resolution |
 | :--- | :--- | :--- |
-| `Stack canary watchpoint triggered (buttonInputTask)` | FreeRTOS task stack exhaustion | Ensure `buttonInputTask` stack depth is at least `4 * 1024` bytes and `UIStatusPayload` messages are allocated statically. |
-| Screen remains black after flashing | Backlight boost power rail (`EXIO1`) not enabled | Confirm `bsp_set_backlight_power(true)` is called in `setup()` and `EXIO1_BIT` is mapped to `0b00000010`. |
-| Device shuts off immediately on boot | `SYS_EN` (`EXIO6`) power latch not asserted | `TCA9554` must write `1` to `EXIO6_BIT` during `setup()` to hold the PMIC on. |
-| Missing UI Icons / Sound Effects | LittleFS partition not flashed | Run `pio run -d sketch -t uploadfs` to flash all assets in `sketch/data`. |
-| `mbedtls` Out of Memory | TLS buffers consuming internal SRAM | Keep `-DCONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y` enabled in `platformio.ini`. |
+| `Stack canary watchpoint triggered (buttonInputTask)` | FreeRTOS task stack exhaustion | `buttonInputTask` stack depth must be $\ge$ `4 * 1024` bytes with static payload structures. |
+| Screen remains completely black after boot | Backlight boost regulator disabled | Ensure `bsp_set_backlight_power(true)` is invoked and `EXIO1_BIT` is mapped to `0b00000010`. |
+| Device shuts down immediately upon power button release | PMIC power latch (`SYS_EN`) not asserted | `TCA9554` must write `1` to `EXIO6_BIT` during `setup()` to keep the system powered on. |
+| UI icons or sound alerts missing | LittleFS filesystem partition not flashed | Run `pio run -d sketch -t uploadfs` (or flash `littlefs.bin` to `0x710000`). |
+| Windows says COM port in use / access denied | Another process (e.g. monitor/terminal) is open | Close all active serial terminal windows or python monitor scripts before flashing. |
+| ESP32-S3 not recognized on Windows | Missing USB CDC / JTAG driver | Use Device Manager; if showing yellow exclamation, install Espressif USB JTAG/serial drivers. |
