@@ -12,7 +12,7 @@ const uint8_t EXIO7_BIT = 0b10000000; // audio amp
 
 TCA9554::TCA9554(i2c_master_dev_handle_t handle) {
     dev = handle;
-    outputState = 0x00;
+    outputState = EXIO6_BIT; // Hold SYS_EN power latch HIGH by default
     configState = 0xFF;
 }
 

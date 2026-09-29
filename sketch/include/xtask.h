@@ -37,13 +37,13 @@ void button_input_task(void *param) {
       if (!powerBTN_pressed) {
         powerBTN_pressed = true;
         hold_timer = millis();
-      } else if (millis() - hold_timer > 500) {
+      } else if (millis() - hold_timer > 2000) {
         hold_timer = millis();
         audioSetVolume(20);
         audioPlayFS(1, "/audio/off.mp3");
-        log_d("< POWER OFF >");
+        log_i("< POWER OFF TRIGGERED >");
         vTaskDelay(pdMS_TO_TICKS(1000));
-        io->digitalWrite(EXIO6_BIT, 0); // turn off
+        io->digitalWrite(EXIO6_BIT, 0); // turn off power latch
       }
     } else if (powerBTN_pressed)
       powerBTN_pressed = false;

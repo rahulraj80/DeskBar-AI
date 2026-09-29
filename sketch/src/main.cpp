@@ -27,6 +27,14 @@
 #include "esp_heap_caps.h"
 #include "mbedtls/platform.h"
 
+static void *mbedtls_psram_calloc(size_t n, size_t size) {
+    return heap_caps_calloc(n, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+}
+
+static void mbedtls_psram_free(void *ptr) {
+    heap_caps_free(ptr);
+}
+
 
 #include "i2c_bsp/i2c_bsp.h"
 #include "lcd_bl_bsp/lcd_bl_pwm_bsp.h"
@@ -88,6 +96,7 @@ void setup() {
   randomSeed(esp_random());
   Serial.begin(115200);
   delay(100);
+  mbedtls_platform_set_calloc_free(mbedtls_psram_calloc, mbedtls_psram_free);
   log_i("[TuneBar] by Va&Cob | V%s - %s", current_version, compile_date);
 
   // input pin
@@ -109,17 +118,15 @@ void setup() {
   audio.setConnectionTimeout(2000, 4000); // connection timeout ms, ms_ssl
   // audio.setVolume(audio_volume);  // default 0...21
 
-  // exapnder init
+  // expander init
   io = new TCA9554(tca9554_dev_handle);
   bool io_ok = io->begin();
   if (!io_ok) log_e("Power and amplifier controls may not work");
-  io_ok &= io->setPinMode(EXIO6_BIT, 0); // set output mode
 
-  // turn on power button
-  if (digitalRead(SYS_OUT) == LOW) {
-    log_d("< POWER ON >");
-    io_ok &= io->digitalWrite(EXIO6_BIT, 1); // hold turn on
-  }
+  // UNCONDITIONALLY LATCH POWER ON (SYS_EN = 1)
+  io_ok &= io->setPinMode(EXIO6_BIT, 0); // set output mode
+  io_ok &= io->digitalWrite(EXIO6_BIT, 1); // hold turn on
+  log_i("Power hold latch (SYS_EN) -> ON");
 
   // init lvgl
   lvgl_port_init();
