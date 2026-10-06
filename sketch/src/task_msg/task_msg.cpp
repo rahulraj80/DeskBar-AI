@@ -1,3 +1,4 @@
+#include "battery/battery.h"
 // Handle message que between task AUDIO and UI
 
 /*
@@ -16,10 +17,12 @@
 #include "weather/weather.h"
 #include <LittleFS.h>
 #include "network/network.h"
+#include "alarm/alarm.h"
 
 #include "ESP32-audioI2S-master/Audio.h"
 Audio audio;
 extern uint8_t audio_volume;
+extern uint8_t mediaType;
 
 bool seeking_now = false;
 
@@ -214,15 +217,22 @@ void process_ui_status_queue() {
       log_d("%s", datetimeBuf);
 
       switch (infoPageIndex) { // update date time by info panel page
-      case 0: // weather
-        lv_label_set_text(ui_Info_Label_DateTime, datetimeBuf);
-        break;
-      case 1: // nixie clock
+      case 0: // nixie clock (Page 0)
         lv_label_set_text(ui_Info_Label_DateNixie, dateBuf);
         nixie_clock(msg.hour, msg.minute, msg.second);
+        if (ui_Info_Label_BattStatus != NULL) {
+          float volt = 0.0f;
+          uint8_t pct = 0;
+          getBatteryStatus(&volt, &pct);
+          char batt_buf[32];
+          snprintf(batt_buf, sizeof(batt_buf), "%.2fV  %d%%", volt, pct);
+          lv_label_set_text(ui_Info_Label_BattStatus, batt_buf);
+        }
+        break;
+      case 1: // weather (Page 1)
+        lv_label_set_text(ui_Info_Label_DateTime, datetimeBuf);
         break;
       default: break;
-
       } // switch
       // update weather condition widget every 15 min.
       if (msg.minute % 15 == 0 && msg.second == 0 && wifiEnable) updateWeatherPanel();
@@ -283,7 +293,29 @@ void process_ui_status_queue() {
        lv_obj_set_style_text_color(ui_Player_Label_SDcard, lv_color_hex(msg.wificolor), LV_PART_MAIN);
       break;
 
+    case STATUS_ALARM_TRIGGER:
+      log_i("[TASK MSG] STATUS_ALARM_TRIGGER received in UI task");
+      alarm_trigger();
+      break;
 
+    case STATUS_UPDATE_AI_IDLE:
+      if (ui_Player_Label_Label5) lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_AUDIO "  MIC");
+      if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "AI Assistant:\nReady. Tap [ MIC ] to speak.");
+      break;
+
+    case STATUS_UPDATE_AI_LISTENING:
+      if (ui_Player_Label_Label5) lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_AUDIO "  LISTENING");
+      if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "AI Assistant:\nListening... Speak now!");
+      break;
+
+    case STATUS_UPDATE_AI_THINKING:
+      if (ui_Player_Label_Label5) lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_AUDIO "  ASKING");
+      if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "AI Assistant:\nTranscribing voice & thinking...");
+      break;
+
+    case STATUS_UPDATE_AI_SPEAKING:
+      if (ui_Player_Label_Label5) lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_AUDIO "  SPEAKING");
+      break;
 
     } // switch
   } // while
@@ -308,7 +340,6 @@ void process_audio_cmd_que() {
       } // switch (msg.source)
       if (!ok) {
         log_w("Failed to open file: %s", msg.url_filename);
-        audio.connecttoFS(LittleFS, "/audio/error.mp3");
         snprintf(payload.trackDesc, sizeof(payload.trackDesc),"Cannot access music.\nPlease check the SD Card.\nOr Update music library.");  
       } else {
         snprintf(payload.trackDesc, sizeof(payload.trackDesc),"");
@@ -324,7 +355,10 @@ void process_audio_cmd_que() {
       bool ok = false;
       if (wifiEnable && WiFi.status() == WL_CONNECTED) {
         if (audio.connecttohost(msg.url_filename)) {
-            snprintf(payload.trackDesc, sizeof(payload.trackDesc),"%s",msg.stationName);
+            if (mediaType != 2 && msg.stationName[0] != '\0') {
+              snprintf(payload.trackDesc, sizeof(payload.trackDesc),"%s",msg.stationName);
+              xQueueSend(ui_status_queue, &payload, 100); // send message
+            }
             ok = true;
          } else {
           ok = false;
@@ -333,10 +367,9 @@ void process_audio_cmd_que() {
       } 
       if (!ok) {
         log_w("Failed to open url: %s", msg.stationName);
-        audio.connecttoFS(LittleFS, "/audio/error.mp3");
         snprintf(payload.trackDesc, sizeof(payload.trackDesc),"Network connection unavailable.\nPlease reconnect to continue streaming.");
+        xQueueSend(ui_status_queue, &payload, 100); // send message
       }
-      xQueueSend(ui_status_queue, &payload, 100); // send message
      break;
     }
 

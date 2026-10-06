@@ -359,8 +359,12 @@ void ai_upload_task(void *param) {
 
           if (audio_url && strlen(audio_url) > 0) {
             log_i("[AI UPLOAD] Streaming answer audio from: %s", audio_url);
+            bsp_set_audio_amp_power(true);
+            speaker.setVolume(90);
+            audio.setVolume(21);
+            resetScreenOffTimer(NULL);
             mediaType = 2; // AI Assistant mode
-            audioPlayHOST(audio_url, "AI Assistant");
+            audioPlayHOST(audio_url, "");
           } else {
             UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
             xQueueSend(ui_status_queue, &p_idle, 100);
@@ -431,6 +435,9 @@ void start_ai_voice_recording() {
   s_dma_dumped = false;
   s_decim_phase = 0;
   s_decim_acc = 0;
+
+  bsp_set_audio_amp_power(true);
+  resetScreenOffTimer(NULL);
 
   UIStatusPayload msg = {.type = STATUS_UPDATE_AI_LISTENING};
   xQueueSend(ui_status_queue, &msg, 100);
@@ -503,6 +510,11 @@ void stop_ai_voice_recording_and_process() {
   }
 
   // 2. Play heard audio back over the physical speaker immediately as requested by user
+  bsp_set_audio_amp_power(true);
+  speaker.setVolume(90);
+  audio.setVolume(21);
+  resetScreenOffTimer(NULL);
+
   UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
   snprintf(p.trackDesc, sizeof(p.trackDesc), "Voice Feedback:\nRepeating what was heard...");
   xQueueSend(ui_status_queue, &p, 100);
@@ -511,13 +523,11 @@ void stop_ai_voice_recording_and_process() {
   xQueueSend(ui_status_queue, &p_spk, 100);
 
   mediaType = 2; // AI mode
-  speaker.setVolume(90);
-  audio.setVolume(21);
   audio.connecttoFS(LittleFS, "/rec.wav");
 
   // 3. Launch upload task (it waits for repeat playback of /rec.wav to finish before server upload & streaming answer)
   if (WiFi.status() == WL_CONNECTED) {
-    xTaskCreatePinnedToCore(ai_upload_task, "ai_upload_task", 8192, NULL, 5, &ai_upload_task_handle, 0);
+    xTaskCreatePinnedToCore(ai_upload_task, "ai_upload_task", 10240, NULL, 5, &ai_upload_task_handle, 0);
   } else {
     log_w("[AI REC] WiFi offline, completed local loopback playback only");
   }
@@ -557,9 +567,6 @@ void my_audio_info(Audio::msg_t m) {
     if (m.e == Audio::evt_eof || strstr(m.msg, "MP3Decoder has been destroyed") || strstr(m.msg, "WAVDecoder has been destroyed") || strstr(m.msg, "Closing web file")) {
       msg.type = STATUS_UPDATE_AI_IDLE;
       xQueueSend(ui_status_queue, &msg, 100);
-      UIStatusPayload p_done = {.type = STATUS_UPDATE_TRACK_DESC_SET};
-      snprintf(p_done.trackDesc, sizeof(p_done.trackDesc), "MIC TEST COMPLETE:\nRecorded voice played back!\nTap [ MIC ] to test again.");
-      xQueueSend(ui_status_queue, &p_done, 100);
       log_i("[AI INFO] Stream finished -> UI set to IDLE");
     } else if (strstr(m.msg, "MP3Decoder has been initialized") || strstr(m.msg, "WAVDecoder has been initialized") || strstr(m.msg, "stream ready")) {
       msg.type = STATUS_UPDATE_AI_SPEAKING;
