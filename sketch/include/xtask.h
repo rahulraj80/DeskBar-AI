@@ -21,6 +21,12 @@ CORE 0:
 #include "file/file.h"
 #include "task_msg/task_msg.h"
 #include <LittleFS.h>
+#include <WiFi.h>
+#include "esp_wifi.h"
+#include "alarm/alarm.h"
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
 
 //==============================================
 // BUTTON INPUT TASK:
@@ -53,19 +59,39 @@ void button_input_task(void *param) {
     if (boot_btn_prev == HIGH && boot_btn_curr == LOW) {
       vTaskDelay(pdMS_TO_TICKS(50)); // Debounce
       if (digitalRead(BOOT) == LOW) {
-        if (BL_OFF) {
-          log_i("< Unlock Screen with button >");
-          screenPowerOn();
-          bsp_set_audio_amp_power(true);
-          ui_msg.type = STATUS_SCREEN_UNLOCK;
-          xQueueSend(ui_status_queue, &ui_msg, 100);
+        if (alarm_is_active()) {
+          log_i("Button: Alarm dismissed!");
+          alarm_stop();
+          while (digitalRead(BOOT) == LOW) {
+            vTaskDelay(pdMS_TO_TICKS(20));
+          }
+          boot_btn_prev = boot_btn_curr;
+          continue;
+        }
+        if (clock_face_active) {
+          if (BL_OFF) {
+            screenPowerOn();
+            bsp_set_audio_amp_power(true);
+            ui_msg.type = STATUS_SCREEN_UNLOCK;
+            xQueueSend(ui_status_queue, &ui_msg, 100);
+          }
+          extern void on_clock_touch_or_button(void);
+          on_clock_touch_or_button();
         } else {
-          log_i("< Lock Screen with button >");
-          ui_msg.type = STATUS_SCREEN_LOCK;
-          xQueueSend(ui_status_queue, &ui_msg, 100);
-          screenPowerOff();
-          if (!audio.isRunning()) {
-            bsp_set_audio_amp_power(false);
+          if (BL_OFF) {
+            log_i("Button: Unlock Screen");
+            screenPowerOn();
+            bsp_set_audio_amp_power(true);
+            ui_msg.type = STATUS_SCREEN_UNLOCK;
+            xQueueSend(ui_status_queue, &ui_msg, 100);
+          } else {
+            log_i("Button: Lock Screen");
+            ui_msg.type = STATUS_SCREEN_LOCK;
+            xQueueSend(ui_status_queue, &ui_msg, 100);
+            screenPowerOff();
+            if (!audio.isRunning()) {
+              bsp_set_audio_amp_power(false);
+            }
           }
         }
         while (digitalRead(BOOT) == LOW) {
@@ -79,7 +105,7 @@ void button_input_task(void *param) {
     uint32_t start = SCREEN_OFF_TIMER;
     uint32_t delay = SCREEN_OFF_DELAY;
 
-    if (delay != 0 && !BL_OFF) {
+    if (delay != 0 && !BL_OFF && !clock_face_active) {
       if ((now - start) >= delay) {
         log_d("< Lock Screen >");
         ui_msg.type = STATUS_SCREEN_LOCK;
@@ -155,6 +181,7 @@ void rtc_read_task(void *param) {
          .dayOfWeek = now.dayOfWeek};
       xQueueSend(ui_status_queue, &msg, 100); // send message
 
+      alarm_check(now.hour, now.minute, now.second);
     } else {
       log_w("RTC Error");
     }
@@ -208,154 +235,297 @@ void timeStr(char *buffer, size_t size, uint32_t second) {
 }
 
 
-// ---------- GLOBAL RECORDING STATE ----------
-static const size_t SAMPLE_RATE = 48000; // or 16000 – choose ONE
-static const size_t RECORD_SECONDS = 5;
-static const size_t CHANNELS = 2; // 1: mono capture 2;//stereo
-static const size_t BYTES_PER_SAMPLE = 2; // 16-bit PCM
+// ========================================================================
+// AI VOICE ASSISTANT PIPELINE (ES7210 ADC -> PSRAM WAV -> HTTPS -> ES8311 DAC)
+// ========================================================================
+static const size_t AI_REC_SAMPLE_RATE = 8000;
+static const size_t AI_REC_DURATION_SEC = 4;
+static const size_t AI_REC_PCM_MAX = AI_REC_SAMPLE_RATE * 2 * AI_REC_DURATION_SEC; // 64,000 bytes
+static const size_t AI_REC_TOTAL_BUF_SIZE = 44 + AI_REC_PCM_MAX; // 64,044 bytes
 
-static const size_t MAX_REC_SIZE = SAMPLE_RATE * CHANNELS * BYTES_PER_SAMPLE * RECORD_SECONDS;
+static uint8_t *ai_wav_buffer = nullptr;
+static volatile size_t ai_rec_pcm_bytes = 0;
+volatile bool ai_recording_active = false;
+volatile bool ai_upload_in_progress = false;
+static uint32_t ai_recording_start_ms = 0;
+static TaskHandle_t ai_upload_task_handle = NULL;
 
-static int16_t *speech_buffer = nullptr; // persistent buffer
-static size_t speech_ptr = 0; // write cursor (bytes)
-static bool speech_ready = false; // flag says buffer is valid
-//------------------------------------
-/*
-void init_audio_buffers() {
-  if (!speech_buffer) {
-    speech_buffer = (int16_t *)heap_caps_malloc(MAX_REC_SIZE, MALLOC_CAP_SPIRAM);
-  }
-  speech_ptr = 0;
-  speech_ready = false;
-}
-//------------------------------------
-void playRecordedAudio() {
+static void write_wav_header(uint8_t *header, uint32_t pcm_data_size, uint32_t sample_rate, uint16_t num_channels, uint16_t bits_per_sample) {
+  uint32_t byte_rate = sample_rate * num_channels * (bits_per_sample / 8);
+  uint16_t block_align = num_channels * (bits_per_sample / 8);
+  uint32_t total_chunk_size = 36 + pcm_data_size;
 
-  // ---------- SAFETY CHECKS ----------
-  if (!speech_buffer) {
-    log_e("speech_buffer NULL");
-    return;
-  }
+  header[0] = 'R'; header[1] = 'I'; header[2] = 'F'; header[3] = 'F';
+  header[4] = (uint8_t)(total_chunk_size & 0xFF);
+  header[5] = (uint8_t)((total_chunk_size >> 8) & 0xFF);
+  header[6] = (uint8_t)((total_chunk_size >> 16) & 0xFF);
+  header[7] = (uint8_t)((total_chunk_size >> 24) & 0xFF);
+  header[8] = 'W'; header[9] = 'A'; header[10] = 'V'; header[11] = 'E';
 
-  if (speech_ptr == 0) {
-    log_w("No recorded audio available");
-    return;
-  }
+  header[12] = 'f'; header[13] = 'm'; header[14] = 't'; header[15] = ' ';
+  header[16] = 16; header[17] = 0; header[18] = 0; header[19] = 0; // Subchunk1Size = 16 for PCM
+  header[20] = 1; header[21] = 0; // AudioFormat = 1 (PCM)
+  header[22] = (uint8_t)(num_channels & 0xFF);
+  header[23] = (uint8_t)((num_channels >> 8) & 0xFF);
+  header[24] = (uint8_t)(sample_rate & 0xFF);
+  header[25] = (uint8_t)((sample_rate >> 8) & 0xFF);
+  header[26] = (uint8_t)((sample_rate >> 16) & 0xFF);
+  header[27] = (uint8_t)((sample_rate >> 24) & 0xFF);
+  header[28] = (uint8_t)(byte_rate & 0xFF);
+  header[29] = (uint8_t)((byte_rate >> 8) & 0xFF);
+  header[30] = (uint8_t)((byte_rate >> 16) & 0xFF);
+  header[31] = (uint8_t)((byte_rate >> 24) & 0xFF);
+  header[32] = (uint8_t)(block_align & 0xFF);
+  header[33] = (uint8_t)((block_align >> 8) & 0xFF);
+  header[34] = (uint8_t)(bits_per_sample & 0xFF);
+  header[35] = (uint8_t)((bits_per_sample >> 8) & 0xFF);
 
-  auto tx = audio.getTxHandle();
-  if (!tx) {
-    log_e("TX handle NULL");
-    return;
-  }
-
-  // ---------- PLAYBACK ----------
-  size_t length = speech_ptr; // bytes of valid mono audio
-  size_t play_ptr = 0;
-  size_t bytes_written = 0;
-
-  const int NUM_SAMPLES = 256; // mono samples / block
-  static int16_t stereo_buf[NUM_SAMPLES * 2]; // stereo L/R interleaved
-
-  log_i("Playback start (%u bytes, stereo 16-bit)", (unsigned)length);
-
-  while (play_ptr < length) {
-
-    size_t samples_left = (length - play_ptr) / 2; // bytes→samples
-    size_t samples_to_send = samples_left;
-
-    if (samples_to_send > NUM_SAMPLES) samples_to_send = NUM_SAMPLES;
-
-    int16_t *mono_ptr = (int16_t *)((uint8_t *)speech_buffer + play_ptr);
-
-    // mono → stereo copy
-    for (size_t i = 0; i < samples_to_send; i++) {
-      int16_t s = mono_ptr[i];
-      stereo_buf[2 * i + 0] = s; // L
-      stereo_buf[2 * i + 1] = s; // R
-    }
-
-    esp_err_t err = i2s_channel_write(tx, stereo_buf,
-                                      samples_to_send * 4, // 4 bytes per stereo frame
-                                      &bytes_written, portMAX_DELAY);
-
-    if (err != ESP_OK) {
-      log_e("I2S write failed: %s", esp_err_to_name(err));
-      break;
-    }
-
-    play_ptr += samples_to_send * 2; // mono bytes advanced
-  }
-
-  log_i("Playback finished (%u bytes played)", (unsigned)length);
-
-  //---------------------------------
-
-  log_i("=== PLAYBACK TEST: synthetic noise ===");
-  for (int block = 0; block < 400; block++) { // ~2 seconds at 48k
-    // generate noise
-    for (int i = 0; i < NUM_SAMPLES; i++) {
-      int16_t v = (rand() % 4000) - 1000;
-      stereo_buf[i * 2 + 0] = v; // L
-      stereo_buf[i * 2 + 1] = v; // R
-    }
-    size_t written = 0;
-    esp_err_t err = i2s_channel_write(tx, stereo_buf,
-                                      NUM_SAMPLES * 4, // stereo, 2 bytes each → 4 bytes/frame
-                                      &written, portMAX_DELAY);
-
-    if (err != ESP_OK) {
-      log_e("I2S write failed: %s", esp_err_to_name(err));
-      break;
-    }
-  }
-  log_i("=== TEST PLAYBACK DONE ===");
-
-  // optional reset for next recording session
-  speech_ready = false;
-  speech_ptr = 0;
+  header[36] = 'd'; header[37] = 'a'; header[38] = 't'; header[39] = 'a';
+  header[40] = (uint8_t)(pcm_data_size & 0xFF);
+  header[41] = (uint8_t)((pcm_data_size >> 8) & 0xFF);
+  header[42] = (uint8_t)((pcm_data_size >> 16) & 0xFF);
+  header[43] = (uint8_t)((pcm_data_size >> 24) & 0xFF);
 }
 
+void ai_upload_task(void *param) {
+  ai_upload_in_progress = true;
 
-void startRecording() {
-    if (audio.isRunning()) {
-        audio.stopSong(); // หยุดเล่นเพลงก่อน
+  // 1. Wait for repeat playback of heard audio to complete so user hears feedback on recording quality
+  uint32_t wait_start = millis();
+  while (audio.isRunning() && (millis() - wait_start < 10000)) {
+    vTaskDelay(pdMS_TO_TICKS(50));
+  }
+  vTaskDelay(pdMS_TO_TICKS(250)); // Short natural breather
+
+  size_t wav_len = 44 + ai_rec_pcm_bytes;
+  log_i("[AI UPLOAD] Feedback playback finished. Posting %u bytes WAV to https://autobots.my.to/ask.php...", (unsigned)wav_len);
+
+  UIStatusPayload p_proc = {.type = STATUS_UPDATE_AI_THINKING};
+  xQueueSend(ui_status_queue, &p_proc, 100);
+
+  UIStatusPayload p_desc = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+  snprintf(p_desc.trackDesc, sizeof(p_desc.trackDesc), "AI Assistant:\nAnalyzing your voice query...");
+  xQueueSend(ui_status_queue, &p_desc, 100);
+
+  if (WiFi.status() != WL_CONNECTED) {
+    log_e("[AI UPLOAD] WiFi offline, cannot upload");
+    UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+    snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nWiFi offline. Please connect WiFi.");
+    xQueueSend(ui_status_queue, &p, 100);
+    UIStatusPayload p2 = {.type = STATUS_UPDATE_AI_IDLE};
+    xQueueSend(ui_status_queue, &p2, 100);
+    ai_upload_in_progress = false;
+    vTaskDelete(NULL);
+    return;
+  }
+
+  {
+    WiFiClientSecure client;
+    client.setInsecure();
+    HTTPClient http;
+
+    if (!http.begin(client, "https://autobots.my.to/ask.php")) {
+      log_e("[AI UPLOAD] HTTP client begin failed");
+      UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+      snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nCannot connect to server.");
+      xQueueSend(ui_status_queue, &p, 100);
+      UIStatusPayload p2 = {.type = STATUS_UPDATE_AI_IDLE};
+      xQueueSend(ui_status_queue, &p2, 100);
+    } else {
+      http.addHeader("Content-Type", "audio/wav");
+      http.addHeader("User-Agent", "ESP32-TuneBar");
+      http.setTimeout(15000);
+
+      int httpCode = http.POST(ai_wav_buffer, wav_len);
+      log_i("[AI UPLOAD] HTTP POST returned code: %d", httpCode);
+
+      if (httpCode == HTTP_CODE_OK) {
+        String payload = http.getString();
+        log_i("[AI UPLOAD] JSON payload (%d bytes): %s", (int)payload.length(), payload.c_str());
+
+        JsonDocument doc;
+        DeserializationError dErr = deserializeJson(doc, payload);
+        if (!dErr) {
+          const char *question = doc["question"] | "(Audio Query)";
+          const char *answer = doc["answer"] | "Processing complete.";
+          const char *audio_url = doc["audio_url"] | "";
+
+          UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+          snprintf(p.trackDesc, sizeof(p.trackDesc), "You: %s\n\nAI: %s", question, answer);
+          xQueueSend(ui_status_queue, &p, 100);
+
+          UIStatusPayload p_spk = {.type = STATUS_UPDATE_AI_SPEAKING};
+          xQueueSend(ui_status_queue, &p_spk, 100);
+
+          if (audio_url && strlen(audio_url) > 0) {
+            log_i("[AI UPLOAD] Streaming answer audio from: %s", audio_url);
+            mediaType = 2; // AI Assistant mode
+            audioPlayHOST(audio_url, "AI Assistant");
+          } else {
+            UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+            xQueueSend(ui_status_queue, &p_idle, 100);
+          }
+        } else {
+          log_e("[AI UPLOAD] JSON parse failed: %s", dErr.c_str());
+          UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+          snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nBad server response.");
+          xQueueSend(ui_status_queue, &p, 100);
+          UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+          xQueueSend(ui_status_queue, &p_idle, 100);
+        }
+      } else {
+        log_e("[AI UPLOAD] POST failed, HTTP error: %d", httpCode);
+        UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+        snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error (HTTP %d).\nTap [ MIC ] to retry.", httpCode);
+        xQueueSend(ui_status_queue, &p, 100);
+        UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+        xQueueSend(ui_status_queue, &p_idle, 100);
+      }
+      http.end();
+      client.stop();
     }
-    // ตั้งค่า I2S ให้ทำงานที่ 16kHz สำหรับ Mic Input
-    // การเรียก setPinout อีกครั้งจะช่วย Reconfig I2S Clock ให้เป็น 16kHz
+  }
 
-    // ปลุกชิป ES7210
-   if (!mic.start()) {
-      log_e("ES7210 not detected");
+  ai_upload_in_progress = false;
+  vTaskDelete(NULL);
+}
+
+static bool s_dma_dumped = false;
+static size_t s_decim_phase = 0;
+static int32_t s_decim_acc = 0;
+
+void start_ai_voice_recording() {
+  if (ai_upload_in_progress) {
+    log_w("[AI REC] Upload in progress, ignoring mic request");
+    return;
+  }
+
+  if (audio.isRunning()) {
+    audioStopSong();
+  }
+
+  audio.setSampleRate(16000);
+
+  if (!ai_wav_buffer) {
+    ai_wav_buffer = (uint8_t *)heap_caps_malloc(AI_REC_TOTAL_BUF_SIZE, MALLOC_CAP_SPIRAM);
+    if (!ai_wav_buffer) {
+      log_e("[AI REC] PSRAM alloc failed for %u bytes", (unsigned)AI_REC_TOTAL_BUF_SIZE);
       return;
     }
+    memset(ai_wav_buffer, 0, AI_REC_TOTAL_BUF_SIZE);
+    log_i("[AI REC] PSRAM audio buffer allocated: %u bytes", (unsigned)AI_REC_TOTAL_BUF_SIZE);
+  }
 
-    length = 0;
-    is_mic_mode = true;
-    log_i("Recording Started at 16kHz");
+  if (!mic.start()) {
+    log_e("[AI REC] ES7210 microphone start failed");
+    UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+    snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nES7210 microphone start failed.");
+    xQueueSend(ui_status_queue, &p, 100);
+    return;
+  }
+
+  ai_rec_pcm_bytes = 0;
+  ai_recording_active = true;
+  ai_recording_start_ms = millis();
+  is_mic_mode = true;
+  s_dma_dumped = false;
+  s_decim_phase = 0;
+  s_decim_acc = 0;
+
+  UIStatusPayload msg = {.type = STATUS_UPDATE_AI_LISTENING};
+  xQueueSend(ui_status_queue, &msg, 100);
+  log_i("[AI REC] Microphone ACTIVE: listening for voice (4.0s @ 8kHz)...");
 }
 
+static void normalize_wav_buffer(uint8_t *wav_buf, size_t pcm_bytes) {
+  if (!wav_buf || pcm_bytes < 2) return;
+  int16_t *samples = (int16_t *)(wav_buf + 44);
+  size_t num_samples = pcm_bytes / 2;
 
-// stereo 48k -> mono 16k (simple decimation, no filter)
-void downsample48kTo16k(int16_t *in48k, size_t frames48k, int16_t *out16k, size_t &frames16k) {
-  frames16k = 0;
-  for (size_t i = 0; i < frames48k; i += 3) {
-    int16_t left = in48k[i * 2 + 0]; // take LEFT
-    out16k[frames16k++] = left;
+  // 1. Remove DC offset
+  int64_t sum = 0;
+  for (size_t i = 0; i < num_samples; i++) sum += samples[i];
+  int16_t dc_offset = (int16_t)(sum / (int64_t)num_samples);
+  for (size_t i = 0; i < num_samples; i++) samples[i] -= dc_offset;
+
+  // 2. Mute first 50ms (400 samples @ 8kHz) to prevent codec power-on pop
+  size_t mute_count = (num_samples < 400) ? num_samples : 400;
+  for (size_t i = 0; i < mute_count; i++) samples[i] = 0;
+
+  // 3. Find acoustic peak from speech portion
+  int32_t peak = 0;
+  for (size_t i = mute_count; i < num_samples; i++) {
+    int32_t v = abs((int32_t)samples[i]);
+    if (v > peak) peak = v;
+  }
+
+  // 4. Normalize with gain limit
+  if (peak > 300 && peak < 25000) {
+    float gain = 26000.0f / (float)peak;
+    if (gain > 25.0f) gain = 25.0f; // Limit maximum digital boost
+    log_i("[AI REC] Normalizing audio: peak was %d (%.1f%%, DC=%d), applying gain x%.2f",
+          (int)peak, (peak * 100.0f / 32768.0f), (int)dc_offset, gain);
+    for (size_t i = 0; i < num_samples; i++) {
+      int32_t s = (int32_t)(samples[i] * gain);
+      if (s > 32767) s = 32767;
+      if (s < -32768) s = -32768;
+      samples[i] = (int16_t)s;
+    }
+  } else {
+    log_i("[AI REC] Audio peak is %d (%.1f%%, DC=%d), no normalization needed",
+          (int)peak, (peak * 100.0f / 32768.0f), (int)dc_offset);
   }
 }
-//------------------------------------
-void stopRecording(size_t length) {
 
-  mic.stop();
+void stop_ai_voice_recording_and_process() {
+  if (!ai_recording_active) return;
+
+  ai_recording_active = false;
   is_mic_mode = false;
-  log_i("Recording Stopped length = %d bytes", length);
+  mic.stop();
 
-  playRecordedAudio();
+  log_i("[AI REC] Recording STOPPED: captured %u PCM bytes (~%.1f sec)",
+        (unsigned)ai_rec_pcm_bytes, (float)ai_rec_pcm_bytes / 16000.0f);
+
+  // Apply digital speech normalization for robust STT
+  normalize_wav_buffer(ai_wav_buffer, ai_rec_pcm_bytes);
+
+  write_wav_header(ai_wav_buffer, ai_rec_pcm_bytes, AI_REC_SAMPLE_RATE, 1, 16);
+
+  // 1. Save recorded audio to LittleFS as /rec.wav for loopback & diagnostic download
+  File f = LittleFS.open("/rec.wav", "w");
+  if (f) {
+    f.write(ai_wav_buffer, 44 + ai_rec_pcm_bytes);
+    f.close();
+    log_i("[LOOPBACK] Saved /rec.wav (%u bytes) to LittleFS", (unsigned)(44 + ai_rec_pcm_bytes));
+  } else {
+    log_e("[LOOPBACK] Failed to open /rec.wav for writing!");
+  }
+
+  // 2. Play heard audio back over the physical speaker immediately as requested by user
+  UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+  snprintf(p.trackDesc, sizeof(p.trackDesc), "Voice Feedback:\nRepeating what was heard...");
+  xQueueSend(ui_status_queue, &p, 100);
+
+  UIStatusPayload p_spk = {.type = STATUS_UPDATE_AI_SPEAKING};
+  xQueueSend(ui_status_queue, &p_spk, 100);
+
+  mediaType = 2; // AI mode
+  speaker.setVolume(90);
+  audio.setVolume(21);
+  audio.connecttoFS(LittleFS, "/rec.wav");
+
+  // 3. Launch upload task (it waits for repeat playback of /rec.wav to finish before server upload & streaming answer)
+  if (WiFi.status() == WL_CONNECTED) {
+    xTaskCreatePinnedToCore(ai_upload_task, "ai_upload_task", 8192, NULL, 5, &ai_upload_task_handle, 0);
+  } else {
+    log_w("[AI REC] WiFi offline, completed local loopback playback only");
+  }
 }
-*/
 //--------------------------------
 // audio information callback
 void my_audio_info(Audio::msg_t m) {
+  if (!m.msg || strlen(m.msg) == 0) return;
 
   UIStatusPayload msg = {};
   switch (mediaType) {
@@ -363,9 +533,11 @@ void my_audio_info(Audio::msg_t m) {
   {
     if (m.e == Audio::evt_streamtitle) {
       msg.type = STATUS_UPDATE_TRACK_DESC_SET;
-      snprintf(msg.trackDesc, sizeof(msg.trackDesc), "%s\n%s", stations[stationIndex].name, m.msg);
+      const char *st_name = (stations && stationIndex < stationListLength && stations[stationIndex].name) 
+                            ? stations[stationIndex].name : "Online Radio";
+      snprintf(msg.trackDesc, sizeof(msg.trackDesc), "%s\n%s", st_name, m.msg);
       xQueueSend(ui_status_queue, &msg, 100); // send message
-      log_i("%s", m.msg);
+      log_i("[RADIO INFO] %s", m.msg);
     }
     break;
   }
@@ -376,8 +548,28 @@ void my_audio_info(Audio::msg_t m) {
         msg.type = STATUS_UPDATE_TRACK_DESC_ADD;
         snprintf(msg.trackDesc, sizeof(msg.trackDesc), "%s\n", m.msg);
         xQueueSend(ui_status_queue, &msg, 100); // send message
-        log_i("%s", msg.trackDesc);
+        log_i("[ID3 INFO] %s", msg.trackDesc);
       }
+    }
+  } break;
+  case 2: // AI Assistant streaming info
+  {
+    if (m.e == Audio::evt_eof || strstr(m.msg, "MP3Decoder has been destroyed") || strstr(m.msg, "WAVDecoder has been destroyed") || strstr(m.msg, "Closing web file")) {
+      msg.type = STATUS_UPDATE_AI_IDLE;
+      xQueueSend(ui_status_queue, &msg, 100);
+      UIStatusPayload p_done = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+      snprintf(p_done.trackDesc, sizeof(p_done.trackDesc), "MIC TEST COMPLETE:\nRecorded voice played back!\nTap [ MIC ] to test again.");
+      xQueueSend(ui_status_queue, &p_done, 100);
+      log_i("[AI INFO] Stream finished -> UI set to IDLE");
+    } else if (strstr(m.msg, "MP3Decoder has been initialized") || strstr(m.msg, "WAVDecoder has been initialized") || strstr(m.msg, "stream ready")) {
+      msg.type = STATUS_UPDATE_AI_SPEAKING;
+      xQueueSend(ui_status_queue, &msg, 100);
+      log_i("[AI INFO] Stream decoding -> UI set to SPEAKING");
+    } else if (m.e == Audio::evt_streamtitle) {
+      msg.type = STATUS_UPDATE_TRACK_DESC_SET;
+      snprintf(msg.trackDesc, sizeof(msg.trackDesc), "AI Assistant:\n%s", m.msg);
+      xQueueSend(ui_status_queue, &msg, 100);
+      log_i("[AI INFO] Subtitle: %s", m.msg);
     }
   } break;
   } // switch
@@ -396,10 +588,8 @@ void audio_loop_task(void *param) {
   char status_buffer[50];
   UIStatusPayload msg = {};
 
-  // --- ส่วนของ Mic (แก้ไขใหม่) ---
-  // อ่านทีละ 512 bytes (จะได้ 128 stereo frames)
   const size_t stereo_chunk_bytes = 512;
-  int16_t stereo_temp[stereo_chunk_bytes / 2]; // Buffer ชั่วคราวรับ Stereo
+  int16_t stereo_temp[stereo_chunk_bytes / 2];
   size_t bytes_read = 0;
 
   UBaseType_t hwm = uxTaskGetStackHighWaterMark(NULL);
@@ -407,13 +597,73 @@ void audio_loop_task(void *param) {
 
   for (;;) {
 
-    // PLAYBACK MODE
-    if (!is_mic_mode) {
-      audio.loop();
-      process_audio_cmd_que();
-      vTaskDelayUntil(&lastWakeTime, period);
+    // 1. AI VOICE RECORDING MODE (ES7210 ADC -> PSRAM WAV)
+    if (ai_recording_active) {
+      auto rx_handle = audio.getRxHandle();
+      if (!rx_handle) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+        continue;
+      }
 
-     
+      const size_t dma_chunk_bytes = 2048;
+      int16_t dma16[dma_chunk_bytes / 2];
+      size_t bytes_read = 0;
+
+      esp_err_t err = i2s_channel_read(rx_handle, dma16, sizeof(dma16), &bytes_read, pdMS_TO_TICKS(50));
+      if (err == ESP_OK && bytes_read >= 8) {
+        size_t frames = bytes_read / 8; // 8 bytes per 32-bit slot stereo frame (Left 32b + Right 32b)
+
+        if (!s_dma_dumped && ai_rec_pcm_bytes > 8000 && frames >= 4) {
+          s_dma_dumped = true;
+          log_i("[RAW DMA 16K] F0: L=%d R=%d | F1: L=%d R=%d | F2: L=%d R=%d | F3: L=%d R=%d",
+                dma16[0], dma16[2], dma16[4], dma16[6], dma16[8], dma16[10], dma16[12], dma16[14]);
+        }
+
+        int16_t *pcm_dest = (int16_t *)(ai_wav_buffer + 44 + ai_rec_pcm_bytes);
+        size_t max_samples_left = (AI_REC_PCM_MAX - ai_rec_pcm_bytes) / 2;
+        size_t converted = 0;
+
+        // Native 16 kHz capture from ES7210 microphone (Mic 1 is on Left slot: dma16[i * 4 + 0])
+        for (size_t i = 0; i < frames && converted < max_samples_left; i++) {
+          pcm_dest[converted++] = dma16[i * 4 + 0];
+        }
+        ai_rec_pcm_bytes += converted * 2;
+      }
+
+      // Check if finished: buffer full (128 KB) or 4.2 seconds elapsed
+      if (ai_rec_pcm_bytes >= AI_REC_PCM_MAX || (millis() - ai_recording_start_ms >= 4200)) {
+        stop_ai_voice_recording_and_process();
+      }
+      continue;
+    }
+
+    // 2. PLAYBACK MODE
+    if (!is_mic_mode) {
+      if (audio.isRunning()) {
+        for (int i = 0; i < 6; i++) {
+          audio.loop();
+        }
+        process_audio_cmd_que();
+        vTaskDelay(pdMS_TO_TICKS(1)); // snappy 1ms yield prevents socket starvation
+      } else {
+        audio.loop();
+        process_audio_cmd_que();
+        vTaskDelay(pdMS_TO_TICKS(10)); // idle yield saves CPU
+      }
+
+      static bool s_wifi_sleep_disabled = false;
+      if (audio.isRunning() || mediaType == 0 || mediaType == 1) {
+        if (!s_wifi_sleep_disabled && WiFi.status() == WL_CONNECTED) {
+          WiFi.setSleep(false);
+          esp_wifi_set_ps(WIFI_PS_NONE);
+          s_wifi_sleep_disabled = true;
+          log_i("[AUDIO/WIFI] High-throughput mode enabled (WiFi sleep OFF)");
+        }
+      } else if (s_wifi_sleep_disabled && !audio.isRunning() && mediaType >= 2) {
+        esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+        s_wifi_sleep_disabled = false;
+      }
+
       if (audio.isRunning()) {
        // log_e("Volume: %u",audio.getVUlevel());
         current_pos = audio.getAudioCurrentTime();
@@ -444,6 +694,42 @@ void audio_loop_task(void *param) {
             //---------
             // detect end of file track -> next track
             if ((mediaType == 1) && (current_total - current_pos <= 1)) {
+              if (lan_get_file_count() > 0) {
+                switch (playMode) {
+                case 0: { // normal loop all
+                  lan_track_idx = (lan_track_idx + 1) % lan_get_file_count();
+                  break;
+                }
+                case 1: { // random shuffle
+                  if (lan_get_file_count() > 1) {
+                    int next_idx = lan_track_idx;
+                    while (next_idx == lan_track_idx) {
+                      next_idx = esp_random() % lan_get_file_count();
+                    }
+                    lan_track_idx = next_idx;
+                  }
+                  break;
+                }
+                case 2: { // repeat single track
+                  // keep lan_track_idx
+                  break;
+                }
+                }
+                snprintf(msg.trackNumber, sizeof(msg.trackNumber), "%d of %d (LAN)", lan_track_idx + 1, lan_get_file_count());
+                msg.type = STATUS_UPDATE_TRACK_NUMBER;
+                xQueueSend(ui_status_queue, &msg, 100);
+
+                const LanFileEntry *f = lan_get_file(lan_track_idx);
+                msg.type = STATUS_UPDATE_TRACK_DESC_SET;
+                snprintf(msg.trackDesc, sizeof(msg.trackDesc), "%s", f ? f->name : "LAN Track");
+                xQueueSend(ui_status_queue, &msg, 100);
+
+                lan_play(lan_track_idx);
+                last_pos = current_pos;
+                last_total = current_total;
+                continue;
+              }
+
               if (trackListLength <= 0) {
                 log_w("Cannot auto-select next track: empty music library");
                 audio.stopSong();
@@ -492,77 +778,5 @@ void audio_loop_task(void *param) {
       }
       vTaskDelay(1);
     }
-
-    // ---------RECORD MODE-------------------------
-   /*
-    else {
-      auto rx_handle = audio.getRxHandle();
-      if (!rx_handle) {
-        log_e("I2S RX Handle NULL");
-        vTaskDelay(50);
-        continue;
-      }
-
-      // allocate once
-      if (!speech_buffer) {
-        init_audio_buffers();
-
-        if (!speech_buffer) {
-          log_e("speech_buffer alloc failed");
-          vTaskDelay(100);
-          continue;
-        }
-      }
-
-      const size_t stereo_chunk_bytes = 512;
-      int16_t stereo_temp[stereo_chunk_bytes / 2];
-      size_t bytes_read = 0;
-
-      esp_err_t err = i2s_channel_read(rx_handle, stereo_temp, sizeof(stereo_temp), &bytes_read, pdMS_TO_TICKS(100));
-
-      // stereo_temp contains interleaved L R L R ...
-      /*
-      for (int i = 0; i < 16; i++) {   // print the first 16 samples
-          int16_t L = stereo_temp[i * 2 + 0];
-          int16_t R = stereo_temp[i * 2 + 1];
-          log_i("%d,%d\n", L, R);
-      }
-       
-      if (err == ESP_OK && bytes_read >= 4) {
-
-        size_t frames = bytes_read / 4; // 4 bytes per stereo frame
-
-        // prevent overflow
-        if (speech_ptr + frames * 2 > MAX_REC_SIZE) {
-          log_w("Recording buffer full");
-          speech_ready = true;
-          stopRecording(speech_ptr);
-          continue;
-        }
-
-        // mono write pointer
-        int16_t *dest = speech_buffer + (speech_ptr / 2);
-
-        // copy Left only
-        for (size_t i = 0; i < frames; i++) {
-          dest[i] = stereo_temp[i * 2];
-        }
-
-        // advance in BYTES
-        speech_ptr += frames * 2;
-
-        if (speech_ptr >= MAX_REC_SIZE) {
-          speech_ready = true;
-          log_i("Buffer Full - stop");
-          stopRecording(speech_ptr);
-        }
-      } else if (err != ESP_OK) {
-        log_e("I2S Read Error: %s", esp_err_to_name(err));
-      }
-
-      vTaskDelay(1);
-    }
-    */
-    //-------------------------------
   } // for(;;)
 } // audio loop task
