@@ -15,6 +15,7 @@ extern void ui_Screen_Info_screen_init(void);
 extern void ui_Screen_Info_screen_destroy(void);
 extern void ui_event_Screen_Info(lv_event_t * e);
 extern lv_obj_t * ui_Screen_Info;
+extern lv_obj_t * ui_Info_Label_BattStatus;
 extern void ui_event_Info_Panel_Clock(lv_event_t * e);
 extern lv_obj_t * ui_Info_Panel_Clock;
 extern lv_obj_t * ui_Info_Image_hour0;
@@ -61,6 +62,10 @@ extern lv_obj_t * ui_Info_Button_infoPanelRight;
 extern lv_obj_t * ui_Info_Label_Label22;
 extern void ui_event_Info_Panel_blindPanel(lv_event_t * e);
 extern lv_obj_t * ui_Info_Panel_blindPanel;
+extern lv_obj_t * ui_Info_Panel_Alarm;
+extern void alarm_ui_init(lv_obj_t * parent);
+extern void alarm_ui_show(void);
+extern void alarm_ui_refresh(void);
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

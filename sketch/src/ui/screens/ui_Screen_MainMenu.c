@@ -423,17 +423,31 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_scrollbar_mode(ui_MainMenu_Panel_Menu, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_scroll_dir(ui_MainMenu_Panel_Menu, LV_DIR_HOR);
     lv_obj_set_style_radius(ui_MainMenu_Panel_Menu, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui_MainMenu_Panel_Menu, lv_color_hex(0x0191FD), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_MainMenu_Panel_Menu, lv_color_hex(0x101418), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_MainMenu_Panel_Menu, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_grad_color(ui_MainMenu_Panel_Menu, lv_color_hex(0x034A89), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_grad_color(ui_MainMenu_Panel_Menu, lv_color_hex(0x06080A), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_grad_dir(ui_MainMenu_Panel_Menu, LV_GRAD_DIR_VER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_color(ui_MainMenu_Panel_Menu, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(ui_MainMenu_Panel_Menu, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    ui_MainMenu_Image_Information = lv_img_create(ui_MainMenu_Panel_Menu);
+    lv_img_set_src(ui_MainMenu_Image_Information, &ui_img_images_climate_png);
+    lv_obj_set_width(ui_MainMenu_Image_Information, 136);
+    lv_obj_set_height(ui_MainMenu_Image_Information, 146);
+    lv_obj_set_x(ui_MainMenu_Image_Information, 12);
+    lv_obj_set_y(ui_MainMenu_Image_Information, 0);
+    lv_obj_set_align(ui_MainMenu_Image_Information, LV_ALIGN_LEFT_MID);
+    lv_obj_add_flag(ui_MainMenu_Image_Information, LV_OBJ_FLAG_CLICKABLE);     /// Flags
+    lv_obj_clear_flag(ui_MainMenu_Image_Information,
+                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE |
+                      LV_OBJ_FLAG_SCROLLABLE);     /// Flags
+
     ui_MainMenu_Image_LiveStreaming = lv_img_create(ui_MainMenu_Panel_Menu);
     lv_img_set_src(ui_MainMenu_Image_LiveStreaming, &ui_img_images_livestreaming_png);
-    lv_obj_set_width(ui_MainMenu_Image_LiveStreaming, 150);
-    lv_obj_set_height(ui_MainMenu_Image_LiveStreaming, 150);
+    lv_obj_set_width(ui_MainMenu_Image_LiveStreaming, 136);
+    lv_obj_set_height(ui_MainMenu_Image_LiveStreaming, 146);
+    lv_obj_set_x(ui_MainMenu_Image_LiveStreaming, 162);
+    lv_obj_set_y(ui_MainMenu_Image_LiveStreaming, 0);
     lv_obj_set_align(ui_MainMenu_Image_LiveStreaming, LV_ALIGN_LEFT_MID);
     lv_obj_add_flag(ui_MainMenu_Image_LiveStreaming, LV_OBJ_FLAG_CLICKABLE);     /// Flags
     lv_obj_clear_flag(ui_MainMenu_Image_LiveStreaming,
@@ -442,9 +456,9 @@ void ui_Screen_MainMenu_screen_init(void)
 
     ui_MainMenu_Image_MusicPlayer = lv_img_create(ui_MainMenu_Panel_Menu);
     lv_img_set_src(ui_MainMenu_Image_MusicPlayer, &ui_img_images_music_png);
-    lv_obj_set_width(ui_MainMenu_Image_MusicPlayer, 150);
-    lv_obj_set_height(ui_MainMenu_Image_MusicPlayer, 150);
-    lv_obj_set_x(ui_MainMenu_Image_MusicPlayer, 170);
+    lv_obj_set_width(ui_MainMenu_Image_MusicPlayer, 136);
+    lv_obj_set_height(ui_MainMenu_Image_MusicPlayer, 146);
+    lv_obj_set_x(ui_MainMenu_Image_MusicPlayer, 312);
     lv_obj_set_y(ui_MainMenu_Image_MusicPlayer, 0);
     lv_obj_set_align(ui_MainMenu_Image_MusicPlayer, LV_ALIGN_LEFT_MID);
     lv_obj_add_flag(ui_MainMenu_Image_MusicPlayer, LV_OBJ_FLAG_CLICKABLE);     /// Flags
@@ -454,38 +468,21 @@ void ui_Screen_MainMenu_screen_init(void)
 
     ui_MainMenu_Image_ChatBot = lv_img_create(ui_MainMenu_Panel_Menu);
     lv_img_set_src(ui_MainMenu_Image_ChatBot, &ui_img_images_assistant_png);
-    lv_obj_set_width(ui_MainMenu_Image_ChatBot, 130);
-    lv_obj_set_height(ui_MainMenu_Image_ChatBot, 130);
-    lv_obj_set_x(ui_MainMenu_Image_ChatBot, 350);
+    lv_obj_set_width(ui_MainMenu_Image_ChatBot, 136);
+    lv_obj_set_height(ui_MainMenu_Image_ChatBot, 146);
+    lv_obj_set_x(ui_MainMenu_Image_ChatBot, 462);
     lv_obj_set_y(ui_MainMenu_Image_ChatBot, 0);
     lv_obj_set_align(ui_MainMenu_Image_ChatBot, LV_ALIGN_LEFT_MID);
     lv_obj_add_flag(ui_MainMenu_Image_ChatBot, LV_OBJ_FLAG_CLICKABLE);     /// Flags
     lv_obj_clear_flag(ui_MainMenu_Image_ChatBot,
                       LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE |
                       LV_OBJ_FLAG_SCROLLABLE);     /// Flags
-    lv_img_set_zoom(ui_MainMenu_Image_ChatBot, 255);
-
-    ui_MainMenu_Image_Information = lv_img_create(ui_MainMenu_Panel_Menu);
-    lv_img_set_src(ui_MainMenu_Image_Information, &ui_img_images_climate_png);
-    lv_obj_set_width(ui_MainMenu_Image_Information, 150);
-    lv_obj_set_height(ui_MainMenu_Image_Information, 150);
-    lv_obj_set_x(ui_MainMenu_Image_Information, 510);
-    lv_obj_set_y(ui_MainMenu_Image_Information, 0);
-    lv_obj_set_align(ui_MainMenu_Image_Information, LV_ALIGN_LEFT_MID);
-    lv_obj_add_flag(ui_MainMenu_Image_Information, LV_OBJ_FLAG_CLICKABLE);     /// Flags
-    lv_obj_clear_flag(ui_MainMenu_Image_Information,
-                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE |
-                      LV_OBJ_FLAG_SCROLLABLE);     /// Flags
-    lv_obj_set_style_border_color(ui_MainMenu_Image_Information, lv_color_hex(0x67B1FC), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_opa(ui_MainMenu_Image_Information, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(ui_MainMenu_Image_Information, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_side(ui_MainMenu_Image_Information, LV_BORDER_SIDE_TOP, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Image_Utility = lv_img_create(ui_MainMenu_Panel_Menu);
     lv_img_set_src(ui_MainMenu_Image_Utility, &ui_img_images_utility_png);
-    lv_obj_set_width(ui_MainMenu_Image_Utility, 150);
-    lv_obj_set_height(ui_MainMenu_Image_Utility, 140);
-    lv_obj_set_x(ui_MainMenu_Image_Utility, 680);
+    lv_obj_set_width(ui_MainMenu_Image_Utility, 136);
+    lv_obj_set_height(ui_MainMenu_Image_Utility, 146);
+    lv_obj_set_x(ui_MainMenu_Image_Utility, 612);
     lv_obj_set_y(ui_MainMenu_Image_Utility, 0);
     lv_obj_set_align(ui_MainMenu_Image_Utility, LV_ALIGN_LEFT_MID);
     lv_obj_add_flag(ui_MainMenu_Image_Utility, LV_OBJ_FLAG_CLICKABLE);     /// Flags
@@ -495,9 +492,9 @@ void ui_Screen_MainMenu_screen_init(void)
 
     ui_MainMenu_Image_Config = lv_img_create(ui_MainMenu_Panel_Menu);
     lv_img_set_src(ui_MainMenu_Image_Config, &ui_img_images_settings_png);
-    lv_obj_set_width(ui_MainMenu_Image_Config, 125);
-    lv_obj_set_height(ui_MainMenu_Image_Config, 125);
-    lv_obj_set_x(ui_MainMenu_Image_Config, 850);
+    lv_obj_set_width(ui_MainMenu_Image_Config, 136);
+    lv_obj_set_height(ui_MainMenu_Image_Config, 146);
+    lv_obj_set_x(ui_MainMenu_Image_Config, 762);
     lv_obj_set_y(ui_MainMenu_Image_Config, 0);
     lv_obj_set_align(ui_MainMenu_Image_Config, LV_ALIGN_LEFT_MID);
     lv_obj_add_flag(ui_MainMenu_Image_Config, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_ADV_HITTEST);     /// Flags
@@ -912,7 +909,22 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_y(ui_MainMenu_Textarea_UserGuide, -17);
     lv_obj_set_align(ui_MainMenu_Textarea_UserGuide, LV_ALIGN_TOP_MID);
     lv_textarea_set_text(ui_MainMenu_Textarea_UserGuide,
-                         "[Wi-Fi ] - Automatic Connection Setup\n\nSet up your device to automatically connect to your preferred Wi-Fi networks (up to 10 SSIDs).\n- Tap SCAN to search for nearby networks.\n- Select the network you wish to connect to from the dropdown list.\n- Enter the network password.\n- Tap SAVE to save the password\n- Please wait a moment, device is automatically connect to the network.\n\n[ Screen ] - Display Settings\n\nAdjust the behavior of your device's screen.\n- Set Screen Brightness: Adjust the display intensity.\n- Set Screen Off Timer: Control how long the screen stays on after inactivity.\n- Setting the timer to 0 means the screen will always stay on.\n\n[ Radio ] - Custom Radio Station List\n\nYou can create and upload a custom list of radio stations.\n- Create your own stations list using the CSV format in a file named stations.csv (title,url http only)\n- Save the stations.csv file onto your SD Card.\n- Tap UPLOAD to load your custom station list.\n- If the stations.csv file is not available, the device will use the default station list.\n\n[ Music ] - Update Music Library\n\nLoad audio files from your SD Card to create your music library.\n- Supported audio formats include: mp3, flac, aac, and ogg.\n- Copy your audio files to the SD Card. Files can be placed in the root directory or in subfolders (up to 5 levels deep).\n- Tap LOAD to build the music library.\n* Note: This process may take some time, depending on the number of audio files on the SD Card.\n\n[ Region ] - Set weather & clock region\n\n* Auto by IP - the location will be automatically detected by IP\n* Manual -  enter specific Latitude / Longitude\n* UTC offset - set timezone offset\n* Temp - set weather unit Celcius / Farenheit\n\n[ Button Control ]\n\n           [ RESET    ] -  Reset TuneBar\n\n           [ POWER ] - Hold a sec to turn on/ hold 3 sec to turn off\n\n           [  LIGHT  ] - Toggle screen ON/OFF");
+                         "[Wi-Fi] - Automatic Network Setup\n"
+                         "Connects to saved networks (up to 10 SSIDs). Use Settings > Network to scan and connect.\n\n"
+                         "[Alarm] - Retro Alarm (Swipe Left on Clock)\n"
+                         "Tap [^] and [v] buttons on each of the 4 digits to set HH:MM without scrolling. Toggle Armed/Off switch.\n\n"
+                         "[Radio] - Dual Online Radio Catalog\n"
+                         "Tap the catalog badge ([FM] / [IN]) next to station count to switch between Indian FM and International streams.\n\n"
+                         "[Music & LAN] - Streaming Media\n"
+                         "Streams audio directly over Wi-Fi from local HTTP / LocalShare servers (e.g. 192.168.x.x:8080/path) or plays from SD card.\n\n"
+                         "[AI Voice] - AI Voice Assistant\n"
+                         "Dedicated voice interface with push-to-talk Mic button. Tap [MIC] or send voice commands via Web Remote.\n\n"
+                         "[Web Remote] - Browser Control & Screen Mirror\n"
+                         "Open device IP in any browser on your network for real-time controls and live display mirroring.\n\n"
+                         "[Buttons]\n"
+                         "[ RESET ] - Reboot TuneBar\n"
+                         "[ POWER ] - Hold 1s to wake / 3s to power off\n"
+                         "[ BOOT  ] - Toggle screen ON/OFF (Dismisses ringing alarm)");
     lv_obj_add_flag(ui_MainMenu_Textarea_UserGuide, LV_OBJ_FLAG_SCROLL_ONE);     /// Flags
     lv_obj_set_scroll_dir(ui_MainMenu_Textarea_UserGuide, LV_DIR_VER);
     lv_obj_set_style_text_color(ui_MainMenu_Textarea_UserGuide, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);

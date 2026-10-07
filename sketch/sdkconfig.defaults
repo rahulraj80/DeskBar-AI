@@ -1,0 +1,47 @@
+#
+# TuneBar sdkconfig.defaults — DRAM Reduction Settings
+# Applied automatically by PlatformIO Arduino framework builds.
+#
+# Target: Free ~50% of internal DRAM (from 7KB free → ~150KB free)
+#
+
+# ─── PSRAM XiP: Move .text (code) and .rodata (const strings/tables) ──────────
+# to PSRAM cache. Zero code changes needed. Safe on ESP32-S3 OPI PSRAM @ 80MHz.
+# Frees 30–60 KB of DRAM/IRAM depending on firmware .text/.rodata size.
+CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y
+CONFIG_SPIRAM_RODATA=y
+
+# ─── WiFi RX Buffers ──────────────────────────────────────────────────────────
+# Default is 10 static RX buffers. Reducing to 6 saves ~6.4 KB DRAM.
+# Minimum recommended is 6 for reliable streaming.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=6
+
+# Dynamic RX buffers: reduce from 32 → 16 to cap heap spikes
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=16
+
+# Use static TX buffers (predictable DRAM footprint, no heap fragmentation)
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER=y
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=8
+
+# ─── lwIP Socket Pool ─────────────────────────────────────────────────────────
+# TuneBar needs sockets for:
+#   1× WebServer listening port 80
+#   4× Browser parallel HTTP asset & status connections
+#   1× Audio stream (radio/LAN/AI HTTPS)
+#   1× Telemetry HTTPS POST
+#   1× Weather API
+# Default is 10. 10 sockets provides full headroom without connection resets.
+CONFIG_LWIP_MAX_SOCKETS=10
+
+# Reduce TCPIP mailbox size (fewer buffered packet notifications)
+CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=16
+
+# ─── Heap TLSF in ROM ─────────────────────────────────────────────────────────
+# Uses chip ROM's TLSF heap implementation instead of compiling it into IRAM.
+# Frees ~1 KB IRAM (which shares the SRAM pool with DRAM).
+CONFIG_HEAP_TLSF_USE_ROM_IMPL=y
+
+# ─── Newlib Nano printf ───────────────────────────────────────────────────────
+# Strips heavy 64-bit printf paths. Reduces task stack HWM during string
+# formatting (snprintf, log_i etc). Does not affect %d, %s, %f, %u usage.
+CONFIG_NEWLIB_NANO_FORMAT=y

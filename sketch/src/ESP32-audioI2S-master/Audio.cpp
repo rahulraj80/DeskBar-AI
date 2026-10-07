@@ -192,7 +192,7 @@ Audio::Audio(uint8_t i2sPort) {
     memset(&m_i2s_chan_cfg, 0, sizeof(i2s_chan_config_t));
     m_i2s_chan_cfg.id = (i2s_port_t)m_i2s_num; // I2S_NUM_AUTO, I2S_NUM_0, I2S_NUM_1
     m_i2s_chan_cfg.role = I2S_ROLE_MASTER;     // I2S controller master role, bclk and lrc signal will be set to output
-    m_i2s_chan_cfg.dma_desc_num = 16;          // number of DMA buffer
+    m_i2s_chan_cfg.dma_desc_num = 8;           // number of DMA buffer (was 16 → saves ~2 KB DRAM)
     m_i2s_chan_cfg.dma_frame_num = 512;        // I2S frame number in one DMA buffer.
     m_i2s_chan_cfg.auto_clear = true;          // i2s will always send zero automatically if no data to send
     m_i2s_chan_cfg.allow_pd = false;
@@ -3992,10 +3992,13 @@ void Audio::processWebStream() {
         if (!initializeDecoder()) return;
     }
 
-    // start audio decoding - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    if (InBuff.bufferFilled() > m_pwst.maxFrameSize && !m_f_stream) { // waiting for buffer filled
-        info(*this, evt_info, "stream ready");
-        m_f_stream = true; // ready to play the audio data
+    // start audio decoding with 32 KB safety cushion (~2 sec at 128kbps) - - - - - - - - - - - - - - -
+    const size_t prebuff_target = 32768;
+    if (!m_f_stream && (InBuff.bufferFilled() >= prebuff_target || m_f_allDataReceived || !m_pwst.f_clientIsConnected)) {
+        if (InBuff.bufferFilled() > m_pwst.maxFrameSize) {
+            info(*this, evt_info, "stream ready");
+            m_f_stream = true; // ready to play the audio data
+        }
     }
 
     if (m_f_eof) {
@@ -4069,8 +4072,11 @@ void Audio::processWebFile() {
             }
             return;
         } else {
-            m_f_stream = true;
-            info(*this, evt_info, "stream ready");
+            const size_t prebuff_webfile = 32768;
+            if (InBuff.bufferFilled() >= prebuff_webfile || m_f_allDataReceived || (m_audioFileSize > 0 && InBuff.bufferFilled() >= m_audioFileSize)) {
+                m_f_stream = true;
+                info(*this, evt_info, "stream ready");
+            }
         }
     }
 
@@ -4415,8 +4421,15 @@ void Audio::playAudioData() {
             goto exit;
         } // end of file reached
         m_pad.count++;
-        vTaskDelay(50); // wait for data
-        if (m_pad.count == 10) {
+        if (!m_f_allDataReceived && (m_streamType == ST_WEBSTREAM || m_streamType == ST_WEBFILE)) {
+            if (InBuff.bufferFilled() < InBuff.getMaxBlockSize()) {
+                m_f_stream = false; // re-enter buffering mode until safety cushion is restored
+            }
+            vTaskDelay(pdMS_TO_TICKS(1)); // brief 1ms yield to let network task ingest packets
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(2));
+        }
+        if (m_pad.count >= 20) {
             if (m_f_allDataReceived) m_f_eof = true;
         } // maybe slow stream
         goto exit; // syncword at pos0

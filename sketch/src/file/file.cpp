@@ -11,6 +11,7 @@
 #include <LittleFS.h>
 #include <driver/i2s_std.h>
 #include <vector>
+#include <Preferences.h>
 
 int trackListLength = 0; // NEW: Definition of global track length
 uint16_t trackIndex = 0;
@@ -79,23 +80,34 @@ lv_fs_res_t fs_seek(lv_fs_drv_t *drv, void *file_p, uint32_t pos, lv_fs_whence_t
 //------------------------------------------------
 // init LittleFS
 void initLittleFS() {
-  if (!LittleFS.begin(false)) {
-    log_e("LittleFS mount failed. Formatting...");
-    if (!LittleFS.begin(true)) {
-      log_e("LittleFS format failed!");
+  bool mounted = LittleFS.begin(false, "/littlefs", 10, "spiffs");
+  if (!mounted) {
+    log_w("LittleFS mount failed on 'spiffs'. Formatting...");
+    mounted = LittleFS.begin(true, "/littlefs", 10, "spiffs");
+    if (!mounted) {
+      log_e("LittleFS format and mount failed!");
+      return;
     }
-    log_d("LittleFS formatted successfully.");
+    log_i("LittleFS formatted and mounted successfully.");
   } else {
-    log_d("LittleFS mounted successfully.");
+    log_i("LittleFS mounted successfully.");
+  }
 
-    lv_fs_drv_t drv;
-    lv_fs_drv_init(&drv);
-    drv.letter = 'L';
-    drv.open_cb = fs_open;
-    drv.close_cb = fs_close;
-    drv.read_cb = fs_read;
-    drv.seek_cb = fs_seek;
-    lv_fs_drv_register(&drv);
+  // Register LVGL filesystem driver only if LVGL has been initialized
+  if (lv_is_initialized()) {
+    static lv_fs_drv_t drv;
+    static bool drv_registered = false;
+    if (!drv_registered) {
+      lv_fs_drv_init(&drv);
+      drv.letter = 'L';
+      drv.open_cb = fs_open;
+      drv.close_cb = fs_close;
+      drv.read_cb = fs_read;
+      drv.seek_cb = fs_seek;
+      lv_fs_drv_register(&drv);
+      drv_registered = true;
+      log_i("LVGL LittleFS driver ('L:') registered.");
+    }
   }
 }
 //------------------------------------------------
@@ -371,29 +383,44 @@ radios *stations = nullptr;
 
 int16_t stationIndex = 0;
 uint8_t stationListLength = 0;
+uint8_t currentRadioCatalog = RADIO_CATALOG_ONLINE_RADIO_FM;
 
-// default stations list
-const char defaultStationsCSV[] PROGMEM = "Always Christmas Radio,http://185.33.21.112:80/christmas_128\n"
-                                          "Klassik Radio,http://stream.klassikradio.de/christmas/mp3-128/radiode\n"
-                                          "Chou Chou,http://stream1.10223.cc:8025/chouchou_ch\n"
-                                          "Smooth Loungue,http://smoothjazz.cdnstream1.com/2586_128.mp3\n"
-                                          "Solo Piano Radio,http://pianosolo.streamguys.net/live\n"
-                                          "Muddy's Music Cafe,http://muddys.digistream.info:20398\n"
-                                          "Got Radio,http://206.217.213.235:8040/\n"
-                                          "Chill Step,http://chillstep.info:1984/listen.mp3\n"
-                                          "Cinemix,http://kathy.torontocast.com:1190/stream\n"
-                                          "Radionomy,http://listen.radionomy.com:80/InstrumentalBreezes\n"
-                                          "Slow Radio,http://stream3.slowradio.com:80\n"
-                                          "Baroque,http://strm112.1.fm/baroque_mobile_mp3\n"
-                                          "Top Radio FM93.5,http://a10.asurahosting.com:8250/radio.mp3?refresh=1751553164542\n";
+// Catalog 0: https://onlineradiofm.in/ curated Indian stations
+const char defaultStationsOnlineRadioFM_CSV[] PROGMEM =
+    "Mirchi Top 20,https://drive.uber.radio/uber/bollywoodnow/icecast.audio\n"
+    "Bollywood Hits,https://streaming.exclusive.radio/er/bollywood/icecast.audio\n"
+    "Bombay Beats India,http://strm112.1.fm/bombaybeats_mobile_mp3\n"
+    "Fnf.Fm Hindi,http://192.99.8.192:5032/;stream\n"
+    "Ishq FM Bollywood,https://drive.uber.radio/uber/bollywoodlove/icecast.audio\n"
+    "Hum FM 106.2,https://server.mediacast4u.stream/8002/stream\n"
+    "MixiFy Hindi Hits,https://server.mixify.in/listen/new_hits/radio.mp3\n"
+    "Radio SD 90.8 FM,http://uk2.internet-radio.com:8066/stream\n"
+    "Radio Afsana,http://us9.streamingpulse.com:7058/stream\n"
+    "Bollywood Mix,https://drive.uber.radio/uber/bollywoodmix/icecast.audio\n";
+
+// Catalog 1: https://www.radioindia.in/ curated Indian stations
+const char defaultStationsRadioIndia_CSV[] PROGMEM =
+    "Bollywood 2000s,https://2.mystreaming.net/uber/bollywood2000s/icecast.audio\n"
+    "Bollywood 2010s,https://drive.uber.radio/uber/bollywood2010s/icecast.audio\n"
+    "Radio Udaan,https://stream.radioudaan.com/listen/radio_udaan/radio.mp3\n"
+    "Radio Maharani,https://streamasiacdn.atc-labs.com/radiomaharani.aac\n"
+    "Sangeet Radio FM,https://ice8.securenetsystems.net/SGTRADIO\n"
+    "Suno Sharda 90.8,https://streamasiacdn.atc-labs.com/shardaradio.aac\n"
+    "CINA 1650 AM,http://ice8.securenetsystems.net/CINA\n"
+    "Ujala Radio,http://stream2.ujala.nl/stream/2/listen.mp3\n"
+    "Boom FM 94.1,http://192.99.8.192:3630/stream\n"
+    "NTN Radio 89.1,http://auds1.intacs.com/ntnradio\n";
+
+const char* getRadioCatalogName(uint8_t catalogIndex) {
+  switch (catalogIndex) {
+    case RADIO_CATALOG_ONLINE_RADIO_FM: return "OnlineRadioFM.in";
+    case RADIO_CATALOG_RADIO_INDIA:      return "RadioIndia.in";
+    default:                            return "Default";
+  }
+}
 
 bool parseCSVLine(const char *line, char *name, size_t nameSize, char *url, size_t urlSize) {
   if (!line || !name || !url) return false;
-
-  // Skip https streams
-  if (strstr(line, "https://") != NULL) {
-    return false;
-  }
 
   const char *comma = strchr(line, ',');
   if (!comma) return false;
@@ -433,132 +460,119 @@ bool initStationsPSRAM() {
 }
 
 
-// load station list from littleFS or default
-void loadStationList() {
+void switchRadioCatalog(uint8_t catalogIndex) {
+  if (catalogIndex > 1) catalogIndex = 0;
+  currentRadioCatalog = catalogIndex;
 
-  // ---------- ENSURE PSRAM ----------
-  if (!initStationsPSRAM()) {
-    lv_textarea_add_text(ui_MainMenu_Textarea_stationList,
-                         LV_SYMBOL_CLOSE " PSRAM allocation failed\n");
-    return;
+  Preferences rpref;
+  rpref.begin("tb_radio", false);
+  rpref.putUChar("cat", currentRadioCatalog);
+  rpref.end();
+
+  if (!initStationsPSRAM()) return;
+
+  const char *cachePath = (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) 
+                          ? "/radio_cat0.csv" : "/radio_cat1.csv";
+
+  // Ensure cache file exists in LittleFS; if missing, write it from PROGMEM
+  if (!LittleFS.exists(cachePath)) {
+    File fc = LittleFS.open(cachePath, "w");
+    if (fc) {
+      const char *csvData = (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) 
+                            ? defaultStationsOnlineRadioFM_CSV : defaultStationsRadioIndia_CSV;
+      fc.print(csvData);
+      fc.close();
+      log_i("Cached radio catalog to %s", cachePath);
+    }
   }
 
   stationListLength = 0;
-  lv_textarea_set_text(ui_MainMenu_Textarea_stationList, "");
+  stationIndex = 0;
 
-  char *lineBuf = (char *)heap_caps_malloc(LINE_BUF_LEN, MALLOC_CAP_SPIRAM);
-  if (!lineBuf) {
-    log_e("Failed to allocate lineBuf in PSRAM");
-    return;
-  }
-
-  size_t lineLen = 0;
-
-  // =====================================================
-  // LOAD DEFAULT CSV (PROGMEM)
-  // =====================================================
-  if (!LittleFS.exists(STATION_LIST_FILENAME)) {
-
-    lv_textarea_add_text(
-      ui_MainMenu_Textarea_stationList,
-      LV_SYMBOL_FILE " Load DEFAULT " MACRO_TO_STRING(STATION_LIST_FILENAME) "\n"
-    );
-
-    log_d("Load DEFAULT %s", STATION_LIST_FILENAME);
-
-    size_t csvLen = strlen_P(defaultStationsCSV);
-
-    for (size_t i = 0; i < csvLen && stationListLength < MAX_STATION_LIST_LENGTH; i++) {
-      char c = pgm_read_byte_near(defaultStationsCSV + i);
-
-      if (c == '\n' || lineLen >= LINE_BUF_LEN - 1) {
+  File f = LittleFS.open(cachePath, "r");
+  if (f) {
+    char *lineBuf = (char *)heap_caps_malloc(LINE_BUF_LEN, MALLOC_CAP_SPIRAM);
+    if (lineBuf) {
+      while (f.available() && stationListLength < MAX_STATION_LIST_LENGTH) {
+        size_t lineLen = f.readBytesUntil('\n', lineBuf, LINE_BUF_LEN - 1);
         lineBuf[lineLen] = '\0';
-
-        if (parseCSVLine(
-              lineBuf,
-              stations[stationListLength].name,
-              sizeof(stations[stationListLength].name),
-              stations[stationListLength].url,
-              sizeof(stations[stationListLength].url))) {
+        if (lineLen == 0) continue;
+        if (parseCSVLine(lineBuf, stations[stationListLength].name, sizeof(stations[stationListLength].name),
+                         stations[stationListLength].url, sizeof(stations[stationListLength].url))) {
           stationListLength++;
         }
-
-        lineLen = 0;
-      } else {
-        lineBuf[lineLen++] = c;
       }
-    }
-
-    // Handle final line (no trailing newline)
-    if (lineLen > 0 && stationListLength < MAX_STATION_LIST_LENGTH) {
-      lineBuf[lineLen] = '\0';
-      if (parseCSVLine(
-            lineBuf,
-            stations[stationListLength].name,
-            sizeof(stations[stationListLength].name),
-            stations[stationListLength].url,
-            sizeof(stations[stationListLength].url))) {
-        stationListLength++;
-      }
-    }
-
-  }
-  // =====================================================
-  // LOAD USER CSV (LittleFS)
-  // =====================================================
-  else {
-
-    lv_textarea_add_text(
-      ui_MainMenu_Textarea_stationList,
-      LV_SYMBOL_FILE " Load USER " MACRO_TO_STRING(STATION_LIST_FILENAME) "\n"
-    );
-
-    log_d("Load USER %s", STATION_LIST_FILENAME);
-
-    File f = LittleFS.open(STATION_LIST_FILENAME, "r");
-    if (!f) {
-      lv_textarea_add_text(
-        ui_MainMenu_Textarea_stationList,
-        LV_SYMBOL_CLOSE " Cannot open " MACRO_TO_STRING(STATION_LIST_FILENAME) "\n"
-      );
       heap_caps_free(lineBuf);
-      return;
     }
-
-    while (f.available() && stationListLength < MAX_STATION_LIST_LENGTH) {
-
-      lineLen = f.readBytesUntil('\n', lineBuf, LINE_BUF_LEN - 1);
-      lineBuf[lineLen] = '\0';
-
-      if (lineLen == 0) continue;
-
-      if (parseCSVLine(
-            lineBuf,
-            stations[stationListLength].name,
-            sizeof(stations[stationListLength].name),
-            stations[stationListLength].url,
-            sizeof(stations[stationListLength].url))) {
-        stationListLength++;
-      }
-    }
-
     f.close();
   }
 
-  heap_caps_free(lineBuf);
-
-  // =====================================================
-  // UI SUMMARY
-  // =====================================================
-  char txt[96];
-  for (uint8_t i = 0; i < stationListLength; i++) {
-    snprintf(txt, sizeof(txt), "%d: %s\n", i + 1, stations[i].name);
-    lv_textarea_add_text(ui_MainMenu_Textarea_stationList, txt);
+  // Also sync to active /stations.csv
+  File actF = LittleFS.open(STATION_LIST_FILENAME, "w");
+  if (actF) {
+    for (uint8_t i = 0; i < stationListLength; i++) {
+      actF.printf("%s,%s\n", stations[i].name, stations[i].url);
+    }
+    actF.close();
   }
 
-  snprintf(txt, sizeof(txt), "Total %d stations", stationListLength);
-  lv_textarea_add_text(ui_MainMenu_Textarea_stationList, txt);
-  log_d("%s", txt);
+  if (ui_MainMenu_Textarea_stationList) {
+    char txt[64];
+    snprintf(txt, sizeof(txt), "Total %d stations loaded (%s)", stationListLength, getRadioCatalogName(currentRadioCatalog));
+    lv_textarea_set_text(ui_MainMenu_Textarea_stationList, txt);
+  }
+  log_i("[RADIO CATALOG] Switched to %s (%d stations cached & loaded)", getRadioCatalogName(currentRadioCatalog), stationListLength);
+}
+
+// load station list from littleFS or default
+void loadStationList() {
+  if (!initStationsPSRAM()) {
+    if (ui_MainMenu_Textarea_stationList) {
+      lv_textarea_add_text(ui_MainMenu_Textarea_stationList, LV_SYMBOL_CLOSE " PSRAM allocation failed\n");
+    }
+    return;
+  }
+
+  // 1. Detect and purge stale vendor demo stations.csv (e.g. Chou Chou, Top Radio FM93.5)
+  if (LittleFS.exists(STATION_LIST_FILENAME)) {
+    File testF = LittleFS.open(STATION_LIST_FILENAME, "r");
+    if (testF) {
+      String firstLine = testF.readStringUntil('\n');
+      testF.close();
+      if (firstLine.indexOf("Top Radio") >= 0 || firstLine.indexOf("FM93.5") >= 0 || firstLine.indexOf("Chou") >= 0) {
+        log_i("Removing stale vendor legacy stations.csv");
+        LittleFS.remove(STATION_LIST_FILENAME);
+      }
+    }
+  }
+
+  // 2. Ensure both catalogs are cached in LittleFS
+  if (!LittleFS.exists("/radio_cat0.csv")) {
+    File fc = LittleFS.open("/radio_cat0.csv", "w");
+    if (fc) {
+      fc.print(defaultStationsOnlineRadioFM_CSV);
+      fc.close();
+      log_i("Cached Catalog 0 to LittleFS /radio_cat0.csv");
+    }
+  }
+  if (!LittleFS.exists("/radio_cat1.csv")) {
+    File fc = LittleFS.open("/radio_cat1.csv", "w");
+    if (fc) {
+      fc.print(defaultStationsRadioIndia_CSV);
+      fc.close();
+      log_i("Cached Catalog 1 to LittleFS /radio_cat1.csv");
+    }
+  }
+
+  // 3. Retrieve saved catalog preference (default = 0: OnlineRadioFM)
+  Preferences rpref;
+  rpref.begin("tb_radio", false);
+  currentRadioCatalog = rpref.getUChar("cat", RADIO_CATALOG_ONLINE_RADIO_FM);
+  rpref.end();
+  if (currentRadioCatalog > 1) currentRadioCatalog = 0;
+
+  // 4. Load active catalog from cached file
+  switchRadioCatalog(currentRadioCatalog);
 }
 
 // copy file 'stations.csv' to littleFS

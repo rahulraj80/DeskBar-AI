@@ -1,6 +1,13 @@
 #ifndef USER_CONFIG_H
 #define USER_CONFIG_H
 
+// Load secrets & external service endpoints (falls back to example template if untracked)
+#if __has_include("secrets.h")
+#include "secrets.h"
+#else
+#include "secrets_example.h"
+#endif
+
 //spi & i2c handle
 #define LCD_HOST SPI3_HOST
 
@@ -60,7 +67,7 @@
 
 #define LCD_NOROT_HRES     172
 #define LCD_NOROT_VRES     640
-#define LVGL_DMA_BUFF_LEN (LCD_NOROT_HRES * 64 * 2)
+#define LVGL_DMA_BUFF_LEN (LCD_NOROT_HRES * 32 * 2)   // 172 × 32 × 2 = 11,008 B (was 22,016 B) — saves 11 KB DMA DRAM
 #define LVGL_SPIRAM_BUFF_LEN (WAVESHARE_349_LCD_H_RES * WAVESHARE_349_LCD_V_RES * 2)
 
 

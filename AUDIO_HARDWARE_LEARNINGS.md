@@ -108,7 +108,7 @@ To give the user instant physical feedback on recording quality:
    audio.setVolume(21);
    audio.connecttoFS(LittleFS, "/rec.wav");
    ```
-3. **Sequential Processing Guard**: `ai_upload_task` waits for `/rec.wav` playback to finish before initiating HTTPS POST to `https://autobots.my.to/ask.php`:
+3. **Sequential Processing Guard**: `ai_upload_task` waits for `/rec.wav` playback to finish before initiating HTTPS POST to the configured AI Assistant backend (`AI_ASSISTANT_URL`):
    ```cpp
    uint32_t wait_start = millis();
    while (audio.isRunning() && (millis() - wait_start < 10000)) {

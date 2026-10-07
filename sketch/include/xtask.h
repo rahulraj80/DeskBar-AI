@@ -27,6 +27,12 @@ CORE 0:
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
+#include "user_config.h"
+
+extern "C" void on_clock_boot_button_pressed(void);
+extern bool wifiEnable;
+extern bool wifi_need_connect;
+void wifiConnect();
 
 //==============================================
 // BUTTON INPUT TASK:
@@ -69,14 +75,8 @@ void button_input_task(void *param) {
           continue;
         }
         if (clock_face_active) {
-          if (BL_OFF) {
-            screenPowerOn();
-            bsp_set_audio_amp_power(true);
-            ui_msg.type = STATUS_SCREEN_UNLOCK;
-            xQueueSend(ui_status_queue, &ui_msg, 100);
-          }
-          extern void on_clock_touch_or_button(void);
-          on_clock_touch_or_button();
+          log_i("Button: Wake from Clock -> restore active usage");
+          on_clock_boot_button_pressed();
         } else {
           if (BL_OFF) {
             log_i("Button: Unlock Screen");
@@ -238,16 +238,24 @@ void timeStr(char *buffer, size_t size, uint32_t second) {
 // ========================================================================
 // AI VOICE ASSISTANT PIPELINE (ES7210 ADC -> PSRAM WAV -> HTTPS -> ES8311 DAC)
 // ========================================================================
-static const size_t AI_REC_SAMPLE_RATE = 8000;
-static const size_t AI_REC_DURATION_SEC = 4;
-static const size_t AI_REC_PCM_MAX = AI_REC_SAMPLE_RATE * 2 * AI_REC_DURATION_SEC; // 64,000 bytes
-static const size_t AI_REC_TOTAL_BUF_SIZE = 44 + AI_REC_PCM_MAX; // 64,044 bytes
+extern uint8_t ai_rec_duration_sec;
+static const size_t AI_REC_SAMPLE_RATE = 16000;
+static const size_t AI_REC_MAX_POSSIBLE_SEC = 12; // 12 seconds max capacity
+static const size_t AI_REC_PCM_MAX = AI_REC_SAMPLE_RATE * 2 * AI_REC_MAX_POSSIBLE_SEC; // 384,000 bytes
+static const size_t AI_REC_TOTAL_BUF_SIZE = 44 + AI_REC_PCM_MAX; // 384,044 bytes (in PSRAM, 0 DRAM)
 
 static uint8_t *ai_wav_buffer = nullptr;
 static volatile size_t ai_rec_pcm_bytes = 0;
 volatile bool ai_recording_active = false;
 volatile bool ai_upload_in_progress = false;
 static uint32_t ai_recording_start_ms = 0;
+static bool vad_speech_detected = false;
+static uint32_t vad_last_speech_ms = 0;
+static int32_t vad_dc_bias = 0;
+static int32_t vad_speech_threshold = 450;
+static bool vad_calibrated = false;
+static int64_t vad_calib_sum = 0;
+static size_t vad_calib_samples = 0;
 static TaskHandle_t ai_upload_task_handle = NULL;
 
 static void write_wav_header(uint8_t *header, uint32_t pcm_data_size, uint32_t sample_rate, uint16_t num_channels, uint16_t bits_per_sample) {
@@ -290,22 +298,8 @@ static void write_wav_header(uint8_t *header, uint32_t pcm_data_size, uint32_t s
 void ai_upload_task(void *param) {
   ai_upload_in_progress = true;
 
-  // 1. Wait for repeat playback of heard audio to complete so user hears feedback on recording quality
-  uint32_t wait_start = millis();
-  while (audio.isRunning() && (millis() - wait_start < 10000)) {
-    vTaskDelay(pdMS_TO_TICKS(50));
-  }
-  vTaskDelay(pdMS_TO_TICKS(250)); // Short natural breather
-
   size_t wav_len = 44 + ai_rec_pcm_bytes;
-  log_i("[AI UPLOAD] Feedback playback finished. Posting %u bytes WAV to https://autobots.my.to/ask.php...", (unsigned)wav_len);
-
-  UIStatusPayload p_proc = {.type = STATUS_UPDATE_AI_THINKING};
-  xQueueSend(ui_status_queue, &p_proc, 100);
-
-  UIStatusPayload p_desc = {.type = STATUS_UPDATE_TRACK_DESC_SET};
-  snprintf(p_desc.trackDesc, sizeof(p_desc.trackDesc), "AI Assistant:\nAnalyzing your voice query...");
-  xQueueSend(ui_status_queue, &p_desc, 100);
+  log_i("[AI UPLOAD] Posting %u bytes WAV to %s...", (unsigned)wav_len, AI_ASSISTANT_URL);
 
   if (WiFi.status() != WL_CONNECTED) {
     log_e("[AI UPLOAD] WiFi offline, cannot upload");
@@ -321,71 +315,171 @@ void ai_upload_task(void *param) {
 
   {
     WiFiClientSecure client;
-    client.setInsecure();
-    HTTPClient http;
+    client.setInsecure(); // Public server with Let's Encrypt TLS
 
-    if (!http.begin(client, "https://autobots.my.to/ask.php")) {
-      log_e("[AI UPLOAD] HTTP client begin failed");
+    log_i("[AI UPLOAD] Connecting to %s:%d (HTTPS)...", AI_ASSISTANT_HOST, (int)AI_ASSISTANT_PORT);
+    if (!client.connect(AI_ASSISTANT_HOST, AI_ASSISTANT_PORT)) {
+      log_e("[AI UPLOAD] TLS connection to %s:%d failed", AI_ASSISTANT_HOST, (int)AI_ASSISTANT_PORT);
       UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
       snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nCannot connect to server.");
       xQueueSend(ui_status_queue, &p, 100);
       UIStatusPayload p2 = {.type = STATUS_UPDATE_AI_IDLE};
       xQueueSend(ui_status_queue, &p2, 100);
     } else {
-      http.addHeader("Content-Type", "audio/wav");
-      http.addHeader("User-Agent", "ESP32-TuneBar");
-      http.setTimeout(15000);
+      client.setTimeout(30000); // Set 30s timeout on active socket descriptor
+      log_i("[AI UPLOAD] Connected via TLS! Sending headers...");
+      client.printf("POST %s HTTP/1.1\r\n", AI_ASSISTANT_PATH);
+      client.printf("Host: %s\r\n", AI_ASSISTANT_HOST);
+      client.print("User-Agent: ESP32-TuneBar\r\n");
+      client.print("Content-Type: audio/wav\r\n");
+      client.printf("Content-Length: %u\r\n", (unsigned)wav_len);
+      client.print("Connection: close\r\n\r\n");
 
-      int httpCode = http.POST(ai_wav_buffer, wav_len);
-      log_i("[AI UPLOAD] HTTP POST returned code: %d", httpCode);
+      log_i("[AI UPLOAD] Streaming %u bytes audio in 1KB TLS records...", (unsigned)wav_len);
+      size_t offset = 0;
+      uint32_t t_last_progress = millis();
+      bool upload_ok = true;
 
-      if (httpCode == HTTP_CODE_OK) {
-        String payload = http.getString();
-        log_i("[AI UPLOAD] JSON payload (%d bytes): %s", (int)payload.length(), payload.c_str());
-
-        JsonDocument doc;
-        DeserializationError dErr = deserializeJson(doc, payload);
-        if (!dErr) {
-          const char *question = doc["question"] | "(Audio Query)";
-          const char *answer = doc["answer"] | "Processing complete.";
-          const char *audio_url = doc["audio_url"] | "";
-
-          UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
-          snprintf(p.trackDesc, sizeof(p.trackDesc), "You: %s\n\nAI: %s", question, answer);
-          xQueueSend(ui_status_queue, &p, 100);
-
-          UIStatusPayload p_spk = {.type = STATUS_UPDATE_AI_SPEAKING};
-          xQueueSend(ui_status_queue, &p_spk, 100);
-
-          if (audio_url && strlen(audio_url) > 0) {
-            log_i("[AI UPLOAD] Streaming answer audio from: %s", audio_url);
-            bsp_set_audio_amp_power(true);
-            speaker.setVolume(90);
-            audio.setVolume(21);
-            resetScreenOffTimer(NULL);
-            mediaType = 2; // AI Assistant mode
-            audioPlayHOST(audio_url, "");
-          } else {
-            UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
-            xQueueSend(ui_status_queue, &p_idle, 100);
-          }
+      while (offset < wav_len && client.connected()) {
+        size_t chunk = wav_len - offset;
+        if (chunk > 1024) chunk = 1024;
+        size_t written = client.write(ai_wav_buffer + offset, chunk);
+        if (written > 0) {
+          offset += written;
+          t_last_progress = millis();
         } else {
-          log_e("[AI UPLOAD] JSON parse failed: %s", dErr.c_str());
-          UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
-          snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nBad server response.");
-          xQueueSend(ui_status_queue, &p, 100);
-          UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
-          xQueueSend(ui_status_queue, &p_idle, 100);
+          if (millis() - t_last_progress > 15000) {
+            log_e("[AI UPLOAD] TLS write stalled for 15s at offset %u/%u", (unsigned)offset, (unsigned)wav_len);
+            upload_ok = false;
+            break;
+          }
+          vTaskDelay(pdMS_TO_TICKS(50));
+          continue;
         }
-      } else {
-        log_e("[AI UPLOAD] POST failed, HTTP error: %d", httpCode);
+        vTaskDelay(pdMS_TO_TICKS(15)); // 15ms pacing allows lwIP TCP ACK drain without window stall
+      }
+
+      if (offset < wav_len) {
+        upload_ok = false;
+        log_e("[AI UPLOAD] Incomplete upload: %u/%u bytes sent", (unsigned)offset, (unsigned)wav_len);
+      }
+
+      if (!upload_ok) {
         UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
-        snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error (HTTP %d).\nTap [ MIC ] to retry.", httpCode);
+        snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nUpload failed. Tap [ MIC ] to retry.");
         xQueueSend(ui_status_queue, &p, 100);
         UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
         xQueueSend(ui_status_queue, &p_idle, 100);
+      } else {
+        log_i("[AI UPLOAD] Audio upload finished (%u bytes). Awaiting HTTPS response...", (unsigned)wav_len);
+
+        // Wait for response with timeout
+        uint32_t resp_start = millis();
+        while (!client.available() && client.connected() && (millis() - resp_start < 25000)) {
+          vTaskDelay(pdMS_TO_TICKS(50));
+        }
+
+        if (!client.available()) {
+          log_e("[AI UPLOAD] Server response timed out");
+          UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+          snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nServer response timeout.");
+          xQueueSend(ui_status_queue, &p, 100);
+          UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+          xQueueSend(ui_status_queue, &p_idle, 100);
+        } else {
+          // Read response directly into buffer in blocks (no byte-by-byte or readString timeout)
+          char resp_buf[2048];
+          memset(resp_buf, 0, sizeof(resp_buf));
+          size_t total_bytes = 0;
+          uint32_t t_read = millis();
+
+          while ((client.connected() || client.available()) && total_bytes < sizeof(resp_buf) - 1) {
+            if (client.available()) {
+              int n = client.read((uint8_t *)(resp_buf + total_bytes), sizeof(resp_buf) - 1 - total_bytes);
+              if (n > 0) {
+                total_bytes += n;
+                resp_buf[total_bytes] = '\0';
+                t_read = millis();
+                char *json_start = strchr(resp_buf, '{');
+                char *json_end = strrchr(resp_buf, '}');
+                if (json_start && json_end && json_end > json_start && strstr(json_start, "\"status\"")) {
+                  break; // Got full JSON response!
+                }
+              } else if (n < 0) {
+                break;
+              }
+            } else {
+              if (total_bytes > 0 && (millis() - t_read > 800)) {
+                break;
+              }
+              vTaskDelay(pdMS_TO_TICKS(10));
+            }
+            if (millis() - t_read > 8000) break;
+          }
+
+          int httpCode = 0;
+          if (strstr(resp_buf, "HTTP/1.1 200") || strstr(resp_buf, "HTTP/1.0 200")) {
+            httpCode = 200;
+          } else {
+            char *p = strstr(resp_buf, "HTTP/1.");
+            if (p && strlen(p) >= 12) httpCode = atoi(p + 9);
+          }
+          log_i("[AI UPLOAD] HTTP Status: %d (%u bytes received)", httpCode, (unsigned)total_bytes);
+
+          char *json_start = strchr(resp_buf, '{');
+          if (httpCode == 200 && json_start) {
+            log_i("[AI UPLOAD] JSON payload: %s", json_start);
+            JsonDocument doc;
+            DeserializationError dErr = deserializeJson(doc, json_start);
+            if (!dErr) {
+              const char *question = doc["question"] | "(Audio Query)";
+              const char *answer = doc["answer"] | "Processing complete.";
+              const char *audio_url = doc["audio_url"] | "";
+
+              if (lvgl_port_lock(500)) {
+                if (ui_Player_Textarea_status) {
+                  char *disp_buf = (char *)ai_wav_buffer; // Zero DRAM: re-use PSRAM buffer
+                  snprintf(disp_buf, 4096, "You: %s\n\nAI: %s", question, answer);
+                  lv_textarea_set_text(ui_Player_Textarea_status, disp_buf);
+                  lv_textarea_set_cursor_pos(ui_Player_Textarea_status, 0);
+                  lv_obj_scroll_to_y(ui_Player_Textarea_status, 0, LV_ANIM_OFF);
+                }
+                lvgl_port_unlock();
+              }
+
+              UIStatusPayload p_spk = {.type = STATUS_UPDATE_AI_SPEAKING};
+              xQueueSend(ui_status_queue, &p_spk, 100);
+
+              if (audio_url && strlen(audio_url) > 0) {
+                log_i("[AI UPLOAD] Streaming answer audio from: %s", audio_url);
+                bsp_set_audio_amp_power(true);
+                speaker.setVolume(90);
+                audio.setVolume(21);
+                resetScreenOffTimer(NULL);
+                mediaType = 2; // AI Assistant mode
+                audioPlayHOST(audio_url, "");
+              } else {
+                UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+                xQueueSend(ui_status_queue, &p_idle, 100);
+              }
+            } else {
+              log_e("[AI UPLOAD] JSON parse failed: %s", dErr.c_str());
+              UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+              snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nBad server response.");
+              xQueueSend(ui_status_queue, &p, 100);
+              UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+              xQueueSend(ui_status_queue, &p_idle, 100);
+            }
+          } else {
+            log_e("[AI UPLOAD] Server returned HTTP error: %d", httpCode);
+            UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+            snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error (HTTP %d).\nTap [ MIC ] to retry.", httpCode);
+            xQueueSend(ui_status_queue, &p, 100);
+            UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+            xQueueSend(ui_status_queue, &p_idle, 100);
+          }
+        }
       }
-      http.end();
       client.stop();
     }
   }
@@ -435,13 +529,28 @@ void start_ai_voice_recording() {
   s_dma_dumped = false;
   s_decim_phase = 0;
   s_decim_acc = 0;
+  vad_speech_detected = false;
+  vad_last_speech_ms = millis();
+  vad_calibrated = false;
+  vad_calib_sum = 0;
+  vad_calib_samples = 0;
+  vad_dc_bias = 0;
+  vad_speech_threshold = 450;
 
   bsp_set_audio_amp_power(true);
   resetScreenOffTimer(NULL);
 
+  // Pre-connect Wi-Fi in background if offline so network is ready upon speech finish
+  if (wifiEnable && WiFi.status() != WL_CONNECTED) {
+    WiFi.mode(WIFI_STA);
+    wifi_need_connect = true;
+    wifiConnect();
+    log_i("[AI REC] Pre-connecting Wi-Fi in background while recording speech...");
+  }
+
   UIStatusPayload msg = {.type = STATUS_UPDATE_AI_LISTENING};
   xQueueSend(ui_status_queue, &msg, 100);
-  log_i("[AI REC] Microphone ACTIVE: listening for voice (4.0s @ 8kHz)...");
+  log_i("[AI REC] Microphone ACTIVE: listening for voice (auto-stop on 1.0s silence, max 15s)...");
 }
 
 static void normalize_wav_buffer(uint8_t *wav_buf, size_t pcm_bytes) {
@@ -499,37 +608,45 @@ void stop_ai_voice_recording_and_process() {
 
   write_wav_header(ai_wav_buffer, ai_rec_pcm_bytes, AI_REC_SAMPLE_RATE, 1, 16);
 
-  // 1. Save recorded audio to LittleFS as /rec.wav for loopback & diagnostic download
+  // 1. Save recorded audio to LittleFS as /rec.wav for diagnostic download
   File f = LittleFS.open("/rec.wav", "w");
   if (f) {
     f.write(ai_wav_buffer, 44 + ai_rec_pcm_bytes);
     f.close();
-    log_i("[LOOPBACK] Saved /rec.wav (%u bytes) to LittleFS", (unsigned)(44 + ai_rec_pcm_bytes));
+    log_i("[DIAG] Saved /rec.wav (%u bytes) to LittleFS", (unsigned)(44 + ai_rec_pcm_bytes));
   } else {
-    log_e("[LOOPBACK] Failed to open /rec.wav for writing!");
+    log_e("[DIAG] Failed to open /rec.wav for writing!");
   }
 
-  // 2. Play heard audio back over the physical speaker immediately as requested by user
-  bsp_set_audio_amp_power(true);
-  speaker.setVolume(90);
-  audio.setVolume(21);
+  // 2. Immediately transition to AI Thinking state (no repeat audio delay)
+  mediaType = 2; // AI mode
   resetScreenOffTimer(NULL);
 
-  UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
-  snprintf(p.trackDesc, sizeof(p.trackDesc), "Voice Feedback:\nRepeating what was heard...");
-  xQueueSend(ui_status_queue, &p, 100);
+  UIStatusPayload p_proc = {.type = STATUS_UPDATE_AI_THINKING};
+  xQueueSend(ui_status_queue, &p_proc, 100);
 
-  UIStatusPayload p_spk = {.type = STATUS_UPDATE_AI_SPEAKING};
-  xQueueSend(ui_status_queue, &p_spk, 100);
+  UIStatusPayload p_desc = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+  snprintf(p_desc.trackDesc, sizeof(p_desc.trackDesc), "AI Assistant:\nAnalyzing your voice query...");
+  xQueueSend(ui_status_queue, &p_desc, 100);
 
-  mediaType = 2; // AI mode
-  audio.connecttoFS(LittleFS, "/rec.wav");
+  // 3. Ensure WiFi connection (wait briefly if pre-connecting)
+  if (WiFi.status() != WL_CONNECTED && wifiEnable) {
+    uint32_t t_wait = millis();
+    while (WiFi.status() != WL_CONNECTED && (millis() - t_wait < 2500)) {
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+  }
 
-  // 3. Launch upload task (it waits for repeat playback of /rec.wav to finish before server upload & streaming answer)
+  // Launch upload task
   if (WiFi.status() == WL_CONNECTED) {
-    xTaskCreatePinnedToCore(ai_upload_task, "ai_upload_task", 10240, NULL, 5, &ai_upload_task_handle, 0);
+    xTaskCreatePinnedToCore(ai_upload_task, "ai_upload_task", 24576, NULL, 2, &ai_upload_task_handle, 1);
   } else {
-    log_w("[AI REC] WiFi offline, completed local loopback playback only");
+    log_w("[AI REC] WiFi offline, cannot process voice query");
+    UIStatusPayload p_err = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+    snprintf(p_err.trackDesc, sizeof(p_err.trackDesc), "AI Assistant Error:\nWiFi offline. Please connect WiFi.");
+    xQueueSend(ui_status_queue, &p_err, 100);
+    UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+    xQueueSend(ui_status_queue, &p_idle, 100);
   }
 }
 //--------------------------------
@@ -635,11 +752,74 @@ void audio_loop_task(void *param) {
           pcm_dest[converted++] = dma16[i * 4 + 0];
         }
         ai_rec_pcm_bytes += converted * 2;
+
+        // VAD (Voice Activity Detection) with Dynamic DC-bias & Ambient Noise Calibration:
+        uint32_t rec_elapsed_ms = millis() - ai_recording_start_ms;
+        if (!vad_calibrated) {
+          // Calibration phase: sample ambient baseline between 50ms and 250ms (avoids initial button transient)
+          if (rec_elapsed_ms >= 50 && rec_elapsed_ms < 250) {
+            for (size_t i = 0; i < frames; i++) {
+              vad_calib_sum += dma16[i * 4 + 0];
+              vad_calib_samples++;
+            }
+          } else if (rec_elapsed_ms >= 250) {
+            if (vad_calib_samples > 0) {
+              vad_dc_bias = (int32_t)(vad_calib_sum / (int64_t)vad_calib_samples);
+            } else {
+              vad_dc_bias = 0;
+            }
+            int32_t max_amb = 0;
+            for (size_t i = 0; i < frames; i++) {
+              int32_t diff = abs((int32_t)dma16[i * 4 + 0] - vad_dc_bias);
+              if (diff > max_amb) max_amb = diff;
+            }
+            vad_speech_threshold = (int32_t)(max_amb * 2.2f);
+            if (vad_speech_threshold < 450) vad_speech_threshold = 450;
+            if (vad_speech_threshold > 2000) vad_speech_threshold = 2000;
+            vad_calibrated = true;
+            vad_last_speech_ms = millis();
+            log_i("[AI VAD] Calibration complete: DC bias=%d, ambient peak=%d, speech threshold=%d",
+                  (int)vad_dc_bias, (int)max_amb, (int)vad_speech_threshold);
+          }
+        } else {
+          // Detection phase: Measure true AC acoustic deviation from calibrated DC bias
+          int32_t max_ac_val = 0;
+          for (size_t i = 0; i < frames; i++) {
+            int32_t ac_val = abs((int32_t)dma16[i * 4 + 0] - vad_dc_bias);
+            if (ac_val > max_ac_val) max_ac_val = ac_val;
+          }
+          if (max_ac_val >= vad_speech_threshold) {
+            if (!vad_speech_detected) {
+              vad_speech_detected = true;
+              log_i("[AI VAD] Speech started! (AC peak=%d >= thresh=%d) at %u ms",
+                    (int)max_ac_val, (int)vad_speech_threshold, (unsigned)rec_elapsed_ms);
+            }
+            vad_last_speech_ms = millis();
+          }
+        }
       }
 
-      // Check if finished: buffer full (128 KB) or 4.2 seconds elapsed
-      if (ai_rec_pcm_bytes >= AI_REC_PCM_MAX || (millis() - ai_recording_start_ms >= 4200)) {
+      uint32_t elapsed_ms = millis() - ai_recording_start_ms;
+
+      // Stop condition 1: 1.0s trailing silence after speech was detected (min 1.5s total duration)
+      if (vad_speech_detected && (elapsed_ms >= 1500) && (millis() - vad_last_speech_ms >= 1000)) {
+        log_i("[AI VAD] Trailing silence reached (1.0s pause after speech). Auto-submitting query at %u ms", (unsigned)elapsed_ms);
         stop_ai_voice_recording_and_process();
+        continue;
+      }
+
+      // Stop condition 2: No speech detected at all after 6 seconds -> stop to save battery
+      if (!vad_speech_detected && (elapsed_ms >= 6000)) {
+        log_i("[AI VAD] No speech detected after 6s. Stopping recording.");
+        stop_ai_voice_recording_and_process();
+        continue;
+      }
+
+      // Stop condition 3: Buffer full or max 15.0s cap reached
+      if (ai_rec_pcm_bytes >= AI_REC_PCM_MAX || (elapsed_ms >= 15000)) {
+        log_i("[AI VAD] Maximum duration (15s) reached. Stopping recording.");
+        stop_ai_voice_recording_and_process();
+        continue;
       }
       continue;
     }

@@ -16,6 +16,10 @@
 #define  LCD_PWM_MODE_225 (0xff-225)
 #define  LCD_PWM_MODE_255 (0xff-255)
 
+#define  LCD_BL_LOW   (255 - 120)  // 120 = LOW (bumped above 93 floor)
+#define  LCD_BL_MED   (255 - 170)  // 170 = MEDIUM
+#define  LCD_BL_HIGH  (255 - 255)  // 255 = HIGH
+
 
 
 #ifdef __cplusplus
@@ -23,6 +27,7 @@ extern "C" {
 #endif
 
 extern volatile uint8_t BL_OFF;
+extern volatile uint8_t clock_face_active;
 extern volatile uint8_t backlight_state;
 extern volatile uint32_t SCREEN_OFF_TIMER;
 extern volatile uint32_t SCREEN_OFF_DELAY;

@@ -49,10 +49,16 @@ void _ui_slider_set_property(lv_obj_t * target, int id, int val)
 }
 
 
+extern lv_obj_t * ui_Screen_Info;
+lv_obj_t * last_active_screen = NULL;
+
 void _ui_screen_change(lv_obj_t ** target, lv_scr_load_anim_t fademode, int spd, int delay, void (*target_init)(void))
 {
     if(*target == NULL)
         target_init();
+    if(target != NULL && *target != NULL && *target != ui_Screen_Info) {
+        last_active_screen = *target;
+    }
     lv_scr_load_anim(*target, fademode, spd, delay, false);
 }
 

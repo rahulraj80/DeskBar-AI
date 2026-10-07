@@ -1,3 +1,4 @@
+#include "../battery/battery.h"
 //==============  REAT TIME CLOCK =====================
 #include "pcf85063.h"
 #include "user_config.h"

@@ -173,6 +173,7 @@ class Audio {
 
      i2s_chan_handle_t        getRxHandle() { return m_i2s_rx_handle; }
      i2s_chan_handle_t        getTxHandle() { return m_i2s_tx_handle; }
+     bool                     setSampleRate(uint32_t hz);
 
     // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
@@ -218,7 +219,6 @@ class Audio {
     int                      read_ID3_Header(uint8_t* data, size_t len);
     int                      read_M4A_Header(uint8_t* data, size_t len);
     size_t                   process_m3u8_ID3_Header(uint8_t* packet);
-    bool                     setSampleRate(uint32_t hz);
     bool                     setBitsPerSample(int bits);
     bool                     setChannels(int channels);
     size_t                   resampleTo48kStereo(const int16_t* input, size_t inputFrames);
@@ -562,13 +562,22 @@ class Audio {
         if (!fmt) return false;
         if (!audio_info_callback) return false;
         ps_ptr<char> result(__LINE__);
-        // First run: determine size
-        int len = std::snprintf(nullptr, 0, fmt, safe_arg(std::forward<Args>(args))...);
-        if (len <= 0) return false;
-        result.calloc(len + 1);
-        char* p = result.get();
-        if (!p) return false;
-        std::snprintf(p, len + 1, fmt, safe_arg(std::forward<Args>(args))...);
+        if constexpr (sizeof...(args) == 0) {
+            size_t len = strlen(fmt);
+            if (len == 0) return false;
+            result.calloc(len + 1);
+            char* p = result.get();
+            if (!p) return false;
+            memcpy(p, fmt, len + 1);
+        } else {
+            // First run: determine size
+            int len = std::snprintf(nullptr, 0, fmt, safe_arg(std::forward<Args>(args))...);
+            if (len <= 0) return false;
+            result.calloc(len + 1);
+            char* p = result.get();
+            if (!p) return false;
+            std::snprintf(p, len + 1, fmt, safe_arg(std::forward<Args>(args))...);
+        }
         msg_t i = {0};
         i.msg = result.c_get();
         i.e = e;
@@ -627,9 +636,13 @@ class Audio {
         else
             return;
 
-        int add_len = std::snprintf(nullptr, 0, fmt, std::forward<Args>(args)...);
-        if (add_len > 0) {
-            logStr.appendf(fmt, std::forward<Args>(args)...); // <-- neue appendf()
+        if constexpr (sizeof...(args) == 0) {
+            logStr.append(fmt);
+        } else {
+            int add_len = std::snprintf(nullptr, 0, fmt, std::forward<Args>(args)...);
+            if (add_len > 0) {
+                logStr.appendf(fmt, std::forward<Args>(args)...); // <-- neue appendf()
+            }
         }
         logStr.append(ANSI_ESC_RESET);
 

@@ -1,6 +1,6 @@
 https://www.weatherapi.com/api-explorer.aspx
 https://api.weatherapi.com/v1/current.json?key=&q=London&aqi=yes
-key:  1f00c88f3483483a9ba62101250612
+key:  YOUR_WEATHER_API_KEY
 
 {
     "error": {

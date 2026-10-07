@@ -2,12 +2,13 @@
 #include "network/network.h"
 #include "pcf85063/pcf85063.h"
 #include "ui/ui.h"
+#include "lvgl_port/lvgl_port.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include "user_config.h"
 
-const char *weatherUrl = "http://api.weatherapi.com/v1/current.json?key=%s&q=%s&aqi=yes";
-//"https://api.weatherapi.com/v1/current.json?key=%s&q=%s&aqi=yes"; for SSL
-const char *weatherApiKey = "1f00c88f3483483a9ba62101250612";
+const char *weatherUrl = WEATHER_API_URL;
+const char *weatherApiKey = WEATHER_API_KEY;
 
 char query_parameter[64] = "auto:ip"; // auto detect by IP , or city name "Bangkok", or "lat,long" 13.6499579,100.4103726
 const int8_t UTC_offset_hour[27] = {14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12};
@@ -395,12 +396,15 @@ void updateWeatherPanelTask(void *parameter) {
     int errorCode = doc["error"]["code"].as<int>();
     if (errorCode != 0 || usepa_index == 0) { // error occure
       log_e("Error code: %d %s", errorCode, doc["error"]["message"].as<const char *>());
-      lv_label_set_text(ui_Info_Label_AQIlocation, "No data available");
-      lv_img_set_src(ui_Info_Image_AQIimage, ""); // icon
-      lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(0x777777), LV_PART_MAIN);
-      lv_label_set_text(ui_Info_Label_AQIrate, "Please try select another city");
-      lv_label_set_text(ui_Info_Label_AQIvalue, "-");
-      lv_label_set_text(ui_Info_Label_AQIdominant, "");
+      if (lvgl_port_lock(1000)) {
+        lv_label_set_text(ui_Info_Label_AQIlocation, "No data available");
+        lv_img_set_src(ui_Info_Image_AQIimage, ""); // icon
+        lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(0x777777), LV_PART_MAIN);
+        lv_label_set_text(ui_Info_Label_AQIrate, "Please try select another city");
+        lv_label_set_text(ui_Info_Label_AQIvalue, "-");
+        lv_label_set_text(ui_Info_Label_AQIdominant, "");
+        lvgl_port_unlock();
+      }
 
     } else { // dadta available
 
@@ -445,19 +449,6 @@ void updateWeatherPanelTask(void *parameter) {
       parseAQI(data.co, data.no2, data.o3, data.so2, data.pm2_5, data.pm10);
 
       // 4. update weather panel
-      // 4.1 udpate AQI pollution widget
-      lv_img_set_src(ui_Info_Image_AQIimage, &us_epa_index_icon[data.usepa_index - 1]); // icon
-      lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(us_epa_index_colors[data.usepa_index - 1]), LV_PART_MAIN); // widget color
-      // lv_obj_set_style_bg_opa(ui_Info_Panel_AQI, 150, LV_PART_MAIN); // widget transprent
-      lv_label_set_text(ui_Info_Label_AQIlocation, data.state);
-      lv_label_set_text(ui_Info_Label_AQIvalue, USAQI);
-      lv_label_set_text(ui_Info_Label_AQIrate, data.name);
-      lv_label_set_text(ui_Info_Label_AQIdominant, dominantPollutant);
-      char lastupdated[64];
-      snprintf(lastupdated, sizeof(lastupdated), "Last Updated: %s", data.last_updated);
-      lv_label_set_text(ui_Info_Label_LastUpdated, lastupdated);
-
-      // 4.2 udpate weather condition widget
       bool isNight = (data.is_day == 0);
       const lv_img_dsc_t *iconImg = getWeatherIconImage(data.code, isNight);
       const lv_img_dsc_t *homeImg = getHomeIconImage(data.code, isNight, now.month);
@@ -468,13 +459,8 @@ void updateWeatherPanelTask(void *parameter) {
       } else {
         snprintf(temp, sizeof(temp), "%.1f°F", data.temp_f);
       }
-      lv_label_set_text(ui_Info_Label_Temp, temp);
-
-      lv_img_set_src(ui_Info_Image_WeatherIcon, iconImg); // icon
-      lv_img_set_src(ui_Info_Image_Home, homeImg); // icon
 
       char details[256]; // adjust size if UI text grows
-
       if (temp_unit == 0) {
         // Celsius version
         snprintf(details, sizeof(details),
@@ -494,8 +480,28 @@ void updateWeatherPanelTask(void *parameter) {
                  "UV Index : %.0f",
                  data.feelslike_f, data.wind_kph, data.wind_dir, data.humidity, data.pressure_in, data.uv);
       }
-      lv_label_set_text(ui_Info_Label_Detail, details);
-      setWeatherPanelBgColor(data.code, isNight); // set wallpaper
+
+      char lastupdated[64];
+      snprintf(lastupdated, sizeof(lastupdated), "Last Updated: %s", data.last_updated);
+
+      if (lvgl_port_lock(1000)) {
+        // 4.1 udpate AQI pollution widget
+        lv_img_set_src(ui_Info_Image_AQIimage, &us_epa_index_icon[data.usepa_index - 1]); // icon
+        lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(us_epa_index_colors[data.usepa_index - 1]), LV_PART_MAIN); // widget color
+        lv_label_set_text(ui_Info_Label_AQIlocation, data.state);
+        lv_label_set_text(ui_Info_Label_AQIvalue, USAQI);
+        lv_label_set_text(ui_Info_Label_AQIrate, data.name);
+        lv_label_set_text(ui_Info_Label_AQIdominant, dominantPollutant);
+        lv_label_set_text(ui_Info_Label_LastUpdated, lastupdated);
+
+        // 4.2 udpate weather condition widget
+        lv_label_set_text(ui_Info_Label_Temp, temp);
+        lv_img_set_src(ui_Info_Image_WeatherIcon, iconImg); // icon
+        lv_img_set_src(ui_Info_Image_Home, homeImg); // icon
+        lv_label_set_text(ui_Info_Label_Detail, details);
+        setWeatherPanelBgColor(data.code, isNight); // set wallpaper
+        lvgl_port_unlock();
+      }
     }
   } else {
     log_e("Failed to fetch weather data from URL");

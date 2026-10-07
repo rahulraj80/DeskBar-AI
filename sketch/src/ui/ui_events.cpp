@@ -1,3 +1,6 @@
+#include <stdint.h>
+void updateInfoPanel(uint8_t pages);
+#include "battery/battery.h"
 #include "ui.h"
 #include <Arduino.h>
 #include <Preferences.h>
@@ -17,9 +20,18 @@ Preferences pref;
 
 #include "ESP32-audioI2S-master/Audio.h"
 #include "es7210/es7210.h"
+#include "lan_stream/lan_stream.h"
 extern Audio audio;
 uint8_t audio_volume = 10;
 extern ES7210 mic;
+int lan_track_idx = 0;
+extern void start_ai_voice_recording();
+extern void stop_ai_voice_recording_and_process();
+extern volatile bool ai_recording_active;
+extern volatile bool ai_upload_in_progress;
+uint8_t ai_rec_duration_sec = 6;
+static lv_timer_t *menu_audio_anim_timer = NULL;
+static void menu_audio_anim_cb(lv_timer_t *t);
 
 PCF85063 rtc;
 
@@ -37,8 +49,151 @@ const char *wallpaper_menu = "None\nThailand\nChristmas1\nChristmas2\nFuture\nBe
 const lv_img_dsc_t *wallpaper_list[MAX_WALLPAPER] = {
     NULL, &ui_img_wallpaper_thailand_png, &ui_img_wallpaper_christmas1_png, &ui_img_wallpaper_christmas2_png, &ui_img_wallpaper_future_png, &ui_img_wallpaper_beach_png, &ui_img_wallpaper_nature_png,
 };
+
+// --- Clock Face Breathing Backlight & Power State ---
+enum BreathState { BREATH_DARK, BREATH_FADE_IN, BREATH_HOLD_HIGH, BREATH_FADE_OUT };
+static BreathState breath_state   = BREATH_HOLD_HIGH;
+static uint32_t   breath_timer_ms = 0;
+static uint32_t   breath_hold_limit = 3000;
+extern lv_obj_t  *last_active_screen;
+extern "C" void bsp_set_backlight_power(bool enable);
+
+void enter_clock_breathing(void) {
+  if (clock_face_active) return;
+  clock_face_active = 1;
+  BL_OFF = false;
+  bsp_set_backlight_power(true);
+  breath_state = BREATH_HOLD_HIGH;
+  breath_hold_limit = 3000;
+  breath_timer_ms = millis();
+  log_i("[BREATH] Clock breathing active: HOLD state entered (3s bright, 2s fade, 5s dark)");
+
+  // Wi-Fi off in clock mode if no audio stream is active over the network
+  if (!audio.isRunning() || mediaType >= 2) {
+    if (WiFi.getMode() != WIFI_OFF) {
+      WiFi.disconnect(true);
+      WiFi.mode(WIFI_OFF);
+      log_i("[BREATH] Wi-Fi powered OFF for clock mode power saving");
+    }
+  }
+}
+
+void exit_clock_breathing(void) {
+  if (!clock_face_active) return;
+  clock_face_active = 0;
+  bsp_set_backlight_power(true);
+  screenPowerOn(); // Restores AP3032 boost rail and sets PWM duty according to backlight_state
+
+  // Re-enable WiFi if leaving clock mode and WiFi is enabled in settings
+  if (wifiEnable && WiFi.getMode() == WIFI_OFF) {
+    WiFi.mode(WIFI_STA);
+    wifi_need_connect = true;
+    if (wifi_check_timer) lv_timer_resume(wifi_check_timer);
+    wifiConnect();
+    log_i("[BREATH] Wi-Fi restored upon exiting clock mode");
+  }
+}
+
+void on_clock_touch_or_button(void) {
+  if (clock_face_active) {
+    bsp_set_backlight_power(true);
+    uint8_t max_bl;
+    switch (backlight_state) {
+      case 0:  max_bl = 120; break;
+      case 1:  max_bl = 170; break;
+      default: max_bl = 255; break;
+    }
+    setUpduty(255 - max_bl);
+    breath_state = BREATH_HOLD_HIGH;
+    uint32_t hold_time = (SCREEN_OFF_DELAY > 10000) ? SCREEN_OFF_DELAY : 10000;
+    breath_hold_limit = hold_time;
+    breath_timer_ms = millis();
+    SCREEN_OFF_TIMER = millis();
+    log_i("[BREATH] Touch -> Snapped to HOLD (%us)", (unsigned)(hold_time / 1000));
+  }
+}
+
+extern "C" void on_clock_boot_button_pressed(void) {
+  if (!clock_face_active) return;
+  exit_clock_breathing(); // Restores backlight to settings brightness, turns boost rail on, restores WiFi
+  SCREEN_OFF_TIMER = millis(); // Reset idle timeout
+  BL_OFF = false;
+
+  if (last_active_screen && last_active_screen != ui_Screen_Info) {
+    log_i("[BOOT BTN] Returning to previous screen before clock");
+    lv_scr_load_anim(last_active_screen, LV_SCR_LOAD_ANIM_FADE_ON, 300, 0, false);
+  } else {
+    log_i("[BOOT BTN] Remaining on Clock with active settings brightness");
+    on_clock_touch_or_button();
+  }
+}
+
+void update_clock_breathing(void) {
+  if (!clock_face_active) return;
+
+  uint8_t max_bl;
+  switch (backlight_state) {
+    case 0:  max_bl = 120; break;  // LOW
+    case 1:  max_bl = 170; break;  // MED
+    default: max_bl = 255; break;  // HIGH
+  }
+
+  uint32_t elapsed = millis() - breath_timer_ms;
+
+  switch (breath_state) {
+    case BREATH_DARK:
+      setUpduty(255); // 0% PWM duty
+      bsp_set_backlight_power(false); // Cut boost rail for full blackout & power saving
+      if (elapsed >= 5000) { // 5s full dark
+        bsp_set_backlight_power(true);
+        breath_state    = BREATH_FADE_IN;
+        breath_timer_ms = millis();
+      }
+      break;
+
+    case BREATH_FADE_IN:
+      bsp_set_backlight_power(true);
+      if (elapsed < 2000) { // 2.0s smooth ramp up
+        float progress = (float)elapsed / 2000.0f;
+        uint8_t current_val = (uint8_t)(progress * (float)max_bl);
+        setUpduty(255 - current_val);
+      } else {
+        setUpduty(255 - max_bl);
+        breath_state    = BREATH_HOLD_HIGH;
+        breath_timer_ms = millis();
+      }
+      break;
+
+    case BREATH_HOLD_HIGH:
+      bsp_set_backlight_power(true);
+      setUpduty(255 - max_bl);
+      if (elapsed >= breath_hold_limit) {
+        breath_hold_limit = 3000; // Reset back to default 3.0s bright hold
+        breath_state    = BREATH_FADE_OUT;
+        breath_timer_ms = millis();
+      }
+      break;
+
+    case BREATH_FADE_OUT:
+      if (elapsed < 2000) { // 2.0s smooth ramp down
+        float progress = (float)elapsed / 2000.0f;
+        uint8_t current_val = (uint8_t)((1.0f - progress) * (float)max_bl);
+        setUpduty(255 - current_val);
+      } else {
+        setUpduty(255);
+        bsp_set_backlight_power(false); // Full blackout
+        breath_state    = BREATH_DARK;
+        breath_timer_ms = millis();
+      }
+      break;
+  }
+}
+
 //wifi monitor call back from timer
 void lvgl_wifi_check_cb(lv_timer_t *t) {
+  if (clock_face_active && (!audio.isRunning() || mediaType >= 2)) {
+    return; // Keep WiFi OFF in clock mode when no network audio stream is playing
+  }
   if (wifiEnable) {//if enable
     if (WiFi.status() != WL_CONNECTED && wifiTaskHandle == NULL) {//wifi disconnected
         wifi_need_connect = true;
@@ -55,7 +210,13 @@ void lv_create_delayed_task(lv_timer_cb_t callback, uint32_t delay_ms, void *use
 // initalize lvgl ui
 void init_main_menu_task(lv_timer_t *timer) {
   lv_timer_del(timer);
-  lv_scr_load_anim(ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_FADE_IN, 1000, 0, true); // delete old screen
+  lv_scr_load(ui_Screen_Info);
+  infoPageIndex = 0;
+  updateInfoPanel(0);
+  static lv_timer_t *breath_timer = NULL;
+  if (!breath_timer) {
+    breath_timer = lv_timer_create([](lv_timer_t *t){ update_clock_breathing(); }, 30, NULL);
+  }           // Activate clock panel & breathing // delete old screen
 
   // init widgets
   lv_label_set_text(ui_Player_Label_Label1, LV_SYMBOL_VOLUME_MAX);
@@ -146,6 +307,10 @@ void init_main_menu_task(lv_timer_t *timer) {
   //wifi enable
   wifiEnable = pref.getBool("wifi_enable", true);
 
+  // ai recording duration
+  ai_rec_duration_sec = pref.getUChar("ai_dur", 6);
+  if (ai_rec_duration_sec < 4 || ai_rec_duration_sec > 15) ai_rec_duration_sec = 6;
+
   pref.end();
   SCREEN_OFF_TIMER = millis(); // reset timer
 
@@ -159,6 +324,10 @@ void init_main_menu_task(lv_timer_t *timer) {
     WiFi.disconnect(true);
     log_d("WiFi stack initialized");
   }
+
+  if (!menu_audio_anim_timer) {
+    menu_audio_anim_timer = lv_timer_create(menu_audio_anim_cb, 350, NULL);
+  }
 }
 
 // ################# App start here after screen initialized ##############################
@@ -166,7 +335,7 @@ void appStart(lv_event_t *e) {
   initLittleFS(); // iniit LittleFS
   audioSetVolume(audio_volume);
   audioPlayFS(1, "/audio/on.mp3");
-  lv_create_delayed_task(init_main_menu_task, 2500, NULL); // show display logo for 2.5 second and start initializing widgets
+  lv_create_delayed_task(init_main_menu_task, 0, NULL); // show display logo for 2.5 second and start initializing widgets
 }
 
 //---------------- Volume control ------------------------------
@@ -216,11 +385,14 @@ void togglePlayingMode(lv_event_t *e) {
   SCREEN_OFF_TIMER = millis(); // reset backlight timer
   playMode++;
   if (playMode > 2) playMode = 0;
-  log_d("Playing mode: %d", playMode);
-  switch (playMode) {
-  case 0: lv_label_set_text(ui_Player_Label_Label16, LV_SYMBOL_LOOP); break;
-  case 1: lv_label_set_text(ui_Player_Label_Label16, LV_SYMBOL_SHUFFLE); break;
-  case 2: lv_label_set_text(ui_Player_Label_Label16, "1"); break;
+  log_i("Playing mode set to: %d (%s)", playMode, (playMode == 0) ? "LOOP ALL" : (playMode == 1) ? "SHUFFLE" : "REPEAT 1");
+  if (ui_Player_Label_Label16) {
+    lv_obj_set_style_text_font(ui_Player_Label_Label16, &lv_font_montserrat_14, LV_PART_MAIN);
+    switch (playMode) {
+    case 0: lv_label_set_text(ui_Player_Label_Label16, LV_SYMBOL_LOOP); break;
+    case 1: lv_label_set_text(ui_Player_Label_Label16, LV_SYMBOL_SHUFFLE); break;
+    case 2: lv_label_set_text(ui_Player_Label_Label16, "1"); break;
+    }
   }
   pref.begin("config", false); // save pref
   pref.putUChar("playing_mode", playMode);
@@ -260,6 +432,15 @@ void previoustrack(lv_event_t *e) {
   }
 
   case 1: { // music player mode
+    if (lan_get_file_count() > 0) {
+      lan_track_idx = (lan_track_idx == 0) ? (lan_get_file_count() - 1) : (lan_track_idx - 1);
+      snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_get_file_count());
+      lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+      const LanFileEntry *f = lan_get_file(lan_track_idx);
+      if (f) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
+      lan_play(lan_track_idx);
+      break;
+    }
     if (trackListLength <= 0) {
       lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
       lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nPlease scan music first.");
@@ -329,9 +510,24 @@ void SeekingNow(lv_event_t *e) {
   }
 }
 
-// Play / Pause
 void playpause(lv_event_t *e) {
   SCREEN_OFF_TIMER = millis(); // reset backlight timer
+
+  if (mediaType == 2) { // AI Assistant mode
+    if (audio.isRunning()) {
+      audioStopSong();
+      UIStatusPayload msg = {.type = STATUS_UPDATE_AI_IDLE};
+      xQueueSend(ui_status_queue, &msg, 100);
+    } else if (ai_recording_active) {
+      // Tap while recording -> stop early and submit audio to AI
+      stop_ai_voice_recording_and_process();
+    } else if (!ai_upload_in_progress) {
+      // Tap to start recording voice from ES7210 microphone
+      start_ai_voice_recording();
+    }
+    return;
+  }
+
   if (audio.isRunning()) {
     audioPauseResume();
     lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_PLAY);
@@ -355,14 +551,22 @@ void playpause(lv_event_t *e) {
       break; // break should be outside the scope block if not used for variable declaration
     }
     case 1: { // music player mode
-      if (trackListLength <= 0) {
-        lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
-        lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nPlease scan music first.");
-        return;
-      }
       if (paused) {
         audioPauseResume();
         paused = false;
+        return;
+      }
+      if (lan_get_file_count() > 0) {
+        snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_get_file_count());
+        lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+        const LanFileEntry *f = lan_get_file(lan_track_idx);
+        if (f) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
+        lan_play(lan_track_idx);
+        break;
+      }
+      if (trackListLength <= 0) {
+        lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
+        lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nSet LAN server or scan music.");
         return;
       }
       char trackPath[512];
@@ -374,31 +578,6 @@ void playpause(lv_event_t *e) {
       audioPlayFS(0, trackPath);
       break;
     }
-    case 2: // chatbot mode
-
-        lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_PLAY);
-    lv_obj_set_style_radius(ui_Player_Button_play, 25, LV_PART_MAIN);
-    paused = true;
-            // do nothing (or add specific action for chatbot here)
-      /*
-            lv_textarea_set_text(ui_Player_Textarea_status, "Listenning...");
-      audioStopSong();
-
-      int32_t dummy[1024] = {0};
-      size_t n;
-      auto txh = audio.getTxHandle();
-      i2s_channel_write(txh, dummy, sizeof(dummy), &n, 100);
-
-      // ปลุกชิป ES7210
-      if (!mic.start()) {
-        log_e("ES7210 not detected");
-        return;
-      }
-      delay(100);
-      log_i("Recording Started at 48k");
-      is_mic_mode = true;
-      */
-      break; // Cleaned up: only one break needed
     }
   }
 }
@@ -439,6 +618,15 @@ void nexttrack(lv_event_t *e) {
   }
 
   case 1: { // music player mode
+    if (lan_get_file_count() > 0) {
+      lan_track_idx = (lan_track_idx + 1) % lan_get_file_count();
+      snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_get_file_count());
+      lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+      const LanFileEntry *f = lan_get_file(lan_track_idx);
+      if (f) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
+      lan_play(lan_track_idx);
+      break;
+    }
     if (trackListLength <= 0) {
       lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
       lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nPlease scan music first.");
@@ -491,13 +679,15 @@ void setTimer(lv_event_t *e) {
 }
 //  Set backlight brightness event
 void setBrightness(lv_event_t *e) {
-  // lv_obj_t *widget = lv_event_get_target(e);
-  lv_obj_t *widget = ui_MainMenu_Dropdown_Brightness;
-  backlight_state = lv_dropdown_get_selected(widget);
+  if (e != NULL && ui_MainMenu_Dropdown_Brightness != NULL) {
+    uint16_t sel = lv_dropdown_get_selected(ui_MainMenu_Dropdown_Brightness);
+    if (sel <= 2) backlight_state = (uint8_t)sel;
+  }
+  if (backlight_state > 2) backlight_state = 1;
   switch (backlight_state) {
-  case 0: setUpduty(LCD_PWM_MODE_100); break;
-  case 1: setUpduty(LCD_PWM_MODE_150); break;
-  case 2: setUpduty(LCD_PWM_MODE_255); break;
+    case 0: setUpduty(LCD_BL_LOW); break;
+    case 1: setUpduty(LCD_BL_MED); break;
+    case 2: default: setUpduty(LCD_BL_HIGH); break;
   }
   SCREEN_OFF_TIMER = millis(); // reset timer
 }
@@ -642,7 +832,162 @@ void setWallpaper(lv_event_t *e) {
 //----------------- Main Menu Selection events ---------------------
 // mode 0 = live streaming , 1 = music player, 2 = ai chat
 // Livestream mode event
+extern "C" void on_catalog_button_clicked(void) {
+  if (mediaType == 2) {
+    // Cycle AI recording duration: 4s -> 6s -> 8s -> 10s -> 15s -> 4s
+    if (ai_rec_duration_sec == 4) ai_rec_duration_sec = 6;
+    else if (ai_rec_duration_sec == 6) ai_rec_duration_sec = 8;
+    else if (ai_rec_duration_sec == 8) ai_rec_duration_sec = 10;
+    else if (ai_rec_duration_sec == 10) ai_rec_duration_sec = 15;
+    else ai_rec_duration_sec = 4;
+
+    pref.begin("config", false);
+    pref.putUChar("ai_dur", ai_rec_duration_sec);
+    pref.end();
+
+    char buf[16];
+    snprintf(buf, sizeof(buf), LV_SYMBOL_SETTINGS " %ds", ai_rec_duration_sec);
+    if (ui_Player_Label_Catalog) lv_label_set_text(ui_Player_Label_Catalog, buf);
+    log_i("[AI CONFIG] Recording duration set to %us", (unsigned)ai_rec_duration_sec);
+    return;
+  }
+  if (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) {
+    switchRadioCatalog(RADIO_CATALOG_RADIO_INDIA);
+  } else {
+    switchRadioCatalog(RADIO_CATALOG_ONLINE_RADIO_FM);
+  }
+  if (ui_Player_Label_Catalog) {
+    lv_label_set_text(ui_Player_Label_Catalog, 
+        (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? LV_SYMBOL_AUDIO " FM" : LV_SYMBOL_WIFI " IN");
+  }
+  char status_buffer[50];
+  snprintf(status_buffer, sizeof(status_buffer), "%d of %d", stationIndex + 1, stationListLength);
+  lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+  if (stationListLength > 0 && stationIndex < stationListLength) {
+    audioPlayHOST(stations[stationIndex].url, stations[stationIndex].name);
+  }
+}
+
+static void set_player_ai_chat_mode(bool is_ai) {
+  if (is_ai) {
+    if (ui_Player_Slider_Progress) lv_obj_add_flag(ui_Player_Slider_Progress, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Button_RndRPT) lv_obj_add_flag(ui_Player_Button_RndRPT, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Button_previous) lv_obj_add_flag(ui_Player_Button_previous, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Button_skipback) lv_obj_add_flag(ui_Player_Button_skipback, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Button_skipforward) lv_obj_add_flag(ui_Player_Button_skipforward, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Button_next) lv_obj_add_flag(ui_Player_Button_next, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Label_ElapseTime) lv_obj_add_flag(ui_Player_Label_ElapseTime, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Label_RemainTime) lv_obj_add_flag(ui_Player_Label_RemainTime, LV_OBJ_FLAG_HIDDEN);
+
+    // Hide catalog button in AI mode - VAD silence detection automatically handles stopping!
+    if (ui_Player_Button_Catalog) {
+      lv_obj_add_flag(ui_Player_Button_Catalog, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Expand and format text area for multi-line AI chat responses
+    if (ui_Player_Textarea_status) {
+      lv_obj_set_x(ui_Player_Textarea_status, 175);
+      lv_obj_set_y(ui_Player_Textarea_status, 26);
+      lv_obj_set_width(ui_Player_Textarea_status, 400);
+      lv_obj_set_height(ui_Player_Textarea_status, 96);
+      lv_obj_set_style_text_align(ui_Player_Textarea_status, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+      lv_obj_set_style_text_font(ui_Player_Textarea_status, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_add_flag(ui_Player_Textarea_status, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+      lv_obj_set_scrollbar_mode(ui_Player_Textarea_status, LV_SCROLLBAR_MODE_AUTO);
+      lv_obj_set_style_pad_left(ui_Player_Textarea_status, 4, LV_PART_MAIN);
+      lv_obj_set_style_pad_right(ui_Player_Textarea_status, 4, LV_PART_MAIN);
+      lv_obj_set_style_pad_top(ui_Player_Textarea_status, 2, LV_PART_MAIN);
+      lv_obj_set_style_pad_bottom(ui_Player_Textarea_status, 2, LV_PART_MAIN);
+    }
+
+    if (ui_Player_Button_play) {
+      lv_obj_set_size(ui_Player_Button_play, 130, 42);
+      lv_obj_set_style_radius(ui_Player_Button_play, 21, LV_PART_MAIN);
+      lv_obj_set_style_bg_color(ui_Player_Button_play, lv_color_hex(0x06281D), LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(ui_Player_Button_play, 255, LV_PART_MAIN);
+      lv_obj_set_style_border_color(ui_Player_Button_play, lv_color_hex(0x00FF99), LV_PART_MAIN);
+      lv_obj_set_style_border_width(ui_Player_Button_play, 2, LV_PART_MAIN);
+    }
+    if (ui_Player_Label_Label5) {
+      lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_AUDIO "  MIC");
+      lv_obj_set_style_text_color(ui_Player_Label_Label5, lv_color_hex(0x00FF99), LV_PART_MAIN);
+      lv_obj_set_style_text_font(ui_Player_Label_Label5, &lv_font_montserrat_14, LV_PART_MAIN);
+    }
+  } else {
+    // Restore Radio and Music Player mode
+    if (ui_Player_Slider_Progress) lv_obj_clear_flag(ui_Player_Slider_Progress, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Button_RndRPT) lv_obj_clear_flag(ui_Player_Button_RndRPT, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Button_previous) lv_obj_clear_flag(ui_Player_Button_previous, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Button_skipback) lv_obj_clear_flag(ui_Player_Button_skipback, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Button_skipforward) lv_obj_clear_flag(ui_Player_Button_skipforward, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Button_next) lv_obj_clear_flag(ui_Player_Button_next, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Label_ElapseTime) lv_obj_clear_flag(ui_Player_Label_ElapseTime, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Label_RemainTime) lv_obj_clear_flag(ui_Player_Label_RemainTime, LV_OBJ_FLAG_HIDDEN);
+
+    if (mediaType == 0 && ui_Player_Button_Catalog) {
+      lv_obj_clear_flag(ui_Player_Button_Catalog, LV_OBJ_FLAG_HIDDEN);
+      if (ui_Player_Label_Catalog) {
+        lv_label_set_text(ui_Player_Label_Catalog,
+            (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? LV_SYMBOL_AUDIO " FM" : LV_SYMBOL_WIFI " IN");
+      }
+    } else if (ui_Player_Button_Catalog) {
+      lv_obj_add_flag(ui_Player_Button_Catalog, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Optimize text area for Radio & LAN streaming track info
+    if (ui_Player_Textarea_status) {
+      lv_obj_set_x(ui_Player_Textarea_status, 175);
+      lv_obj_set_y(ui_Player_Textarea_status, 26);
+      lv_obj_set_width(ui_Player_Textarea_status, 400);
+      lv_obj_set_height(ui_Player_Textarea_status, 76);
+      lv_obj_set_style_text_align(ui_Player_Textarea_status, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+      lv_obj_set_style_text_font(ui_Player_Textarea_status, &lv_font_montserrat_16, LV_PART_MAIN);
+      lv_obj_add_flag(ui_Player_Textarea_status, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+      lv_obj_set_scrollbar_mode(ui_Player_Textarea_status, LV_SCROLLBAR_MODE_AUTO);
+      lv_obj_set_style_pad_left(ui_Player_Textarea_status, 4, LV_PART_MAIN);
+      lv_obj_set_style_pad_right(ui_Player_Textarea_status, 4, LV_PART_MAIN);
+      lv_obj_set_style_pad_top(ui_Player_Textarea_status, 2, LV_PART_MAIN);
+      lv_obj_set_style_pad_bottom(ui_Player_Textarea_status, 2, LV_PART_MAIN);
+    }
+
+    if (ui_Player_Button_play) {
+      lv_obj_set_size(ui_Player_Button_play, 45, 45);
+      lv_obj_set_style_radius(ui_Player_Button_play, 25, LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(ui_Player_Button_play, 0, LV_PART_MAIN);
+      lv_obj_set_style_border_width(ui_Player_Button_play, 0, LV_PART_MAIN);
+    }
+    if (ui_Player_Label_Label5) {
+      lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_PLAY);
+      lv_obj_set_style_text_color(ui_Player_Label_Label5, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    }
+  }
+}
+
+static void menu_audio_anim_cb(lv_timer_t *t) {
+  if (!ui_MainMenu_Panel_Menu || lv_scr_act() != ui_Screen_MainMenu) return;
+  static uint8_t anim_step = 0;
+  anim_step = (anim_step + 1) % 6;
+
+  bool playing = audio.isRunning();
+  if (!playing) {
+    if (ui_MainMenu_Image_LiveStreaming) lv_obj_set_style_img_recolor_opa(ui_MainMenu_Image_LiveStreaming, 0, LV_PART_MAIN);
+    if (ui_MainMenu_Image_MusicPlayer) lv_obj_set_style_img_recolor_opa(ui_MainMenu_Image_MusicPlayer, 0, LV_PART_MAIN);
+    if (ui_MainMenu_Image_ChatBot) lv_obj_set_style_img_recolor_opa(ui_MainMenu_Image_ChatBot, 0, LV_PART_MAIN);
+    return;
+  }
+
+  lv_obj_t *target = (mediaType == 0) ? ui_MainMenu_Image_LiveStreaming :
+                     (mediaType == 1) ? ui_MainMenu_Image_MusicPlayer : ui_MainMenu_Image_ChatBot;
+
+  if (target) {
+    const uint32_t glow_colors[6] = {0x00FF99, 0x00E5FF, 0x0088FF, 0x7B1FA2, 0x00E5FF, 0x00FF99};
+    lv_obj_set_style_img_recolor(target, lv_color_hex(glow_colors[anim_step]), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(target, 140, LV_PART_MAIN);
+  }
+}
+
 void livestreamMode(lv_event_t *e) {
+  set_player_ai_chat_mode(false);
   if (mediaType != 0) { // switch from other mode
     char status_buffer[50];
     snprintf(status_buffer, sizeof(status_buffer), "%d of %d", stationIndex + 1, stationListLength);
@@ -656,62 +1001,100 @@ void livestreamMode(lv_event_t *e) {
     audioStopSong();
   }
   mediaType = 0;
+  if (ui_Player_Button_Catalog) {
+    lv_obj_clear_flag(ui_Player_Button_Catalog, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Player_Label_Catalog) {
+      lv_label_set_text(ui_Player_Label_Catalog, 
+          (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? LV_SYMBOL_AUDIO " FM" : LV_SYMBOL_WIFI " IN");
+    }
+  }
   lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_image_zoom);
-  lv_img_set_zoom(ui_MainMenu_Image_MusicPlayer, 256);
-  lv_img_set_zoom(ui_MainMenu_Image_ChatBot, 256);
-  bounce_Animation(ui_MainMenu_Image_LiveStreaming, 0);
-  lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_livestreaming_png, LV_PART_MAIN);
+  if (ui_MainMenu_Image_MusicPlayer) lv_img_set_zoom(ui_MainMenu_Image_MusicPlayer, 256);
+  if (ui_MainMenu_Image_ChatBot) lv_img_set_zoom(ui_MainMenu_Image_ChatBot, 256);
+  if (ui_MainMenu_Image_LiveStreaming) {
+    if (lv_scr_act() == ui_Screen_MainMenu) bounce_Animation(ui_MainMenu_Image_LiveStreaming, 0);
+    else lv_img_set_zoom(ui_MainMenu_Image_LiveStreaming, 256);
+  }
+  if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_livestreaming_png, LV_PART_MAIN);
   SCREEN_OFF_TIMER = millis(); // reset timer
   BL_OFF = false; // auto backlight on
 }
+
 // Music player mode event
 void musicPlayerMode(lv_event_t *e) {
-  if (mediaType != 1) { // switch form other mode
+  set_player_ai_chat_mode(false);
+  if (mediaType != 1) { // switch from other mode
     char status_buffer[50];
-    snprintf(status_buffer, sizeof(status_buffer), "%d of %d", trackIndex + 1, trackListLength);
-    lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
-    lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_PLAY);
-    lv_obj_set_style_radius(ui_Player_Button_play, 25, LV_PART_MAIN);
-    lv_textarea_set_text(ui_Player_Textarea_status, "");
+    if (lan_get_file_count() > 0) {
+      snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_get_file_count());
+      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+      const LanFileEntry *f = lan_get_file(lan_track_idx);
+      if (f && ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
+    } else {
+      snprintf(status_buffer, sizeof(status_buffer), "%d of %d", trackIndex + 1, trackListLength);
+      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+      if (WiFi.status() == WL_CONNECTED) {
+        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "Connecting to LocalShare...\nScanning audio files");
+        lan_fetch_files_async();
+      } else {
+        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "LocalShare LAN Streaming Ready\nEnter Server IP in Web Remote or CLI");
+      }
+    }
+    if (ui_Player_Label_Label5) lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_PLAY);
+    if (ui_Player_Button_play) lv_obj_set_style_radius(ui_Player_Button_play, 25, LV_PART_MAIN);
+    if (ui_Player_Label_Label16) {
+      lv_obj_set_style_text_font(ui_Player_Label_Label16, &lv_font_montserrat_14, LV_PART_MAIN);
+      switch (playMode) {
+      case 0: lv_label_set_text(ui_Player_Label_Label16, LV_SYMBOL_LOOP); break;
+      case 1: lv_label_set_text(ui_Player_Label_Label16, LV_SYMBOL_SHUFFLE); break;
+      case 2: lv_label_set_text(ui_Player_Label_Label16, "1"); break;
+      }
+    }
     audioStopSong();
   }
   mediaType = 1;
+  if (ui_Player_Button_Catalog) {
+    lv_obj_add_flag(ui_Player_Button_Catalog, LV_OBJ_FLAG_HIDDEN);
+  }
   lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_image_zoom);
-  lv_img_set_zoom(ui_MainMenu_Image_LiveStreaming, 256);
-  lv_img_set_zoom(ui_MainMenu_Image_ChatBot, 256);
-  bounce_Animation(ui_MainMenu_Image_MusicPlayer, 0);
-  lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_music_png, LV_PART_MAIN);
+  if (ui_MainMenu_Image_LiveStreaming) lv_img_set_zoom(ui_MainMenu_Image_LiveStreaming, 256);
+  if (ui_MainMenu_Image_ChatBot) lv_img_set_zoom(ui_MainMenu_Image_ChatBot, 256);
+  if (ui_MainMenu_Image_MusicPlayer) {
+    if (lv_scr_act() == ui_Screen_MainMenu) bounce_Animation(ui_MainMenu_Image_MusicPlayer, 0);
+    else lv_img_set_zoom(ui_MainMenu_Image_MusicPlayer, 256);
+  }
+  if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_music_png, LV_PART_MAIN);
   SCREEN_OFF_TIMER = millis(); // reset timer
   BL_OFF = false; // auto backlight on
 }
+
 // Chatbot mode event
 void chatBotMode(lv_event_t *e) {
+  set_player_ai_chat_mode(true);
   if (mediaType != 2) {
-    lv_label_set_text(ui_Player_Label_trackNumber, "");
-    lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_PLAY);
-    lv_obj_set_style_radius(ui_Player_Button_play, 25, LV_PART_MAIN);
-    lv_textarea_set_text(ui_Player_Textarea_status, "");
-     audioStopSong();
-     audioPlayFS(1, "/audio/ai_not_support.mp3");
+    if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, "AI ASSISTANT");
+    audioStopSong();
   }
   mediaType = 2;
-  lv_textarea_set_text(ui_Player_Textarea_status, "Under development!\n");
+  if (ui_Player_Textarea_status) {
+    lv_textarea_set_text(ui_Player_Textarea_status, "AI Voice Assistant Ready\nTap [ MIC ] to speak or ask via Web Remote / CLI!");
+  }
   lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_image_zoom);
-  lv_img_set_zoom(ui_MainMenu_Image_MusicPlayer, 256);
-  lv_img_set_zoom(ui_MainMenu_Image_LiveStreaming, 256);
-  bounce_Animation(ui_MainMenu_Image_ChatBot, 0);
-  lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_assistant_png, LV_PART_MAIN);
+  if (ui_MainMenu_Image_MusicPlayer) lv_img_set_zoom(ui_MainMenu_Image_MusicPlayer, 256);
+  if (ui_MainMenu_Image_LiveStreaming) lv_img_set_zoom(ui_MainMenu_Image_LiveStreaming, 256);
+  if (ui_MainMenu_Image_ChatBot) {
+    if (lv_scr_act() == ui_Screen_MainMenu) bounce_Animation(ui_MainMenu_Image_ChatBot, 0);
+    else lv_img_set_zoom(ui_MainMenu_Image_ChatBot, 256);
+  }
+  if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_assistant_png, LV_PART_MAIN);
   SCREEN_OFF_TIMER = millis(); // reset timer
   BL_OFF = false; // auto backlight on
-   
 }
-// informaiton Mode event
+// information Mode event
 void informationMode(lv_event_t *e) {
   SCREEN_OFF_TIMER = millis(); // reset timer
   BL_OFF = false; // auto backlight on
-  if (infoPageIndex == 0) {
-    weatherAnimation(true);
-  }
+  updateInfoPanel(infoPageIndex);
 }
 // Utility Mode event
 void utilityMode(lv_event_t *e) {
@@ -833,32 +1216,44 @@ void resetScreenOffTimer(lv_event_t *e) {
 }
 
 //------------ Info screen events ---------------
-static const uint8_t maxInfoPages = 2;
-// uint8_t infoPageIndex = 0-> weather, 1->nixie clock (moved to pcf8603.h)
+static const uint8_t maxInfoPages = 3;
+// uint8_t infoPageIndex = 0-> clock, 1->weather, 2->alarm
 
 void updateInfoPanel(uint8_t pages) {
   log_d("Info Panel Page: %d", pages);
   switch (pages) {
-  case 0: { // climate
-    lv_obj_clear_flag(ui_Info_Panel_Weather, LV_OBJ_FLAG_HIDDEN); // show weather
-    lv_obj_add_flag(ui_Info_Panel_Clock, LV_OBJ_FLAG_HIDDEN); // hide clock
+  case 0: { // nixie clock (Page 0)
+    weatherAnimation(false);
+    lv_obj_clear_flag(ui_Info_Panel_Clock, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_Info_Panel_Weather, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Info_Panel_Alarm) lv_obj_add_flag(ui_Info_Panel_Alarm, LV_OBJ_FLAG_HIDDEN);
+    enter_clock_breathing();
+    break;
+  }
+  case 1: { // weather / climate (Page 1)
+    if (clock_face_active) exit_clock_breathing();
+    lv_obj_clear_flag(ui_Info_Panel_Weather, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_Info_Panel_Clock, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Info_Panel_Alarm) lv_obj_add_flag(ui_Info_Panel_Alarm, LV_OBJ_FLAG_HIDDEN);
     weatherAnimation(true);
     break;
   }
-  case 1: { // nixie clock
-    lv_obj_clear_flag(ui_Info_Panel_Clock, LV_OBJ_FLAG_HIDDEN); // show clock
-    lv_obj_add_flag(ui_Info_Panel_Weather, LV_OBJ_FLAG_HIDDEN); // hide weather
+  case 2: { // green alarm clock panel (Page 2)
+    if (clock_face_active) exit_clock_breathing();
     weatherAnimation(false);
+    lv_obj_add_flag(ui_Info_Panel_Clock, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_Info_Panel_Weather, LV_OBJ_FLAG_HIDDEN);
+    if (ui_Info_Panel_Alarm) {
+      lv_obj_clear_flag(ui_Info_Panel_Alarm, LV_OBJ_FLAG_HIDDEN);
+      alarm_ui_refresh();
+    }
     break;
-  }
-  case 2: { // setup
   }
   default: {
-
     break;
   }
   }
-  SCREEN_OFF_TIMER = millis(); // reset timer
+  SCREEN_OFF_TIMER = millis();
 }
 
 void changeInfoPanelPrev(lv_event_t *e) {
@@ -887,6 +1282,9 @@ void hideArrow(lv_timer_t *timer) {
 }
 void showArrow(lv_event_t *e) {
   log_d("show arrow");
+  if (clock_face_active) {
+    on_clock_touch_or_button();
+  }
   if (arrowVisible) return;
   arrowVisible = true;
   lv_obj_clear_flag(ui_Info_Button_returnMenu, LV_OBJ_FLAG_HIDDEN);
@@ -894,7 +1292,7 @@ void showArrow(lv_event_t *e) {
   lv_obj_clear_flag(ui_Info_Button_infoPanelLeft, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(ui_Utility_Button_returnMenu, LV_OBJ_FLAG_HIDDEN);
   lv_create_delayed_task(hideArrow, 5000, NULL);
-  SCREEN_OFF_TIMER = millis(); // reset timer
+  SCREEN_OFF_TIMER = millis();
 }
 
 //------------ Weather & AQI pollution update ---------------
@@ -949,15 +1347,53 @@ void torch_OFF(lv_event_t *e) {
 }
 void showSystemInfo(lv_event_t *e) {
   SCREEN_OFF_TIMER = millis(); // reset timer
-  // system info
-  static char infoText[160];
-  systemInfo(infoText, sizeof(infoText));
-  lv_label_set_text(ui_Utility_Label_Build, infoText);
 
-  // memory info
-  static char memText[160];
-  memoryInfo(memText, sizeof(memText));
-  lv_label_set_text(ui_Utility_Label_Memory, memText);
+  // Left column: System & storage info
+  static char infoText[200];
+  systemInfo(infoText, sizeof(infoText));
+  if (ui_Utility_Label_Build) {
+    lv_label_set_text(ui_Utility_Label_Build, infoText);
+  }
+
+  // Hide old overlapping memory label to prevent text garbling
+  if (ui_Utility_Label_Memory) {
+    lv_obj_add_flag(ui_Utility_Label_Memory, LV_OBJ_FLAG_HIDDEN);
+  }
+
+  // Right column: Network, Uptime, DRAM, and PSRAM metrics
+  if (ui_Utility_Label_Metrics) {
+    static char metricsText[220];
+    uint32_t up_s = (uint32_t)(esp_timer_get_time() / 1000000ULL);
+    uint32_t up_h = up_s / 3600;
+    uint32_t up_m = (up_s % 3600) / 60;
+    uint32_t up_sec = up_s % 60;
+
+    size_t free_dram = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    size_t total_dram = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
+    size_t used_dram = (total_dram > free_dram) ? (total_dram - free_dram) : 0;
+    uint8_t dram_pct = (total_dram > 0) ? (uint8_t)(used_dram * 100 / total_dram) : 0;
+
+    size_t free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    size_t total_psram = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
+    size_t used_psram = (total_psram > free_psram) ? (total_psram - free_psram) : 0;
+    uint8_t psram_pct = (total_psram > 0) ? (uint8_t)(used_psram * 100 / total_psram) : 0;
+
+    IPAddress ip = WiFi.localIP();
+    int8_t rssi = (WiFi.status() == WL_CONNECTED) ? (int8_t)WiFi.RSSI() : 0;
+
+    snprintf(metricsText, sizeof(metricsText),
+             "Wi-Fi : %s (%d dBm)\n"
+             "Uptime: %uh %um %us\n"
+             "DRAM  : %uK free (%u%% used)\n"
+             "PSRAM : %.1fM free (%u%% used)\n"
+             "Audio : ES8311 (DAC) + ES7210 (Mic)",
+             (WiFi.status() == WL_CONNECTED) ? ip.toString().c_str() : "Disconnected",
+             (int)rssi,
+             (unsigned)up_h, (unsigned)up_m, (unsigned)up_sec,
+             (unsigned)(free_dram / 1024), dram_pct,
+             (float)free_psram / (1024.0f * 1024.0f), psram_pct);
+    lv_label_set_text(ui_Utility_Label_Metrics, metricsText);
+  }
 }
 
 void ota_update(lv_event_t *e) {

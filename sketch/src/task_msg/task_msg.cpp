@@ -255,6 +255,10 @@ void process_ui_status_queue() {
     // audio track description textarea
     case STATUS_UPDATE_TRACK_DESC_SET:
       lv_textarea_set_text(ui_Player_Textarea_status, msg.trackDesc); // new track
+      if (ui_Player_Textarea_status) {
+        lv_textarea_set_cursor_pos(ui_Player_Textarea_status, 0);
+        lv_obj_scroll_to_y(ui_Player_Textarea_status, 0, LV_ANIM_OFF);
+      }
       break;
     case STATUS_UPDATE_TRACK_DESC_ADD:
       lv_textarea_add_text(ui_Player_Textarea_status, msg.trackDesc); // new track
@@ -300,7 +304,6 @@ void process_ui_status_queue() {
 
     case STATUS_UPDATE_AI_IDLE:
       if (ui_Player_Label_Label5) lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_AUDIO "  MIC");
-      if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "AI Assistant:\nReady. Tap [ MIC ] to speak.");
       break;
 
     case STATUS_UPDATE_AI_LISTENING:

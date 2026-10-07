@@ -13,6 +13,7 @@ lv_obj_t * ui_Utility_Label_Label26 = NULL;
 lv_obj_t * ui_Utility_Panel_SystemInfo = NULL;
 lv_obj_t * ui_Utility_Label_Build = NULL;
 lv_obj_t * ui_Utility_Label_Memory = NULL;
+lv_obj_t * ui_Utility_Label_Metrics = NULL;
 lv_obj_t * ui_Utility_Image_qrcode = NULL;
 lv_obj_t * ui_Utility_Button_closeConfig2 = NULL;
 lv_obj_t * ui_Utility_Label_Label28 = NULL;
@@ -186,40 +187,27 @@ void ui_Screen_Utility_screen_init(void)
     lv_obj_set_style_radius(ui_Utility_Panel_SystemInfo, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_color(ui_Utility_Panel_SystemInfo, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Utility_Panel_SystemInfo, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_img_src(ui_Utility_Panel_SystemInfo, &ui_img_images_vaandcobbanner_png,
-                                LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_img_opa(ui_Utility_Panel_SystemInfo, 100, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_opa(ui_Utility_Panel_SystemInfo, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_color(ui_Utility_Panel_SystemInfo, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(ui_Utility_Panel_SystemInfo, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Utility_Label_Build = lv_label_create(ui_Utility_Panel_SystemInfo);
-    lv_obj_set_width(ui_Utility_Label_Build, 313);
+    lv_obj_set_width(ui_Utility_Label_Build, 270);
     lv_obj_set_height(ui_Utility_Label_Build, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_Utility_Label_Build, -1);
-    lv_obj_set_y(ui_Utility_Label_Build, -17);
-    lv_label_set_text(ui_Utility_Label_Build, "TuneBar by Va&Cob\nBUILD       :\nSERIAL      :\nSTORAGE :");
+    lv_obj_set_x(ui_Utility_Label_Build, 24);
+    lv_obj_set_y(ui_Utility_Label_Build, 16);
+    lv_obj_set_align(ui_Utility_Label_Build, LV_ALIGN_TOP_LEFT);
+    lv_label_set_text(ui_Utility_Label_Build, "TuneBar v1.2.2 (Rahul Mod)\nBuild  : Loading...\nMAC    : Loading...\nFlash  : Loading...");
     lv_obj_set_style_text_color(ui_Utility_Label_Build, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_Utility_Label_Build, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui_Utility_Label_Build, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_line_space(ui_Utility_Label_Build, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui_Utility_Label_Build, &ui_font_NotoSanThai16, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_line_space(ui_Utility_Label_Build, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Utility_Label_Build, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Utility_Label_Memory = lv_label_create(ui_Utility_Panel_SystemInfo);
-    lv_obj_set_width(ui_Utility_Label_Memory, 313);
-    lv_obj_set_height(ui_Utility_Label_Memory, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_Utility_Label_Memory, 0);
-    lv_obj_set_y(ui_Utility_Label_Memory, 13);
-    lv_obj_set_align(ui_Utility_Label_Memory, LV_ALIGN_BOTTOM_LEFT);
-    lv_label_set_text(ui_Utility_Label_Memory, "Memory : Free / Min / Largest (bytes)\nIRAM :\nPSRAM :");
-    lv_obj_set_style_text_color(ui_Utility_Label_Memory, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_opa(ui_Utility_Label_Memory, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_letter_space(ui_Utility_Label_Memory, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_line_space(ui_Utility_Label_Memory, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui_Utility_Label_Memory, &ui_font_NotoSanThai16, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(ui_Utility_Label_Memory, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_opa(ui_Utility_Label_Memory, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(ui_Utility_Label_Memory, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_side(ui_Utility_Label_Memory, LV_BORDER_SIDE_TOP, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_width(ui_Utility_Label_Memory, 270);
+    lv_obj_set_height(ui_Utility_Label_Memory, LV_SIZE_CONTENT);
+    lv_obj_add_flag(ui_Utility_Label_Memory, LV_OBJ_FLAG_HIDDEN); // Hidden to prevent text overlap
 
     ui_Utility_Image_qrcode = lv_img_create(ui_Utility_Panel_SystemInfo);
     lv_img_set_src(ui_Utility_Image_qrcode, &ui_img_images_qr_png);
@@ -228,14 +216,26 @@ void ui_Screen_Utility_screen_init(void)
     lv_obj_set_x(ui_Utility_Image_qrcode, 14);
     lv_obj_set_y(ui_Utility_Image_qrcode, 20);
     lv_obj_set_align(ui_Utility_Image_qrcode, LV_ALIGN_BOTTOM_RIGHT);
-    lv_obj_add_flag(ui_Utility_Image_qrcode, LV_OBJ_FLAG_ADV_HITTEST);     /// Flags
-    lv_obj_clear_flag(ui_Utility_Image_qrcode, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_add_flag(ui_Utility_Image_qrcode, LV_OBJ_FLAG_HIDDEN);     /// Hide QR Code to free space
+    lv_obj_clear_flag(ui_Utility_Image_qrcode, LV_OBJ_FLAG_SCROLLABLE);
+
+    ui_Utility_Label_Metrics = lv_label_create(ui_Utility_Panel_SystemInfo);
+    lv_obj_set_width(ui_Utility_Label_Metrics, 270);
+    lv_obj_set_height(ui_Utility_Label_Metrics, LV_SIZE_CONTENT);
+    lv_obj_set_x(ui_Utility_Label_Metrics, 310);
+    lv_obj_set_y(ui_Utility_Label_Metrics, 16);
+    lv_obj_set_align(ui_Utility_Label_Metrics, LV_ALIGN_TOP_LEFT);
+    lv_label_set_text(ui_Utility_Label_Metrics, "Wi-Fi : Connecting...\nUptime: 0s\nDRAM  : --\nPSRAM : --\nAudio : ES8311 + ES7210");
+    lv_obj_set_style_text_color(ui_Utility_Label_Metrics, lv_color_hex(0x00FF88), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_Utility_Label_Metrics, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_line_space(ui_Utility_Label_Metrics, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Utility_Label_Metrics, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Utility_Button_closeConfig2 = lv_btn_create(ui_Utility_Panel_SystemInfo);
-    lv_obj_set_width(ui_Utility_Button_closeConfig2, 50);
-    lv_obj_set_height(ui_Utility_Button_closeConfig2, 50);
-    lv_obj_set_x(ui_Utility_Button_closeConfig2, 13);
-    lv_obj_set_y(ui_Utility_Button_closeConfig2, -17);
+    lv_obj_set_width(ui_Utility_Button_closeConfig2, 36);
+    lv_obj_set_height(ui_Utility_Button_closeConfig2, 36);
+    lv_obj_set_x(ui_Utility_Button_closeConfig2, -10);
+    lv_obj_set_y(ui_Utility_Button_closeConfig2, 10);
     lv_obj_set_align(ui_Utility_Button_closeConfig2, LV_ALIGN_TOP_RIGHT);
     lv_obj_add_flag(ui_Utility_Button_closeConfig2, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_clear_flag(ui_Utility_Button_closeConfig2, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
@@ -243,14 +243,14 @@ void ui_Screen_Utility_screen_init(void)
     lv_obj_set_style_bg_opa(ui_Utility_Button_closeConfig2, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_color(ui_Utility_Button_closeConfig2, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(ui_Utility_Button_closeConfig2, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(ui_Utility_Button_closeConfig2, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui_Utility_Button_closeConfig2, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Utility_Label_Label28 = lv_label_create(ui_Utility_Button_closeConfig2);
     lv_obj_set_width(ui_Utility_Label_Label28, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Utility_Label_Label28, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_align(ui_Utility_Label_Label28, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Utility_Label_Label28, "X");
-    lv_obj_set_style_text_font(ui_Utility_Label_Label28, &lv_font_montserrat_32, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Utility_Label_Label28, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Utility_Button_UpdateFirmware = lv_btn_create(ui_Utility_Panel_SystemInfo);
     lv_obj_set_width(ui_Utility_Button_UpdateFirmware, 233);
@@ -349,6 +349,7 @@ void ui_Screen_Utility_screen_destroy(void)
     ui_Utility_Panel_SystemInfo = NULL;
     ui_Utility_Label_Build = NULL;
     ui_Utility_Label_Memory = NULL;
+    ui_Utility_Label_Metrics = NULL;
     ui_Utility_Image_qrcode = NULL;
     ui_Utility_Button_closeConfig2 = NULL;
     ui_Utility_Label_Label28 = NULL;

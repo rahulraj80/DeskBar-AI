@@ -6,6 +6,7 @@
 #include "../ui.h"
 
 lv_obj_t * ui_Screen_Info = NULL;
+lv_obj_t * ui_Info_Label_BattStatus = NULL;
 lv_obj_t * ui_Info_Panel_Clock = NULL;
 lv_obj_t * ui_Info_Image_hour0 = NULL;
 lv_obj_t * ui_Info_Image_hour1 = NULL;
@@ -52,6 +53,7 @@ void ui_event_Screen_Info(lv_event_t * e)
         lv_indev_wait_release(lv_indev_get_act());
         _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_TOP, 500, 0, &ui_Screen_MainMenu_screen_init);
         stopWeatherAnimation(e);
+        exit_clock_breathing();
     }
     if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_LEFT) {
         lv_indev_wait_release(lv_indev_get_act());
@@ -123,6 +125,7 @@ void ui_event_Info_Button_returnMenu(lv_event_t * e)
     if(event_code == LV_EVENT_CLICKED) {
         _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_TOP, 500, 0, &ui_Screen_MainMenu_screen_init);
         stopWeatherAnimation(e);
+        exit_clock_breathing();
     }
 }
 
@@ -167,7 +170,7 @@ void ui_Screen_Info_screen_init(void)
     lv_obj_set_width(ui_Info_Panel_Clock, 640);
     lv_obj_set_height(ui_Info_Panel_Clock, 172);
     lv_obj_set_align(ui_Info_Panel_Clock, LV_ALIGN_LEFT_MID);
-    lv_obj_add_flag(ui_Info_Panel_Clock, LV_OBJ_FLAG_HIDDEN);     /// Flags
+    // Clock is default visible     /// Flags
     lv_obj_clear_flag(ui_Info_Panel_Clock,
                       LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_ELASTIC | LV_OBJ_FLAG_SCROLL_MOMENTUM |
                       LV_OBJ_FLAG_SCROLL_CHAIN);     /// Flags
@@ -274,6 +277,7 @@ void ui_Screen_Info_screen_init(void)
     lv_obj_set_width(ui_Info_Panel_Weather, lv_pct(100));
     lv_obj_set_height(ui_Info_Panel_Weather, lv_pct(100));
     lv_obj_set_align(ui_Info_Panel_Weather, LV_ALIGN_LEFT_MID);
+    lv_obj_add_flag(ui_Info_Panel_Weather, LV_OBJ_FLAG_HIDDEN);     /// Default hidden (second panel)
     lv_obj_clear_flag(ui_Info_Panel_Weather,
                       LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_ELASTIC | LV_OBJ_FLAG_SCROLL_MOMENTUM |
                       LV_OBJ_FLAG_SCROLL_CHAIN);     /// Flags
@@ -594,6 +598,18 @@ void ui_Screen_Info_screen_init(void)
     lv_obj_set_style_border_color(ui_Info_Panel_blindPanel, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(ui_Info_Panel_blindPanel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+        ui_Info_Label_BattStatus = lv_label_create(ui_Info_Panel_Clock);
+    lv_obj_set_width(ui_Info_Label_BattStatus, LV_SIZE_CONTENT);
+    lv_obj_set_height(ui_Info_Label_BattStatus, LV_SIZE_CONTENT);
+    lv_obj_set_align(ui_Info_Label_BattStatus, LV_ALIGN_TOP_RIGHT);
+    lv_obj_set_x(ui_Info_Label_BattStatus, -10);
+    lv_obj_set_y(ui_Info_Label_BattStatus, 8);
+    lv_label_set_text(ui_Info_Label_BattStatus, "");
+    lv_obj_set_style_text_color(ui_Info_Label_BattStatus, lv_color_hex(0xDD9C1C), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Info_Label_BattStatus, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    alarm_ui_init(ui_Screen_Info);
+
     lv_obj_add_event_cb(ui_Info_Panel_Clock, ui_event_Info_Panel_Clock, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Info_Label_LastUpdated, ui_event_Info_Label_LastUpdated, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Info_Label_DateTime, ui_event_Info_Label_DateTime, LV_EVENT_ALL, NULL);
@@ -613,7 +629,9 @@ void ui_Screen_Info_screen_destroy(void)
 
     // NULL screen variables
     ui_Screen_Info = NULL;
+    ui_Info_Panel_Alarm = NULL;
     ui_Info_Panel_Clock = NULL;
+    ui_Info_Label_BattStatus = NULL;
     ui_Info_Image_hour0 = NULL;
     ui_Info_Image_hour1 = NULL;
     ui_Info_Image_colon0 = NULL;

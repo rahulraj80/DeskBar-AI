@@ -52,9 +52,15 @@ typedef struct {
 extern radios *stations;
 extern int16_t stationIndex;
 extern uint8_t stationListLength;
+enum RadioCatalogSite {
+    RADIO_CATALOG_ONLINE_RADIO_FM = 0,
+    RADIO_CATALOG_RADIO_INDIA = 1
+};
+
 extern uint8_t playMode;
-
-
+extern uint8_t currentRadioCatalog;
+void switchRadioCatalog(uint8_t catalogIndex);
+const char* getRadioCatalogName(uint8_t catalogIndex);
 
 void loadStationList();
 bool copyStationsCSV_SD_to_LittleFS();

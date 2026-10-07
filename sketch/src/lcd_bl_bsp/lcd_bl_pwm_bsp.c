@@ -5,8 +5,10 @@
 #include "driver/gpio.h"
 #include "user_config.h"
 #include "esp_timer.h"
+#include "esp_rom_sys.h"
 
 volatile uint8_t BL_OFF = false;
+volatile uint8_t clock_face_active = false;
 volatile uint8_t backlight_state = 2;
 volatile uint32_t SCREEN_OFF_DELAY = 0;   // ms
 volatile uint32_t SCREEN_OFF_TIMER = 0;   // ms timestamp
@@ -67,11 +69,14 @@ void screenPowerOff(void)
 void screenPowerOn(void)
 {
   bsp_set_backlight_power(true); // Enable EXIO1 boost rail
+  esp_rom_delay_us(5000);        // 5ms rail stabilization to prevent inrush brownout
+  setUpduty(LCD_BL_LOW);         // Soft-start at lowest duty
+  esp_rom_delay_us(5000);        // 5ms ramp
   switch (backlight_state) {
-    case 0: setUpduty(LCD_PWM_MODE_100); break;
-    case 1: setUpduty(LCD_PWM_MODE_150); break;
-    case 2: setUpduty(LCD_PWM_MODE_255); break;
-    default: setUpduty(LCD_PWM_MODE_255); break;
+    case 0: setUpduty(LCD_BL_LOW); break;
+    case 1: setUpduty(LCD_BL_MED); break;
+    case 2: setUpduty(LCD_BL_HIGH); break;
+    default: setUpduty(LCD_BL_HIGH); break;
   }
   BL_OFF = false;
   SCREEN_OFF_TIMER = (uint32_t)(esp_timer_get_time() / 1000ULL);

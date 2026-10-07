@@ -15,7 +15,7 @@ extern Audio audio;
 
 static TelemetrySnapshot *telemetry_ring_buf = nullptr;
 static uint16_t telemetry_count = 0;
-static const char *TELEMETRY_ENDPOINT = "https://autobots.my.to/myapi.php";
+static const char *s_telemetry_endpoint = TELEMETRY_ENDPOINT;
 
 void telemetry_init(void) {
     if (!telemetry_ring_buf) {
@@ -122,7 +122,7 @@ static void telemetry_worker_task(void *pvParameters) {
         return;
     }
 
-    int offset = snprintf(json_buf, json_capacity, "{\"table\":\"TUNEBAR_V2\",\"rows\":[");
+    int offset = snprintf(json_buf, json_capacity, "{\"table\":\"" TELEMETRY_TABLE "\",\"rows\":[");
     for (uint16_t i = 0; i < telemetry_count; i++) {
         const TelemetrySnapshot &s = telemetry_ring_buf[i];
         int written = snprintf(
@@ -142,14 +142,14 @@ static void telemetry_worker_task(void *pvParameters) {
     }
     offset += snprintf(json_buf + offset, json_capacity - offset, "]}");
 
-    log_i("[TELEMETRY] Flushing %d rows (%d bytes) to %s (Table TUNEBAR_V2)...",
-          telemetry_count, offset, TELEMETRY_ENDPOINT);
+    log_i("[TELEMETRY] Flushing %d rows (%d bytes) to %s (Table %s)...",
+          telemetry_count, offset, s_telemetry_endpoint, TELEMETRY_TABLE);
 
     {
         WiFiClientSecure client;
-        client.setInsecure(); // Autobots HTTPS
+        client.setInsecure(); // Public server with Let's Encrypt TLS
         HTTPClient http;
-        http.begin(client, TELEMETRY_ENDPOINT);
+        http.begin(client, s_telemetry_endpoint);
         http.addHeader("Content-Type", "application/json");
         http.setTimeout(8000);
 

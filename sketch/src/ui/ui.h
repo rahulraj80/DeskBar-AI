@@ -118,6 +118,7 @@ LV_FONT_DECLARE(ui_font_NotoSanThai20);
 void ui_init(void);
 void ui_destroy(void);
 
+void exit_clock_breathing(void);
 #ifdef __cplusplus
 } /*extern "C"*/
 #endif

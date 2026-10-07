@@ -493,17 +493,20 @@ void notifyUpdate(const char *latestVer) {
 //-----  Functions to show memory and system info
 void memoryInfo(char *buf, size_t len) {
   size_t ifree = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
-  size_t imin = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
-  size_t ilarge = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+  size_t itotal = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
+  size_t iused = (itotal > ifree) ? (itotal - ifree) : 0;
+  uint8_t ipct = (itotal > 0) ? (uint8_t)(iused * 100 / itotal) : 0;
+
   size_t pfree = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-  size_t pmin = heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM);
-  size_t plarge = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+  size_t ptotal = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
+  size_t pused = (ptotal > pfree) ? (ptotal - pfree) : 0;
+  uint8_t ppct = (ptotal > 0) ? (uint8_t)(pused * 100 / ptotal) : 0;
 
   snprintf(buf, len,
-           "Memory : Free / Min / LFB (bytes)\n"
-           "IRAM : %u / %u / %u\n"
-           "PSRAM: %u / %u / %u",
-           (unsigned)ifree, (unsigned)imin, (unsigned)ilarge, (unsigned)pfree, (unsigned)pmin, (unsigned)plarge);
+           "DRAM (Int): %u / %u KB (%u%%, %u KB free)\n"
+           "PSRAM(Ext): %.1f / %.1f MB (%u%%, %.1f MB free)",
+           (unsigned)(iused / 1024), (unsigned)(itotal / 1024), ipct, (unsigned)(ifree / 1024),
+           (float)pused / (1024.0f * 1024.0f), (float)ptotal / (1024.0f * 1024.0f), ppct, (float)pfree / (1024.0f * 1024.0f));
   log_i("%s", buf);
 }
 
@@ -513,10 +516,12 @@ void systemInfo(char *buf, size_t len) {
   float pct_free = (float)(total - used) * 100.0f / (float)total;
   uint64_t mac = ESP.getEfuseMac();
   snprintf(buf, len,
-           "[ TuneBar by Va&Cob ]\n"
-           "BUILD  : %s - %s\n"
-           "SERIAL : %012" PRIx64 "\n"
-           "STORAGE : %u / %u KB (%.1f %% free)",
-           current_version, compile_date, mac, (unsigned)(used / 1024), (unsigned)(total / 1024), pct_free);
+           "TuneBar v%s (Rahul Mod)\n"
+           "Build  : %s\n"
+           "MAC    : %04X%08X\n"
+           "Flash  : %u / %u KB (%.0f%% free)",
+           current_version, compile_date,
+           (uint16_t)(mac >> 32), (uint32_t)mac,
+           (unsigned)(used / 1024), (unsigned)(total / 1024), pct_free);
   log_d("%s", buf);
 }

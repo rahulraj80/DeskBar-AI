@@ -13,6 +13,7 @@
 #include <WiFiClientSecure.h>
 #include <stdint.h>
 #include "esp_wifi.h"
+#include "lan_stream/lan_stream.h"
 
 extern PCF85063 rtc;
 
@@ -42,6 +43,10 @@ static void psram_free(void *ptr) {
 void enableTlsInPsram() {
   mbedtls_platform_set_calloc_free(psram_calloc, psram_free);
 }
+
+// Note: JsonDocument instances below are local (non-static) — they allocate
+// temporarily from heap during the call and are freed on return. This avoids
+// the permanent DRAM cost of the old 'static JsonDocument' pattern.
 
 // sanitize wifi ssid
 static void sanitize_string(char *s) {
@@ -86,8 +91,7 @@ int loadWifiList(WifiEntry list[]) {
     return 0;
   }
 
-  static JsonDocument doc;
-  doc.clear();
+  JsonDocument doc;  // local (non-static) — freed on return, no permanent DRAM cost
   DeserializationError err = deserializeJson(doc, f);
   f.close();
 
@@ -128,8 +132,7 @@ int loadWifiList(WifiEntry list[]) {
 
 // SAVE WIFI LIST
 void saveWifiList(const WifiEntry list[], int count) {
-  static JsonDocument doc;
-  doc.clear();
+  JsonDocument doc;  // local (non-static) — freed on return, no permanent DRAM cost
   JsonArray arr = doc.to<JsonArray>();
 
   for (int i = 0; i < count; i++) {
@@ -263,7 +266,7 @@ void scanWiFi(bool updateList) {
   }
   // --- Process and Display Results (common part) ---
 
-  char SSIDs[1024];
+  char SSIDs[512];   // 512B handles 14+ SSIDs at 32 chars each (was 1024B)
   char txt[128];
   for (byte i = 0; i < networks; ++i) {
     snprintf(txt, sizeof(txt), "%d: %s  Ch %d (%d)", i + 1, WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i));
@@ -361,7 +364,8 @@ void wifi_connect_task(void *param) {
           }
           // check wifi connection status
           if (WiFi.status() == WL_CONNECTED) {
-            esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+            WiFi.setSleep(false);
+            esp_wifi_set_ps(WIFI_PS_NONE);
             char connectedMsg[128];
             IPAddress ip = WiFi.localIP();
             snprintf(connectedMsg, sizeof(connectedMsg), "Connected to %s (IP: %u.%u.%u.%u)", networkName, ip[0], ip[1], ip[2], ip[3]);
@@ -379,6 +383,7 @@ void wifi_connect_task(void *param) {
               } // newfirmwareAvailable
             } // firmware checked
             updateWeatherPanel(); // update weather condition once after internet connected
+            lan_fetch_files_async(); // index LAN audio tracks from LocalShare in background
             break;
           } else { // Wifi not connected
             log_w("Wrong Wi-Fi password or timeout for %s", networkName);
@@ -435,9 +440,17 @@ void sanitizeJson(char *buf) {
 }
 
 // -------------  Function to fetch data -------------------
-bool fetchUrlData(const char *url, bool ssl, char *outBuf, size_t outBufSize) {
+static SemaphoreHandle_t fetchMutex = NULL;
 
+bool fetchUrlData(const char *url, bool ssl, char *outBuf, size_t outBufSize) {
   if (WiFi.status() != WL_CONNECTED) return false;
+
+  if (!fetchMutex) {
+    fetchMutex = xSemaphoreCreateMutex();
+  }
+  if (!fetchMutex || xSemaphoreTake(fetchMutex, pdMS_TO_TICKS(5000)) != pdTRUE) {
+    return false;
+  }
 
   static HTTPClient httpPlain;
   static HTTPClient httpTLS;
@@ -460,11 +473,21 @@ bool fetchUrlData(const char *url, bool ssl, char *outBuf, size_t outBufSize) {
   int code = http->GET();
   if (code <= 0) {
     http->end();
+    if (ssl) clientSecure.stop();
+    else client.stop();
+    xSemaphoreGive(fetchMutex);
     return false;
   }
 
   int len = http->getSize(); // >=0 = Content-Length, -1 = chunked
   WiFiClient *stream = http->getStreamPtr();
+  if (!stream) {
+    http->end();
+    if (ssl) clientSecure.stop();
+    else client.stop();
+    xSemaphoreGive(fetchMutex);
+    return false;
+  }
 
   size_t idx = 0;
   uint32_t deadline = millis() + 5000;
@@ -496,7 +519,11 @@ bool fetchUrlData(const char *url, bool ssl, char *outBuf, size_t outBufSize) {
   }
   outBuf[idx] = '\0';
   log_d("Fetched %u bytes", (unsigned)idx);
+
   http->end();
+  if (ssl) clientSecure.stop();
+  else client.stop();
+  xSemaphoreGive(fetchMutex);
   return (idx > 0);
 }
 

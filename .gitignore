@@ -4,3 +4,41 @@
 **/.vscode/c_cpp_properties.json
 **/.vscode/launch.json
 **/.vscode/ipch
+
+# Private credentials & local endpoints
+sketch/include/secrets.h
+secrets.h
+
+# Build artifacts & binary payloads
+build/
+build_phase1/
+*.bin
+*.elf
+*.tar.gz
+sync_payload.tar.gz
+
+# Audio captures & test media
+*.wav
+*.mp3
+*.pcm
+
+# Root scratch scripts, logs, test files, and reverse-engineering references
+/*.py
+/*.sh
+/*.diff
+/*.log
+/*.txt
+!README.md
+CONTINUATION.md
+all_verified_stations.json
+ask.php
+temp_pcm.bin
+ref_codec_dev.c
+ref_i2s.c
+reference_es7210.c
+scratch_es7210.cpp
+scratch_es7210_const.h
+esphome_es7210.cpp
+esphome_es7210_const.h
+/include/
+/src/

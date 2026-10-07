@@ -59,6 +59,9 @@ extern lv_obj_t * ui_Player_Label_WiFi;
 extern lv_obj_t * ui_Player_Label_SDcard;
 extern void ui_event_Player_Panel_blindPanel(lv_event_t * e);
 extern lv_obj_t * ui_Player_Panel_blindPanel;
+extern lv_obj_t * ui_Player_Button_Catalog;
+extern lv_obj_t * ui_Player_Label_Catalog;
+extern void ui_event_Player_Button_Catalog(lv_event_t * e);
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

@@ -90,7 +90,65 @@ static void WAVESHARE_349_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *are
   lv_disp_flush_ready(drv);
 }
 
+static bool s_sim_touch_active = false;
+static lv_point_t s_sim_touch_point = {0, 0};
+static uint32_t s_sim_touch_release_ms = 0;
+
+static bool s_sim_swipe_active = false;
+static lv_point_t s_sim_swipe_start = {0, 0};
+static lv_point_t s_sim_swipe_end = {0, 0};
+static uint32_t s_sim_swipe_start_ms = 0;
+static uint32_t s_sim_swipe_duration_ms = 0;
+
+void lvgl_port_inject_touch(int16_t x, int16_t y, uint32_t duration_ms) {
+  s_sim_swipe_active = false;
+  s_sim_touch_point.x = x;
+  s_sim_touch_point.y = y;
+  s_sim_touch_active = true;
+  s_sim_touch_release_ms = millis() + duration_ms;
+}
+
+void lvgl_port_inject_swipe(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint32_t duration_ms) {
+  s_sim_touch_active = false;
+  s_sim_swipe_start.x = x1;
+  s_sim_swipe_start.y = y1;
+  s_sim_swipe_end.x = x2;
+  s_sim_swipe_end.y = y2;
+  s_sim_swipe_start_ms = millis();
+  s_sim_swipe_duration_ms = (duration_ms > 0) ? duration_ms : 300;
+  s_sim_swipe_active = true;
+}
+
 static void WAVESHARE_349_lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
+  if (s_sim_swipe_active) {
+    uint32_t elapsed = millis() - s_sim_swipe_start_ms;
+    if (elapsed < s_sim_swipe_duration_ms) {
+      data->state = LV_INDEV_STATE_PR;
+      float progress = (float)elapsed / (float)s_sim_swipe_duration_ms;
+      data->point.x = s_sim_swipe_start.x + (int16_t)((s_sim_swipe_end.x - s_sim_swipe_start.x) * progress);
+      data->point.y = s_sim_swipe_start.y + (int16_t)((s_sim_swipe_end.y - s_sim_swipe_start.y) * progress);
+      return;
+    } else {
+      s_sim_swipe_active = false;
+      data->state = LV_INDEV_STATE_REL;
+      data->point = s_sim_swipe_end;
+      return;
+    }
+  }
+
+  if (s_sim_touch_active) {
+    if (millis() < s_sim_touch_release_ms) {
+      data->state = LV_INDEV_STATE_PR;
+      data->point = s_sim_touch_point;
+      return;
+    } else {
+      s_sim_touch_active = false;
+      data->state = LV_INDEV_STATE_REL;
+      data->point = s_sim_touch_point;
+      return;
+    }
+  }
+
   if (BL_OFF) {
     data->state = LV_INDEV_STATE_REL;
     return;
@@ -126,14 +184,22 @@ static void WAVESHARE_349_lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *da
   }
 }
 
-static bool WAVESHARE_349_lvgl_lock(int timeout_ms) {
+bool lvgl_port_lock(int timeout_ms) {
+  if (!lvgl_mux) return false;
   const TickType_t timeout_ticks = (timeout_ms == -1) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
   return xSemaphoreTake(lvgl_mux, timeout_ticks) == pdTRUE;
 }
 
+void lvgl_port_unlock(void) {
+  if (lvgl_mux) xSemaphoreGive(lvgl_mux);
+}
+
+static bool WAVESHARE_349_lvgl_lock(int timeout_ms) {
+  return lvgl_port_lock(timeout_ms);
+}
+
 static void WAVESHARE_349_lvgl_unlock(void) {
-  assert(lvgl_mux && "bsp_display_start must be called first");
-  xSemaphoreGive(lvgl_mux);
+  lvgl_port_unlock();
 }
 
 // ##########################################################
@@ -159,11 +225,12 @@ void WAVESHARE_349_lvgl_port_task(void *arg)
     }
     if (task_delay_ms > WAVESHARE_349_LVGL_TASK_MAX_DELAY_MS) {
       task_delay_ms = WAVESHARE_349_LVGL_TASK_MAX_DELAY_MS;
-    } else if (task_delay_ms < WAVESHARE_349_LVGL_TASK_MIN_DELAY_MS)
-    {
-      task_delay_ms = WAVESHARE_349_LVGL_TASK_MIN_DELAY_MS;
+    } else if (task_delay_ms < 10) {
+      task_delay_ms = 10;
     }
-    vTaskDelay(pdMS_TO_TICKS(task_delay_ms));
+    uint32_t delay_ticks = pdMS_TO_TICKS(task_delay_ms);
+    if (delay_ticks == 0) delay_ticks = 1;
+    vTaskDelay(delay_ticks);
   }
 }
 
