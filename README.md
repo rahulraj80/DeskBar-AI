@@ -117,6 +117,13 @@ $$PWM(t) = \text{Base} + A \cdot \sin\left(\frac{2\pi t}{T}\right)$$
 - Configured `esp_wifi_set_ps(WIFI_PS_MIN_MODEM)` via `sdkconfig.defaults`.
 - Between beacon intervals when not actively streaming internet radio or uploading audio, the Wi-Fi baseband enters low-power sleep, cooling SoC operating temperature by ~6°C.
 
+### 6. Battery Voltage 10-Second Moving Average Filtering (Wi-Fi Sag & Noise Suppression)
+- **The Hardware Challenge**: The ESP32-S3 SAR ADC monitors battery cell voltage on `GPIO 4` via a 2:1 resistive divider (`BATTERY_VDIV = 3.0f`). During Wi-Fi transmission bursts (350–400 mA current draw during audio uploads, radio stream chunks, or telemetry flushes), battery internal impedance causes instantaneous terminal voltage sags of $40\text{ to }70\text{ mV}$. Without filtering, the battery percentage displayed on screen would jump erratically (e.g. 76% $\rightarrow$ 68% $\rightarrow$ 75%).
+- **The Solution**: Implemented a calibrated 10-second Exponential Moving Average (EMA) low-pass filter:
+  $$V_{\text{filtered}} = \alpha \cdot V_{\text{sample}} + (1 - \alpha) \cdot V_{\text{filtered}} \quad (\alpha = 0.10,\ f_s = 1\text{ Hz})$$
+- **DRAM & CPU Footprint**: Requires exactly **8 bytes of DRAM** (`s_smoothed_voltage` float + `s_last_sample_ms` uint32_t) and <0.005% of one CPU core, with zero array allocations or heap fragmentation.
+- **Instant Cold-Boot Latching**: On the very first boot reading, $V_{\text{filtered}}$ latches directly to $V_{\text{sample}}$, displaying the true battery percentage instantaneously upon power-up without a 10-second ramp-up delay.
+
 ---
 
 ## 🔍 Hardware Bugs, Silicon Quirks & Verified Fixes
