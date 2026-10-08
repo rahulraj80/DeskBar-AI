@@ -187,12 +187,14 @@ void process_ui_status_queue() {
 
     // Battery status
     case STATUS_UPDATE_BATTERY_LEVEL:
-      switch (msg.battery_state) {
-      case 4: lv_label_set_text(ui_Player_Label_Battery, LV_SYMBOL_BATTERY_FULL); break;
-      case 3: lv_label_set_text(ui_Player_Label_Battery, LV_SYMBOL_BATTERY_3); break;
-      case 2: lv_label_set_text(ui_Player_Label_Battery, LV_SYMBOL_BATTERY_2); break;
-      case 1: lv_label_set_text(ui_Player_Label_Battery, LV_SYMBOL_BATTERY_1); break;
-      default: lv_label_set_text(ui_Player_Label_Battery, LV_SYMBOL_BATTERY_EMPTY); break;
+      if (ui_Player_Label_Battery) {
+        switch (msg.battery_state) {
+        case 4: lv_label_set_text(ui_Player_Label_Battery, LV_SYMBOL_BATTERY_FULL); break;
+        case 3: lv_label_set_text(ui_Player_Label_Battery, LV_SYMBOL_BATTERY_3); break;
+        case 2: lv_label_set_text(ui_Player_Label_Battery, LV_SYMBOL_BATTERY_2); break;
+        case 1: lv_label_set_text(ui_Player_Label_Battery, LV_SYMBOL_BATTERY_1); break;
+        default: lv_label_set_text(ui_Player_Label_Battery, LV_SYMBOL_BATTERY_EMPTY); break;
+        }
       }
       break;
 
@@ -218,7 +220,7 @@ void process_ui_status_queue() {
 
       switch (infoPageIndex) { // update date time by info panel page
       case 0: // nixie clock (Page 0)
-        lv_label_set_text(ui_Info_Label_DateNixie, dateBuf);
+        if (ui_Info_Label_DateNixie) lv_label_set_text(ui_Info_Label_DateNixie, dateBuf);
         nixie_clock(msg.hour, msg.minute, msg.second);
         if (ui_Info_Label_BattStatus != NULL) {
           float volt = 0.0f;
@@ -230,7 +232,7 @@ void process_ui_status_queue() {
         }
         break;
       case 1: // weather (Page 1)
-        lv_label_set_text(ui_Info_Label_DateTime, datetimeBuf);
+        if (ui_Info_Label_DateTime) lv_label_set_text(ui_Info_Label_DateTime, datetimeBuf);
         break;
       default: break;
       } // switch
@@ -241,60 +243,76 @@ void process_ui_status_queue() {
 
     // audio play position
     case STATUS_UPDATE_PLAY_POSITION:
-      lv_slider_set_value(ui_Player_Slider_Progress, msg.current_pos, LV_ANIM_OFF);
-      lv_label_set_text(ui_Player_Label_RemainTime, msg.remain_buf);
-      lv_label_set_text(ui_Player_Label_ElapseTime, msg.elapse_buf);
+      if (ui_Player_Slider_Progress) lv_slider_set_value(ui_Player_Slider_Progress, msg.current_pos, LV_ANIM_OFF);
+      if (ui_Player_Label_RemainTime) lv_label_set_text(ui_Player_Label_RemainTime, msg.remain_buf);
+      if (ui_Player_Label_ElapseTime) lv_label_set_text(ui_Player_Label_ElapseTime, msg.elapse_buf);
       break;
 
     // audio progress bar update
-    case STATUS_UPDATE_PROGRESS_BAR: lv_slider_set_range(ui_Player_Slider_Progress, 0, msg.total); break;
+    case STATUS_UPDATE_PROGRESS_BAR:
+      if (ui_Player_Slider_Progress) lv_slider_set_range(ui_Player_Slider_Progress, 0, msg.total);
+      break;
 
     // audio current track label
-    case STATUS_UPDATE_TRACK_NUMBER: lv_label_set_text(ui_Player_Label_trackNumber, msg.trackNumber); break;
+    case STATUS_UPDATE_TRACK_NUMBER:
+      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, msg.trackNumber);
+      break;
 
     // audio track description textarea
     case STATUS_UPDATE_TRACK_DESC_SET:
-      lv_textarea_set_text(ui_Player_Textarea_status, msg.trackDesc); // new track
       if (ui_Player_Textarea_status) {
+        lv_textarea_set_text(ui_Player_Textarea_status, msg.trackDesc); // new track
         lv_textarea_set_cursor_pos(ui_Player_Textarea_status, 0);
         lv_obj_scroll_to_y(ui_Player_Textarea_status, 0, LV_ANIM_OFF);
       }
       break;
     case STATUS_UPDATE_TRACK_DESC_ADD:
-      lv_textarea_add_text(ui_Player_Textarea_status, msg.trackDesc); // new track
+      if (ui_Player_Textarea_status) {
+        lv_textarea_add_text(ui_Player_Textarea_status, msg.trackDesc); // new track
+      }
       break;
 
     case STATUS_SCREEN_LOCK:
-      lv_obj_clear_flag(ui_Player_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN); // unhide blind panel
-      lv_obj_clear_flag(ui_MainMenu_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN); // unhide blind panel
-      lv_obj_clear_flag(ui_Info_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN); // unhide blind panel
-       lv_obj_clear_flag(ui_Utility_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN); // unhide blind panel
+      if (ui_Player_Panel_blindPanel) lv_obj_clear_flag(ui_Player_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN);
+      if (ui_MainMenu_Panel_blindPanel) lv_obj_clear_flag(ui_MainMenu_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN);
+      if (ui_Info_Panel_blindPanel) lv_obj_clear_flag(ui_Info_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN);
+      if (ui_Utility_Panel_blindPanel) lv_obj_clear_flag(ui_Utility_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN);
       break;
 
     case STATUS_SCREEN_UNLOCK:
-      lv_obj_add_flag(ui_Player_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN); // hide blind panel
-      lv_obj_add_flag(ui_MainMenu_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN);
-      lv_obj_add_flag(ui_Info_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN); // hide blind panel
-      lv_obj_add_flag(ui_Utility_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN); // hide blind panel
+      if (ui_Player_Panel_blindPanel) lv_obj_add_flag(ui_Player_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN);
+      if (ui_MainMenu_Panel_blindPanel) lv_obj_add_flag(ui_MainMenu_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN);
+      if (ui_Info_Panel_blindPanel) lv_obj_add_flag(ui_Info_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN);
+      if (ui_Utility_Panel_blindPanel) lv_obj_add_flag(ui_Utility_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN);
       lv_obj_invalidate(lv_scr_act()); // Force full redraw of the active screen
       break;
 
     case STATUS_WIFI_CONNECTION:
-      lv_label_set_text(ui_MainMenu_Label_connectStatus, msg.status);
-      lv_obj_set_style_text_color(ui_MainMenu_Label_connectStatus, lv_color_hex(msg.labelcolor), LV_PART_MAIN);
-      lv_obj_set_style_text_color(ui_Player_Label_WiFi, lv_color_hex(msg.wificolor), LV_PART_MAIN);
+      if (ui_MainMenu_Label_connectStatus) {
+        lv_label_set_text(ui_MainMenu_Label_connectStatus, msg.status);
+        lv_obj_set_style_text_color(ui_MainMenu_Label_connectStatus, lv_color_hex(msg.labelcolor), LV_PART_MAIN);
+      }
+      if (ui_Player_Label_WiFi) {
+        lv_obj_set_style_text_color(ui_Player_Label_WiFi, lv_color_hex(msg.wificolor), LV_PART_MAIN);
+      }
       break;
 
     case STATUS_WIFI_OPTION:
-      if (msg.status[0] != '\0')//there are wifi in the list
-        lv_dropdown_set_options(ui_MainMenu_Dropdown_NetworkList, msg.status);
-       else
-        lv_dropdown_clear_options(ui_MainMenu_Dropdown_NetworkList);
+      if (ui_MainMenu_Dropdown_NetworkList) {
+        if (msg.status[0] != '\0')
+          lv_dropdown_set_options(ui_MainMenu_Dropdown_NetworkList, msg.status);
+        else
+          lv_dropdown_clear_options(ui_MainMenu_Dropdown_NetworkList);
+      }
       break;
 
     case STATUS_SDCARD_STATUS:
-       lv_label_set_text(ui_MainMenu_Label_trackCount, msg.status);
-       lv_obj_set_style_text_color(ui_Player_Label_SDcard, lv_color_hex(msg.wificolor), LV_PART_MAIN);
+      if (ui_MainMenu_Label_trackCount && msg.status[0] != '\0') {
+        lv_label_set_text(ui_MainMenu_Label_trackCount, msg.status);
+      }
+      if (ui_Player_Label_SDcard) {
+        lv_obj_set_style_text_color(ui_Player_Label_SDcard, lv_color_hex(msg.wificolor), LV_PART_MAIN);
+      }
       break;
 
     case STATUS_ALARM_TRIGGER:
@@ -345,7 +363,13 @@ void process_audio_cmd_que() {
         log_w("Failed to open file: %s", msg.url_filename);
         snprintf(payload.trackDesc, sizeof(payload.trackDesc),"Cannot access music.\nPlease check the SD Card.\nOr Update music library.");  
       } else {
-        snprintf(payload.trackDesc, sizeof(payload.trackDesc),"");
+        const char *base = strrchr(msg.url_filename, '/');
+        base = base ? base + 1 : msg.url_filename;
+        char cleanTitle[64];
+        snprintf(cleanTitle, sizeof(cleanTitle), "%s", base);
+        char *dot = strrchr(cleanTitle, '.');
+        if (dot) *dot = '\0';
+        snprintf(payload.trackDesc, sizeof(payload.trackDesc), "%s", cleanTitle);
       }
       xQueueSend(ui_status_queue, &payload, 100); // send message
      break;

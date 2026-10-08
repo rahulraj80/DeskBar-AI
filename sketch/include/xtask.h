@@ -953,7 +953,13 @@ void audio_loop_task(void *param) {
                 log_e("Failed to open file: %s", trackPath);
                 snprintf(msg.trackDesc, sizeof(msg.trackDesc),  "Cannot access music.\nPlease check the SD Card.\nOr Update music library.");
               } else {
-                snprintf(msg.trackDesc, sizeof(msg.trackDesc), "");
+                const char *base = strrchr(trackPath, '/');
+                base = base ? base + 1 : trackPath;
+                char cleanTitle[64];
+                snprintf(cleanTitle, sizeof(cleanTitle), "%s", base);
+                char *dot = strrchr(cleanTitle, '.');
+                if (dot) *dot = '\0';
+                snprintf(msg.trackDesc, sizeof(msg.trackDesc), "%s", cleanTitle);
               }
               xQueueSend(ui_status_queue, &msg, 100); // send message
             } // detect end of track -> next track

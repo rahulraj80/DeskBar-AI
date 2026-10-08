@@ -1030,14 +1030,28 @@ void musicPlayerMode(lv_event_t *e) {
       if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
       const LanFileEntry *f = lan_get_file(lan_track_idx);
       if (f && ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
-    } else {
+    } else if (trackListLength > 0) {
       snprintf(status_buffer, sizeof(status_buffer), "%d of %d", trackIndex + 1, trackListLength);
       if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+      char trackPath[256];
+      if (getTrackPath(trackIndex, trackPath, sizeof(trackPath))) {
+        const char *base = strrchr(trackPath, '/');
+        base = base ? base + 1 : trackPath;
+        char cleanTitle[64];
+        snprintf(cleanTitle, sizeof(cleanTitle), "%s", base);
+        char *dot = strrchr(cleanTitle, '.');
+        if (dot) *dot = '\0';
+        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, cleanTitle);
+      } else {
+        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "SD Card Music Ready\nTap [ Play ] to start");
+      }
+    } else {
+      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
       if (WiFi.status() == WL_CONNECTED) {
-        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "Connecting to LocalShare...\nScanning audio files");
+        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "No SD card music found.\nConnecting to LAN LocalShare...");
         lan_fetch_files_async();
       } else {
-        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "LocalShare LAN Streaming Ready\nEnter Server IP in Web Remote or CLI");
+        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nPlease insert SD card or scan library.");
       }
     }
     if (ui_Player_Label_Label5) lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_PLAY);

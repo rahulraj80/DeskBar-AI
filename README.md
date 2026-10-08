@@ -160,6 +160,19 @@ Rigorous empirical testing on physical silicon diagnosed several critical bugs p
 * **Root Cause**: ESP-IDF standard output (`stdout`) treats text streams with automatic line termination. Any raw audio byte equal to `0x0A` (LF) was translated by newlib VFS into `0x0D 0x0A` (CRLF), offsetting all subsequent 16-bit samples by 8 bits!
 * **Fix**: Discontinued raw binary over `stdout`; audio buffers are retrieved either via HTTP (`http://<ip>/rec.wav`) or as chunked **Base64** text payloads with explicit framing delimiters.
 
+### 7. SD Card Scan Crash: Screen Switch Null Dereference & Stack Canary Overflow
+* **Symptom**: Navigating to `Settings -> Music` and tapping `Scan SDCard` triggered an immediate `LoadProhibited` kernel panic or stack canary crash.
+* **Root Causes**:
+  1. **Cross-Screen Widget Null Dereference**: When on `ui_Screen_MainMenu`, the Player screen widgets (`ui_Player_Label_SDcard`, `ui_Player_Label_WiFi`) are unloaded and set to `NULL`. The background status queue handler called `lv_obj_set_style_text_color(ui_Player_Label_SDcard, ...)` without null guards, crashing inside LVGL's `get_local_style()`.
+  2. **Stack Canary Overflow**: The directory scanner allocated 512 bytes (`childDir`) on the FreeRTOS task stack *per recursion level*. Combined with FatFS objects, 5 nested levels consumed >4.5 KB on a 6 KB stack, tripping the stack canary.
+  3. **Task Handle Self-Deletion Race**: Calling `vTaskDelete(scanMusicTask)` could race if Core 1 scheduled before the handle pointer was written from Core 0.
+  4. **FatFS SPI Bus Desync**: Re-initializing the SD card without `SD.end()` left the SPI bus in an unrecoverable state.
+* **Fixes & Zero-DRAM O(1) Seek Engine**:
+  * **Null Safety**: Added null guards across all status queue handlers in `task_msg.cpp`.
+  * **PSRAM Directory Buffers**: Moved traversal buffers to external PSRAM (`heap_caps_malloc(PATH_BUF_LEN, MALLOC_CAP_SPIRAM)`), reducing task stack frame usage from ~600 bytes to ~60 bytes.
+  * **O(1) PSRAM Track Offset Table**: Replaced $O(N)$ linear file seeking in LittleFS with an in-memory PSRAM byte offset table (`uint32_t *s_track_file_offsets`), enabling instant 0ms track seeking across thousands of tracks with **0 bytes of internal DRAM** consumed.
+  * **No-SD Graceful Fallback**: If no SD card is detected, the UI reports card failure cleanly without crashing, gracefully falling back to Web Radio, AI Voice Assistant, and LAN streaming.
+
 ---
 
 ## ⚡ DRAM Optimization Deep-Dive

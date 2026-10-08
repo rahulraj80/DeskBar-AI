@@ -33,6 +33,8 @@ bool getTrackPath(int index, char *outBuf, size_t outBufSize);
 uint16_t randomIndexExcept(uint16_t count, uint16_t currentIndex);
 void scanMusic();
 void initSongList();
+void buildTrackOffsetIndex();
+void freeTrackOffsetIndex();
 
 
 

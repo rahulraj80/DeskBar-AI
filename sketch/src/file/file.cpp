@@ -190,18 +190,21 @@ static void scanDirRecursive(
         if (entry.isDirectory()) {
 
             if (base[0] != '.' && level > 0) {
-                char childDir[PATH_BUF_LEN];
-                strncpy(childDir, pathBuf, sizeof(childDir));
-                childDir[sizeof(childDir) - 1] = '\0';
+                char *childDir = (char *)heap_caps_malloc(PATH_BUF_LEN, MALLOC_CAP_SPIRAM);
+                if (childDir) {
+                    strncpy(childDir, pathBuf, PATH_BUF_LEN - 1);
+                    childDir[PATH_BUF_LEN - 1] = '\0';
 
-                scanDirRecursive(
-                    fs,
-                    childDir,          // ✅ stable copy
-                    level - 1,
-                    playlist,
-                    pathBuf,
-                    pathBufLen
-                );
+                    scanDirRecursive(
+                        fs,
+                        childDir,          // ✅ stable copy in PSRAM (0 bytes stack)
+                        level - 1,
+                        playlist,
+                        pathBuf,
+                        pathBufLen
+                    );
+                    heap_caps_free(childDir);
+                }
             }
 
         } else {
@@ -242,15 +245,14 @@ void generatePlaylistFile(fs::FS &sourceFs, const char *dirname, uint8_t levels)
     }
 
     log_d("Scanning directory: %s", dirname);
-scanDirRecursive(
-    sourceFs,
-    dirname,      // "/" typically
-    levels,
-    playlist,
-    pathBuf,
-    PATH_BUF_LEN
-);
-
+    scanDirRecursive(
+        sourceFs,
+        dirname,      // "/" typically
+        levels,
+        playlist,
+        pathBuf,
+        PATH_BUF_LEN
+    );
 
     heap_caps_free(pathBuf);
     playlist.close();
@@ -259,12 +261,69 @@ scanDirRecursive(
 
 
 // ==========================================
-// NEW: Low-RAM function to count lines (tracks)
+// Fast O(1) PSRAM Track Offset Table
 // ==========================================
+static uint32_t *s_track_file_offsets = nullptr;
+static int s_indexed_track_count = 0;
+
+void freeTrackOffsetIndex() {
+  if (s_track_file_offsets) {
+    heap_caps_free(s_track_file_offsets);
+    s_track_file_offsets = nullptr;
+    s_indexed_track_count = 0;
+  }
+}
+
+void buildTrackOffsetIndex() {
+  freeTrackOffsetIndex();
+
+  File playlist = LittleFS.open(PLAYLIST_FILE, FILE_READ);
+  if (!playlist) {
+    log_w("Cannot open %s to build offset index", PLAYLIST_FILE);
+    return;
+  }
+
+  // Count tracks first
+  int count = 0;
+  while (playlist.available()) {
+    playlist.readStringUntil('\n');
+    count++;
+  }
+
+  if (count <= 0) {
+    playlist.close();
+    trackListLength = 0;
+    return;
+  }
+
+  // Allocate offset table in PSRAM (0 bytes DRAM)
+  s_track_file_offsets = (uint32_t *)heap_caps_malloc(count * sizeof(uint32_t), MALLOC_CAP_SPIRAM);
+  if (!s_track_file_offsets) {
+    log_e("Failed to allocate %d bytes in PSRAM for track offset index", (int)(count * sizeof(uint32_t)));
+    playlist.close();
+    trackListLength = count;
+    return;
+  }
+
+  playlist.seek(0);
+  int idx = 0;
+  while (playlist.available() && idx < count) {
+    s_track_file_offsets[idx++] = playlist.position();
+    playlist.readStringUntil('\n');
+  }
+
+  playlist.close();
+  s_indexed_track_count = idx;
+  trackListLength = idx;
+  log_i("PSRAM Track Offset Index built: %d tracks indexed (%u bytes in PSRAM, 0 bytes DRAM)",
+        s_indexed_track_count, (unsigned int)(s_indexed_track_count * sizeof(uint32_t)));
+}
+
+// Low-RAM function to count lines (tracks)
 int getTrackCount() {
   File playlist = LittleFS.open(PLAYLIST_FILE, FILE_READ);
   if (!playlist) {
-    log_w("Failed to open playlist file: %s",PLAYLIST_FILE);
+    log_w("Failed to open playlist file: %s", PLAYLIST_FILE);
     return 0;
   }
 
@@ -293,10 +352,10 @@ uint16_t randomIndexExcept(uint16_t count, uint16_t currentIndex) {
 }
 
 // ==========================================
-// NEW: Low-RAM function to read a track path by index (line number)
+// Fast O(1) function to read a track path by index
 // ==========================================
 bool getTrackPath(int index, char *outBuf, size_t outBufSize) {
-  if (!outBuf || outBufSize == 0) return false;
+  if (!outBuf || outBufSize == 0 || index < 0) return false;
 
   File playlist = LittleFS.open(PLAYLIST_FILE, FILE_READ);
   if (!playlist) {
@@ -305,9 +364,21 @@ bool getTrackPath(int index, char *outBuf, size_t outBufSize) {
     return false;
   }
 
+  // O(1) Fast Seek if PSRAM index is available!
+  if (s_track_file_offsets && index < s_indexed_track_count) {
+    playlist.seek(s_track_file_offsets[index]);
+    size_t len = playlist.readBytesUntil('\n', outBuf, outBufSize - 1);
+    outBuf[len] = '\0';
+    if (len > 0 && outBuf[len - 1] == '\r') {
+      outBuf[len - 1] = '\0';
+    }
+    playlist.close();
+    return true;
+  }
+
+  // Fallback sequential scan
   int lineCount = 0;
   size_t len = 0;
-
   while (playlist.available()) {
     len = playlist.readBytesUntil('\n', outBuf, outBufSize - 1);
     outBuf[len] = '\0';
@@ -332,47 +403,49 @@ bool getTrackPath(int index, char *outBuf, size_t outBufSize) {
 
 // The dedicated SD Scan Task
 void scan_music_task(void *pvParameters) {
-  TaskHandle_t self = scanMusicTask;
+  SD.end();
+  vTaskDelay(pdMS_TO_TICKS(50));
 
   if (!SD.begin(SD_CS, SPI)) {
-    log_w("X Card Mount Failed");
+    log_w("SD Card Mount Failed");
     updateSDCARDStatus(LV_SYMBOL_CLOSE " Card Mount Failed", 0x777777);
     trackListLength = 0;
-
+    freeTrackOffsetIndex();
   } else {
-
     log_d("Indexing music library, please wait...");
-    updateSDCARDStatus("Indexing music library, please wait...", 0x00FF00);
-    generatePlaylistFile(SD, "/", 5); // 2. Perform the blocking work: Scan and WRITE to LittleFS
-    trackListLength = getTrackCount(); // 3. Update the global track count by counting lines in the new file
+    updateSDCARDStatus("Indexing music library...", 0x00FF00);
+    generatePlaylistFile(SD, "/", 5); // Scan and write to LittleFS
+    buildTrackOffsetIndex();          // Build O(1) PSRAM offset table and update trackListLength
     char buffer[100];
     snprintf(buffer, sizeof(buffer), LV_SYMBOL_AUDIO " Found %d songs.", trackListLength);
     updateSDCARDStatus(buffer, 0x00FF00);
     log_d("%s", buffer);
 
     UBaseType_t hwm = uxTaskGetStackHighWaterMark(NULL);
-    log_d("{ Task stack remaining MIN: %u bytes }", hwm);
+    log_d("{ SD Scan task stack remaining MIN: %u bytes }", hwm);
   }
   scanMusicTask = NULL;
-  vTaskDelete(self);
+  vTaskDelete(NULL);
 }
 
 void scanMusic() {
-  if (scanMusicTask == NULL) xTaskCreatePinnedToCore(scan_music_task, "SD_Scan_Task", 6 * 1024, NULL, 1, &scanMusicTask, 1);
+  if (scanMusicTask == NULL) {
+    xTaskCreatePinnedToCore(scan_music_task, "SD_Scan_Task", 8 * 1024, NULL, 1, &scanMusicTask, 1);
+  }
 }
 
 // load music
 void initSongList() {
   log_d("Load MUSIC library");
-  // NEW: Check if the playlist file exists
   if (LittleFS.exists(PLAYLIST_FILE)) {
-    // Playlist exists, just read the count and notify
-    trackListLength = getTrackCount();
+    buildTrackOffsetIndex();
     char statusMsg[100];
     snprintf(statusMsg, sizeof(statusMsg), LV_SYMBOL_AUDIO " Loaded %d songs from library", trackListLength);
     log_d("%s", statusMsg);
   } else {
-    if (scanMusicTask == NULL) xTaskCreatePinnedToCore(scan_music_task, "SD_Scan_Task", 6 * 1024, NULL, 1, &scanMusicTask, 1); // Run on CPU 1 to keep UI responsive on CPU 0
+    if (scanMusicTask == NULL) {
+      xTaskCreatePinnedToCore(scan_music_task, "SD_Scan_Task", 8 * 1024, NULL, 1, &scanMusicTask, 1);
+    }
   }
 }
 
