@@ -34,14 +34,15 @@ TuneBar's redesigned interface utilizes a high-contrast Neon Card aesthetic tail
 ## 📑 Table of Contents
 1. [Key Differences vs Upstream](#-key-differences-vs-upstream)
 2. [Hardware Architecture & Audio Subsystem](#-hardware-architecture--audio-subsystem)
-3. [Display, Brightness & Power Saving Architecture](#-display-brightness--power-saving-architecture)
-4. [Hardware Bugs, Silicon Quirks & Verified Fixes](#-hardware-bugs-silicon-quirks--verified-fixes)
-5. [DRAM Optimization Deep-Dive](#-dram-optimization-deep-dive)
-6. [What Didn't Work & Our Workarounds](#-what-didnt-work--our-workarounds)
-7. [Self-Hosting the Backend APIs (How to Replicate)](#-self-hosting-the-backend-apis-how-to-replicate)
-8. [Secrets Management Architecture](#-secrets-management-architecture)
-9. [Step-by-Step Reproduction Guide](#-step-by-step-reproduction-guide)
-10. [Credits & License](#-credits--license)
+3. [Media Player Subsystem: SD Card & LAN Streaming](#-media-player-subsystem-sd-card--lan-streaming)
+4. [Display, Brightness & Power Saving Architecture](#-display-brightness--power-saving-architecture)
+5. [Hardware Bugs, Silicon Quirks & Verified Fixes](#-hardware-bugs-silicon-quirks--verified-fixes)
+6. [DRAM Optimization Deep-Dive](#-dram-optimization-deep-dive)
+7. [What Didn't Work & Our Workarounds](#-what-didnt-work--our-workarounds)
+8. [Self-Hosting the Backend APIs (How to Replicate)](#-self-hosting-the-backend-apis-how-to-replicate)
+9. [Secrets Management Architecture](#-secrets-management-architecture)
+10. [Step-by-Step Reproduction Guide](#-step-by-step-reproduction-guide)
+11. [Credits & License](#-credits--license)
 
 ---
 
@@ -89,6 +90,49 @@ The Waveshare board utilizes a multi-chip audio pipeline:
 | **TCA9554 SYS_EN** | `EXIO Pin 1` | Power rail enable for audio subsystem (Active HIGH) |
 | **TCA9554 NS_MODE** | `EXIO Pin 2` | Un-mute NS4150B Class-D Power Amplifier (Active HIGH) |
 | **TCA9554 BL_EN** | `EXIO Pin 1` | Hardware Backlight Enable |
+
+---
+
+## 🎵 Media Player Subsystem: SD Card & LAN Streaming
+
+TuneBar features a unified media player engine that seamlessly handles both **Local SD Card Playback** (offline FatFS/SPI) and **LAN Media Streaming (LocalShare)** (online HTTP audio streaming across local Wi-Fi).
+
+### 1. Key Media Player Improvements
+* **Zero-DRAM $O(1)$ Fast Seek PSRAM Offset Table (`s_track_file_offsets`)**:
+  - *Previous Limitation*: Seeking track $N$ in a large library required sequentially scanning `music_playlist.txt` line-by-line from byte 0 ($O(N)$ linear latency), causing noticeable multi-second UI freezes and sluggish track skipping.
+  - *Improvement*: On boot or after library scanning, TuneBar indexes file start offsets into a high-speed lookup table (`uint32_t *s_track_file_offsets`) allocated strictly in external PSRAM via `MALLOC_CAP_SPIRAM`. Seeking any track executes in **<1 ms ($O(1)$)** with **0 bytes of internal DRAM** consumed.
+* **Crash-Proof SD Card Scanner**:
+  - Re-architected recursive directory traversal (`scanDirRecursive`). Path buffers and recursion tracking are allocated on the PSRAM heap (`heap_caps_malloc(PATH_BUF_LEN, MALLOC_CAP_SPIRAM)`), eliminating FreeRTOS stack canary overflows.
+  - Enforced cross-screen widget null guards in `task_msg.cpp` so background scanning status messages never dereference uninstantiated UI objects when scanning from `Settings -> Music`.
+  - Clean SPI bus reset (`SD.end()` followed by re-initialization) prevents bus lockups on repeated scans.
+* **Continuous Autoplay Queue Engine**:
+  - Full support for **Sequential (Normal)**, **Shuffle / Random** (PRNG avoiding immediate repeats), and **Repeat Single Track** modes.
+  - Automatically advances to the next track upon `audio_eof_mp3()` / EOF events with zero audio pops or heap leaks.
+* **Progressive Metadata Display**:
+  - Instantly displays the cleaned track filename (stripping directory path and extension) upon start, progressively updating with ID3v2 title and artist tags once decoded from the stream.
+* **Missing SD Card & Hardware Fallback**:
+  - If no SD card is detected or FAT mount fails, the system logs a clean warning, displays "Card Mount Failed" without panicking, and gracefully routes audio requests to Web Radio, AI Voice Assistant, or LAN Streaming.
+
+---
+
+### 2. Switching Between SD Card Player and LAN Player
+
+Both SD card playback and LAN streaming share TuneBar's unified Neon Card **Player Screen** (`ui_Screen_Player` with `mediaType = 1`). Switching between the two playback sources is straightforward across all interfaces:
+
+#### Mode Priority & Routing Rule
+When entering the Music Player screen:
+1. **If LAN files are indexed (`lan_get_file_count() > 0`)**: The player enters **LAN Streaming Mode**. The track header displays `X of Y (LAN)`, and transport controls (Play, Pause, Skip, Rewind) stream audio directly from the local HTTP media server.
+2. **If no LAN files are indexed (`lan_get_file_count() == 0`)**: The player defaults to the **Local SD Card Library**. The track header displays `X of Y`, reading audio from FatFS/SPI.
+
+---
+
+#### How to Switch Across Interfaces:
+
+| Interface | To Switch to LAN Player | To Switch to SD Card Player |
+| :--- | :--- | :--- |
+| **🌐 Web Remote** (`http://<ip>/`) | Under **LAN Media Streaming (LocalShare)** card, enter your server `IP:port/path` (e.g. `192.168.3.10:8080/e37bd4`), click **Connect** / **Fetch**, and click any song or **▶ Play First Track**. Playback begins streaming immediately (`/api/lan/play?idx=N`). | Under **Remote Touch Controller**, tap **Radio** or **Return**, or navigate to Music when LAN catalog is not active. Or tap **⏯** to control local playback. |
+| **📱 Touchscreen UI** | Open Main Menu $\rightarrow$ Tap **Music** card. If a LAN server was previously fetched, it automatically plays LAN tracks (`X of Y (LAN)`). | If LAN server is not configured or 0 files found, tapping **Music** card directly plays SD Card tracks (`X of Y`). (Go to `Settings -> Music -> Scan SDCard` to index SD tracks). |
+| **💻 USB Serial CLI** | Run `lan server <ip:port>` $\rightarrow$ `lan fetch` $\rightarrow$ `lan play <N>` (e.g. `lan play 1`). | Run `music` to enter player screen, and control playback via `click play` / `click next` (when LAN file count is 0). |
 
 ---
 
@@ -305,6 +349,10 @@ Once booted, you can send diagnostic commands over serial:
 - `heap` — Print detailed internal DRAM and external PSRAM breakdown.
 - `bl <low|med|high>` — Test backlight presets.
 - `ask <question>` — Test AI assistant voice query over Wi-Fi.
+- `lan server <ip:port>` — Configure LAN HTTP media server endpoint.
+- `lan fetch` — Index remote audio files across Wi-Fi.
+- `lan play <N>` — Play track N from LAN media library.
+- `music` / `player` — Switch UI to the Media Player screen.
 - `click mic` — Simulate capacitive touch on the physical microphone icon.
 
 ---
