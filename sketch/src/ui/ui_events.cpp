@@ -40,6 +40,17 @@ bool paused = false;
 uint8_t wallpaperIndex = 0;
 bool mute = false;
 
+// Music Player source & index tracking
+static uint8_t s_active_player_source = 0; // 0 = LOCAL (SD Card), 1 = LAN
+static int s_last_local_track_idx = 0;
+static int s_last_lan_track_idx = 0;
+static uint8_t s_settings_music_mode = 0;  // 0 = LOCAL, 1 = LAN
+
+uint8_t get_active_player_source(void) { return s_active_player_source; }
+void set_active_player_source(uint8_t src) { s_active_player_source = src; }
+void set_last_lan_track_idx(int idx) { s_last_lan_track_idx = idx; }
+void set_last_local_track_idx(int idx) { s_last_local_track_idx = idx; }
+
 #define WIFI_CHECK_INTERVAL 5000 //wifi connection checking interval 5 second.
 #define MAX_WALLPAPER 7 //number of wallpaper (including none)
 
@@ -96,20 +107,10 @@ void exit_clock_breathing(void) {
 
 void on_clock_touch_or_button(void) {
   if (clock_face_active) {
-    bsp_set_backlight_power(true);
-    uint8_t max_bl;
-    switch (backlight_state) {
-      case 0:  max_bl = 120; break;
-      case 1:  max_bl = 170; break;
-      default: max_bl = 255; break;
-    }
-    setUpduty(255 - max_bl);
-    breath_state = BREATH_HOLD_HIGH;
-    uint32_t hold_time = (SCREEN_OFF_DELAY > 10000) ? SCREEN_OFF_DELAY : 10000;
-    breath_hold_limit = hold_time;
-    breath_timer_ms = millis();
+    exit_clock_breathing();
+    screenPowerOn();
     SCREEN_OFF_TIMER = millis();
-    log_i("[BREATH] Touch -> Snapped to HOLD (%us)", (unsigned)(hold_time / 1000));
+    log_i("[BREATH] Touch/Action -> Breathing stopped, active brightness restored");
   }
 }
 
@@ -398,6 +399,94 @@ void togglePlayingMode(lv_event_t *e) {
   pref.putUChar("playing_mode", playMode);
   pref.end();
 }
+
+// --- Music Player Source & Style Helpers ---
+void updateAlbumCoverStyle(void) {
+  if (!ui_Player_Container_albumCover) return;
+  if (mediaType != 1) {
+    lv_obj_set_style_bg_img_recolor_opa(ui_Player_Container_albumCover, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(ui_Player_Container_albumCover, 0, LV_PART_MAIN);
+    if (ui_Player_Label_albumSource) {
+      lv_obj_add_flag(ui_Player_Label_albumSource, LV_OBJ_FLAG_HIDDEN);
+    }
+    return;
+  }
+
+  // In mediaType == 1 (Music Player): Dedicated crisp card assets for zero overlap & perfect typography
+  if (ui_Player_Label_albumSource) {
+    lv_obj_add_flag(ui_Player_Label_albumSource, LV_OBJ_FLAG_HIDDEN);
+  }
+  lv_obj_set_style_bg_img_recolor_opa(ui_Player_Container_albumCover, 0, LV_PART_MAIN);
+
+  if (s_active_player_source == 1) { // LAN: Electric Cyan
+    lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_music_lan_png, LV_PART_MAIN);
+    lv_obj_set_style_border_color(ui_Player_Container_albumCover, lv_color_hex(0x00E5FF), LV_PART_MAIN);
+    lv_obj_set_style_border_width(ui_Player_Container_albumCover, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_side(ui_Player_Container_albumCover, LV_BORDER_SIDE_FULL, LV_PART_MAIN);
+  } else { // LOCAL: Neon Purple
+    lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_music_local_png, LV_PART_MAIN);
+    lv_obj_set_style_border_color(ui_Player_Container_albumCover, lv_color_hex(0xBD00FF), LV_PART_MAIN);
+    lv_obj_set_style_border_width(ui_Player_Container_albumCover, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_side(ui_Player_Container_albumCover, LV_BORDER_SIDE_FULL, LV_PART_MAIN);
+  }
+}
+
+void applyPlayerSource(bool start_playback) {
+  updateAlbumCoverStyle();
+  char status_buffer[50];
+
+  if (s_active_player_source == 1) { // LAN mode
+    int lan_count = lan_get_file_count();
+    if (lan_count <= 0) {
+      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0 (LAN)");
+      if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "No LAN music indexed.\nPlease go to Settings -> Music\nand tap LOAD to index.");
+      audioStopSong();
+      return;
+    }
+    if (s_last_lan_track_idx < 0 || s_last_lan_track_idx >= lan_count) s_last_lan_track_idx = 0;
+    lan_track_idx = s_last_lan_track_idx;
+    snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_count);
+    if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+    const LanFileEntry *f = lan_get_file(lan_track_idx);
+    if (f && ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
+    if (start_playback) lan_play(lan_track_idx);
+  } else { // LOCAL SD mode
+    if (trackListLength <= 0) {
+      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0 (LOCAL)");
+      if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "SD music library empty.\nPlease go to Settings -> Music\nand tap LOAD to scan.");
+      audioStopSong();
+      return;
+    }
+    if (s_last_local_track_idx < 0 || s_last_local_track_idx >= trackListLength) s_last_local_track_idx = 0;
+    trackIndex = s_last_local_track_idx;
+    snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LOCAL)", trackIndex + 1, trackListLength);
+    if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+
+    char trackPath[512];
+    if (!getTrackPath(trackIndex, trackPath, sizeof(trackPath))) {
+      if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "Track index corrupted.\nPlease go to Settings -> Music\nand tap LOAD to re-index.");
+      audioStopSong();
+      return;
+    }
+    const char *base = strrchr(trackPath, '/');
+    base = base ? base + 1 : trackPath;
+    char cleanTitle[64];
+    snprintf(cleanTitle, sizeof(cleanTitle), "%s", base);
+    char *dot = strrchr(cleanTitle, '.');
+    if (dot) *dot = '\0';
+    if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, cleanTitle);
+    if (start_playback) audioPlayFS(0, trackPath);
+  }
+}
+
+void togglePlayerSource(lv_event_t * e) {
+  if (mediaType != 1) return; // STRICT GUARD: Only in Music Player mode!
+  SCREEN_OFF_TIMER = millis();
+  s_active_player_source = (s_active_player_source == 0) ? 1 : 0;
+  log_i("[PLAYER] Source toggled to: %s", (s_active_player_source == 1) ? "LAN" : "LOCAL");
+  applyPlayerSource(true);
+}
+
 // skip previous track
 void previoustrack(lv_event_t *e) {
   SCREEN_OFF_TIMER = millis(); // reset backlight timer
@@ -428,22 +517,31 @@ void previoustrack(lv_event_t *e) {
     snprintf(status_buffer, sizeof(status_buffer), "%d of %d", stationIndex + 1, stationListLength);
     lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
     audioPlayHOST(stations[stationIndex].url, stations[stationIndex].name);
-    break; // break should be outside the scope block if not used for variable declaration
+    break;
   }
 
   case 1: { // music player mode
-    if (lan_get_file_count() > 0) {
-      lan_track_idx = (lan_track_idx == 0) ? (lan_get_file_count() - 1) : (lan_track_idx - 1);
-      snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_get_file_count());
+    if (s_active_player_source == 1) { // LAN mode
+      int lan_count = lan_get_file_count();
+      if (lan_count <= 0) {
+        lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0 (LAN)");
+        lv_textarea_set_text(ui_Player_Textarea_status, "No LAN music indexed.\nPlease go to Settings -> Music\nand tap LOAD to index.");
+        return;
+      }
+      lan_track_idx = (lan_track_idx == 0) ? (lan_count - 1) : (lan_track_idx - 1);
+      s_last_lan_track_idx = lan_track_idx;
+      snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_count);
       lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
       const LanFileEntry *f = lan_get_file(lan_track_idx);
       if (f) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
       lan_play(lan_track_idx);
       break;
     }
+
+    // LOCAL SD mode
     if (trackListLength <= 0) {
-      lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
-      lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nPlease scan music first.");
+      lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0 (LOCAL)");
+      lv_textarea_set_text(ui_Player_Textarea_status, "SD music library empty.\nPlease go to Settings -> Music\nand tap LOAD to scan.");
       return;
     }
     int pos = audio.getAudioCurrentTime();
@@ -452,27 +550,23 @@ void previoustrack(lv_event_t *e) {
           .cmd = CMD_AUDIO_SET_PLAY_TIME,
           .value = 0,
       };
-      xQueueSend(audio_cmd_queue, &msg, 0); // send message
+      xQueueSend(audio_cmd_queue, &msg, 0);
       return;
     }
-    // playing mode
     if (playMode == 0) {
-      if (trackIndex == 0) {
-        trackIndex = trackListLength - 1;
-      } else {
-        trackIndex--;
-      }
+      trackIndex = (trackIndex == 0) ? (trackListLength - 1) : (trackIndex - 1);
     } else if (playMode == 1) {
       trackIndex = randomIndexExcept(trackListLength, trackIndex);
-
-    } else if (mediaType == 2) {
-      // play same current trackIndex
     }
+    s_last_local_track_idx = trackIndex;
 
     char trackPath[512];
-    getTrackPath(trackIndex, trackPath, sizeof(trackPath));
-    log_d("Next track: %s", trackPath);
-    snprintf(status_buffer, sizeof(status_buffer), "%d of %d", trackIndex + 1, trackListLength);
+    if (!getTrackPath(trackIndex, trackPath, sizeof(trackPath))) {
+      lv_textarea_set_text(ui_Player_Textarea_status, "Track index corrupted.\nPlease go to Settings -> Music\nand tap LOAD to re-index.");
+      return;
+    }
+    log_d("Prev track: %s", trackPath);
+    snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LOCAL)", trackIndex + 1, trackListLength);
     lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
     audioPlayFS(0, trackPath);
     break;
@@ -556,27 +650,51 @@ void playpause(lv_event_t *e) {
         paused = false;
         return;
       }
-      if (lan_get_file_count() > 0) {
-        snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_get_file_count());
-        lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+      if (s_active_player_source == 1) { // LAN mode
+        int lan_count = lan_get_file_count();
+        if (lan_count <= 0) {
+          if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0 (LAN)");
+          if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "No LAN music indexed.\nPlease go to Settings -> Music\nand tap LOAD to index.");
+          audioStopSong();
+          return;
+        }
+        if (s_last_lan_track_idx < 0 || s_last_lan_track_idx >= lan_count) s_last_lan_track_idx = 0;
+        lan_track_idx = s_last_lan_track_idx;
+        snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_count);
+        if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
         const LanFileEntry *f = lan_get_file(lan_track_idx);
-        if (f) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
+        if (f && ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
         lan_play(lan_track_idx);
         break;
-      }
-      if (trackListLength <= 0) {
-        lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
-        lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nSet LAN server or scan music.");
-        return;
-      }
-      char trackPath[512];
-      getTrackPath(trackIndex, trackPath, sizeof(trackPath));
-      log_d("Play track: %s", trackPath);
-      snprintf(status_buffer, sizeof(status_buffer), "%d of %d", trackIndex + 1, trackListLength);
-      lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+      } else { // LOCAL SD mode
+        if (trackListLength <= 0) {
+          if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0 (LOCAL)");
+          if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "SD music library empty.\nPlease go to Settings -> Music\nand tap LOAD to scan.");
+          audioStopSong();
+          return;
+        }
+        if (s_last_local_track_idx < 0 || s_last_local_track_idx >= trackListLength) s_last_local_track_idx = 0;
+        trackIndex = s_last_local_track_idx;
+        char trackPath[512];
+        if (!getTrackPath(trackIndex, trackPath, sizeof(trackPath))) {
+          if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "Track index corrupted.\nPlease go to Settings -> Music\nand tap LOAD to re-index.");
+          audioStopSong();
+          return;
+        }
+        log_d("Play track: %s", trackPath);
+        snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LOCAL)", trackIndex + 1, trackListLength);
+        if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+        const char *base = strrchr(trackPath, '/');
+        base = base ? base + 1 : trackPath;
+        char cleanTitle[64];
+        snprintf(cleanTitle, sizeof(cleanTitle), "%s", base);
+        char *dot = strrchr(cleanTitle, '.');
+        if (dot) *dot = '\0';
+        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, cleanTitle);
 
-      audioPlayFS(0, trackPath);
-      break;
+        audioPlayFS(0, trackPath);
+        break;
+      }
     }
     }
   }
@@ -618,36 +736,57 @@ void nexttrack(lv_event_t *e) {
   }
 
   case 1: { // music player mode
-    if (lan_get_file_count() > 0) {
-      lan_track_idx = (lan_track_idx + 1) % lan_get_file_count();
-      snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_get_file_count());
-      lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+    if (s_active_player_source == 1) { // LAN mode
+      int lan_count = lan_get_file_count();
+      if (lan_count <= 0) {
+        if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0 (LAN)");
+        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "No LAN music indexed.\nPlease go to Settings -> Music\nand tap LOAD to index.");
+        return;
+      }
+      if (playMode == 0) { // normal loop
+        lan_track_idx = (lan_track_idx + 1) % lan_count;
+      } else if (playMode == 1) { // random
+        lan_track_idx = randomIndexExcept(lan_count, lan_track_idx);
+      }
+      s_last_lan_track_idx = lan_track_idx;
+      snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_count);
+      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
       const LanFileEntry *f = lan_get_file(lan_track_idx);
-      if (f) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
+      if (f && ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
       lan_play(lan_track_idx);
       break;
     }
+
+    // LOCAL SD mode
     if (trackListLength <= 0) {
-      lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
-      lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nPlease scan music first.");
+      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0 (LOCAL)");
+      if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "SD music library empty.\nPlease go to Settings -> Music\nand tap LOAD to scan.");
       return;
     }
     if (playMode == 0) { // normal play
       trackIndex++;
-      if (trackIndex == trackListLength) {
+      if (trackIndex >= trackListLength) {
         trackIndex = 0;
       }
     } else if (playMode == 1) { // random
       trackIndex = randomIndexExcept(trackListLength, trackIndex);
-
-    } else if (mediaType == 2) { // single
-      // play same current trackIndex
     }
+    s_last_local_track_idx = trackIndex;
     char trackPath[512];
-    getTrackPath(trackIndex, trackPath, sizeof(trackPath));
+    if (!getTrackPath(trackIndex, trackPath, sizeof(trackPath))) {
+      if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "Track index corrupted.\nPlease go to Settings -> Music\nand tap LOAD to re-index.");
+      return;
+    }
     log_d("Next track: %s", trackPath);
-    snprintf(status_buffer, sizeof(status_buffer), "%d of %d", trackIndex + 1, trackListLength);
-    lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+    snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LOCAL)", trackIndex + 1, trackListLength);
+    if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+    const char *base = strrchr(trackPath, '/');
+    base = base ? base + 1 : trackPath;
+    char cleanTitle[64];
+    snprintf(cleanTitle, sizeof(cleanTitle), "%s", base);
+    char *dot = strrchr(cleanTitle, '.');
+    if (dot) *dot = '\0';
+    if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, cleanTitle);
 
     audioPlayFS(0, trackPath);
     break;
@@ -832,6 +971,15 @@ void setWallpaper(lv_event_t *e) {
 //----------------- Main Menu Selection events ---------------------
 // mode 0 = live streaming , 1 = music player, 2 = ai chat
 // Livestream mode event
+extern "C" void on_radio_language_changed(lv_event_t *e) {
+  SCREEN_OFF_TIMER = millis();
+  lv_obj_t *dd = lv_event_get_target(e);
+  if (!dd) return;
+  uint16_t sel = lv_dropdown_get_selected(dd);
+  log_i("[RADIO UI] Language changed to: %u (%s)", sel, getRadioLanguageName((uint8_t)sel));
+  switchRadioLanguage((uint8_t)sel);
+}
+
 extern "C" void on_catalog_button_clicked(void) {
   if (mediaType == 2) {
     // Cycle AI recording duration: 4s -> 6s -> 8s -> 10s -> 15s -> 4s
@@ -851,19 +999,42 @@ extern "C" void on_catalog_button_clicked(void) {
     log_i("[AI CONFIG] Recording duration set to %us", (unsigned)ai_rec_duration_sec);
     return;
   }
-  if (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) {
-    switchRadioCatalog(RADIO_CATALOG_RADIO_INDIA);
+
+  if (currentRadioLang == RADIO_LANG_HI) {
+    if (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) {
+      switchRadioCatalog(RADIO_CATALOG_RADIO_INDIA);
+    } else {
+      switchRadioCatalog(RADIO_CATALOG_ONLINE_RADIO_FM);
+    }
   } else {
-    switchRadioCatalog(RADIO_CATALOG_ONLINE_RADIO_FM);
+    // In other languages (EN, ES, CN, DE, JA), tapping catalog cycles language
+    uint8_t nextLang = (currentRadioLang + 1) % 6;
+    switchRadioLanguage(nextLang);
+    if (ui_MainMenu_Dropdown_RadioLang) {
+      lv_dropdown_set_selected(ui_MainMenu_Dropdown_RadioLang, nextLang);
+    }
   }
+
   if (ui_Player_Label_Catalog) {
-    lv_label_set_text(ui_Player_Label_Catalog, 
-        (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? LV_SYMBOL_AUDIO " FM" : LV_SYMBOL_WIFI " IN");
+    if (currentRadioLang == RADIO_LANG_HI) {
+      lv_label_set_text(ui_Player_Label_Catalog, 
+          (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? LV_SYMBOL_AUDIO " FM" : LV_SYMBOL_WIFI " IN");
+    } else {
+      char cbuf[16];
+      snprintf(cbuf, sizeof(cbuf), LV_SYMBOL_AUDIO " %s", getRadioLanguageCode(currentRadioLang));
+      lv_label_set_text(ui_Player_Label_Catalog, cbuf);
+    }
   }
   char status_buffer[50];
   snprintf(status_buffer, sizeof(status_buffer), "%d of %d", stationIndex + 1, stationListLength);
-  lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+  if (ui_Player_Label_trackNumber) {
+    lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+    lv_obj_set_x(ui_Player_Label_trackNumber, 252);
+  }
   if (stationListLength > 0 && stationIndex < stationListLength) {
+    if (ui_Player_Textarea_status && stations[stationIndex].name) {
+      lv_textarea_set_text(ui_Player_Textarea_status, stations[stationIndex].name);
+    }
     audioPlayHOST(stations[stationIndex].url, stations[stationIndex].name);
   }
 }
@@ -927,11 +1098,19 @@ static void set_player_ai_chat_mode(bool is_ai) {
     if (mediaType == 0 && ui_Player_Button_Catalog) {
       lv_obj_clear_flag(ui_Player_Button_Catalog, LV_OBJ_FLAG_HIDDEN);
       if (ui_Player_Label_Catalog) {
-        lv_label_set_text(ui_Player_Label_Catalog,
-            (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? LV_SYMBOL_AUDIO " FM" : LV_SYMBOL_WIFI " IN");
+        if (currentRadioLang == RADIO_LANG_HI) {
+          lv_label_set_text(ui_Player_Label_Catalog,
+              (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? LV_SYMBOL_AUDIO " FM" : LV_SYMBOL_WIFI " IN");
+        } else {
+          char cbuf[16];
+          snprintf(cbuf, sizeof(cbuf), LV_SYMBOL_AUDIO " %s", getRadioLanguageCode(currentRadioLang));
+          lv_label_set_text(ui_Player_Label_Catalog, cbuf);
+        }
       }
-    } else if (ui_Player_Button_Catalog) {
-      lv_obj_add_flag(ui_Player_Button_Catalog, LV_OBJ_FLAG_HIDDEN);
+      if (ui_Player_Label_trackNumber) lv_obj_set_x(ui_Player_Label_trackNumber, 252);
+    } else {
+      if (ui_Player_Button_Catalog) lv_obj_add_flag(ui_Player_Button_Catalog, LV_OBJ_FLAG_HIDDEN);
+      if (ui_Player_Label_trackNumber) lv_obj_set_x(ui_Player_Label_trackNumber, 180);
     }
 
     // Optimize text area for Radio & LAN streaming track info
@@ -941,7 +1120,7 @@ static void set_player_ai_chat_mode(bool is_ai) {
       lv_obj_set_width(ui_Player_Textarea_status, 400);
       lv_obj_set_height(ui_Player_Textarea_status, 76);
       lv_obj_set_style_text_align(ui_Player_Textarea_status, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
-      lv_obj_set_style_text_font(ui_Player_Textarea_status, &lv_font_montserrat_16, LV_PART_MAIN);
+      lv_obj_set_style_text_font(ui_Player_Textarea_status, &ui_font_NotoSanThai20, LV_PART_MAIN);
       lv_obj_add_flag(ui_Player_Textarea_status, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
       lv_obj_set_scrollbar_mode(ui_Player_Textarea_status, LV_SCROLLBAR_MODE_AUTO);
       lv_obj_set_style_pad_left(ui_Player_Textarea_status, 4, LV_PART_MAIN);
@@ -987,25 +1166,38 @@ static void menu_audio_anim_cb(lv_timer_t *t) {
 }
 
 void livestreamMode(lv_event_t *e) {
-  set_player_ai_chat_mode(false);
-  if (mediaType != 0) { // switch from other mode
-    char status_buffer[50];
-    snprintf(status_buffer, sizeof(status_buffer), "%d of %d", stationIndex + 1, stationListLength);
-    lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
-    lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_PLAY);
-    lv_obj_set_style_radius(ui_Player_Button_play, 25, LV_PART_MAIN);
-    lv_textarea_set_text(ui_Player_Textarea_status, "");
-    lv_label_set_text(ui_Player_Label_ElapseTime, "0:00");
-    lv_label_set_text(ui_Player_Label_RemainTime, "0:00");
-    lv_slider_set_value(ui_Player_Slider_Progress, 0, LV_ANIM_OFF);
-    audioStopSong();
-  }
   mediaType = 0;
+  set_player_ai_chat_mode(false);
+  char status_buffer[50];
+  snprintf(status_buffer, sizeof(status_buffer), "%d of %d", stationIndex + 1, stationListLength);
+  if (ui_Player_Label_trackNumber) {
+    lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+    lv_obj_set_x(ui_Player_Label_trackNumber, 252);
+  }
+  if (ui_Player_Label_Label5) lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_PLAY);
+  if (ui_Player_Button_play) lv_obj_set_style_radius(ui_Player_Button_play, 25, LV_PART_MAIN);
+  if (ui_Player_Textarea_status) {
+    if (stationListLength > 0 && stationIndex < stationListLength && stations[stationIndex].name) {
+      lv_textarea_set_text(ui_Player_Textarea_status, stations[stationIndex].name);
+    } else {
+      lv_textarea_set_text(ui_Player_Textarea_status, "Online Radio");
+    }
+  }
+  if (ui_Player_Label_ElapseTime) lv_label_set_text(ui_Player_Label_ElapseTime, "0:00");
+  if (ui_Player_Label_RemainTime) lv_label_set_text(ui_Player_Label_RemainTime, "0:00");
+  if (ui_Player_Slider_Progress) lv_slider_set_value(ui_Player_Slider_Progress, 0, LV_ANIM_OFF);
+  audioStopSong();
   if (ui_Player_Button_Catalog) {
     lv_obj_clear_flag(ui_Player_Button_Catalog, LV_OBJ_FLAG_HIDDEN);
     if (ui_Player_Label_Catalog) {
-      lv_label_set_text(ui_Player_Label_Catalog, 
-          (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? LV_SYMBOL_AUDIO " FM" : LV_SYMBOL_WIFI " IN");
+      if (currentRadioLang == RADIO_LANG_HI) {
+        lv_label_set_text(ui_Player_Label_Catalog, 
+            (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? LV_SYMBOL_AUDIO " FM" : LV_SYMBOL_WIFI " IN");
+      } else {
+        char cbuf[16];
+        snprintf(cbuf, sizeof(cbuf), LV_SYMBOL_AUDIO " %s", getRadioLanguageCode(currentRadioLang));
+        lv_label_set_text(ui_Player_Label_Catalog, cbuf);
+      }
     }
   }
   lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_image_zoom);
@@ -1016,6 +1208,7 @@ void livestreamMode(lv_event_t *e) {
     else lv_img_set_zoom(ui_MainMenu_Image_LiveStreaming, 256);
   }
   if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_livestreaming_png, LV_PART_MAIN);
+  updateAlbumCoverStyle();
   SCREEN_OFF_TIMER = millis(); // reset timer
   BL_OFF = false; // auto backlight on
 }
@@ -1024,36 +1217,7 @@ void livestreamMode(lv_event_t *e) {
 void musicPlayerMode(lv_event_t *e) {
   set_player_ai_chat_mode(false);
   if (mediaType != 1) { // switch from other mode
-    char status_buffer[50];
-    if (lan_get_file_count() > 0) {
-      snprintf(status_buffer, sizeof(status_buffer), "%d of %d (LAN)", lan_track_idx + 1, lan_get_file_count());
-      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
-      const LanFileEntry *f = lan_get_file(lan_track_idx);
-      if (f && ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, f->name);
-    } else if (trackListLength > 0) {
-      snprintf(status_buffer, sizeof(status_buffer), "%d of %d", trackIndex + 1, trackListLength);
-      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
-      char trackPath[256];
-      if (getTrackPath(trackIndex, trackPath, sizeof(trackPath))) {
-        const char *base = strrchr(trackPath, '/');
-        base = base ? base + 1 : trackPath;
-        char cleanTitle[64];
-        snprintf(cleanTitle, sizeof(cleanTitle), "%s", base);
-        char *dot = strrchr(cleanTitle, '.');
-        if (dot) *dot = '\0';
-        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, cleanTitle);
-      } else {
-        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "SD Card Music Ready\nTap [ Play ] to start");
-      }
-    } else {
-      if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, "0 of 0");
-      if (WiFi.status() == WL_CONNECTED) {
-        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "No SD card music found.\nConnecting to LAN LocalShare...");
-        lan_fetch_files_async();
-      } else {
-        if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, "No music in library.\nPlease insert SD card or scan library.");
-      }
-    }
+    applyPlayerSource(false);
     if (ui_Player_Label_Label5) lv_label_set_text(ui_Player_Label_Label5, LV_SYMBOL_PLAY);
     if (ui_Player_Button_play) lv_obj_set_style_radius(ui_Player_Button_play, 25, LV_PART_MAIN);
     if (ui_Player_Label_Label16) {
@@ -1078,6 +1242,7 @@ void musicPlayerMode(lv_event_t *e) {
     else lv_img_set_zoom(ui_MainMenu_Image_MusicPlayer, 256);
   }
   if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_music_png, LV_PART_MAIN);
+  updateAlbumCoverStyle();
   SCREEN_OFF_TIMER = millis(); // reset timer
   BL_OFF = false; // auto backlight on
 }
@@ -1101,6 +1266,7 @@ void chatBotMode(lv_event_t *e) {
     else lv_img_set_zoom(ui_MainMenu_Image_ChatBot, 256);
   }
   if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_assistant_png, LV_PART_MAIN);
+  updateAlbumCoverStyle();
   SCREEN_OFF_TIMER = millis(); // reset timer
   BL_OFF = false; // auto backlight on
 }
@@ -1193,6 +1359,78 @@ void toggleWiFi(lv_event_t * e) {
 
 
 
+void toggleMusicMode(lv_event_t *e) {
+  SCREEN_OFF_TIMER = millis();
+  s_settings_music_mode = (s_settings_music_mode == 0) ? 1 : 0;
+  char buf[64];
+
+  if (s_settings_music_mode == 1) { // LAN
+    if (ui_MainMenu_Label_musicMode) lv_label_set_text(ui_MainMenu_Label_musicMode, "LAN");
+    if (ui_MainMenu_Button_musicMode) {
+      lv_obj_set_style_bg_color(ui_MainMenu_Button_musicMode, lv_color_hex(0x0088cc), LV_PART_MAIN);
+      lv_obj_set_style_border_color(ui_MainMenu_Button_musicMode, lv_color_hex(0x00E5FF), LV_PART_MAIN);
+    }
+    if (ui_MainMenu_Button_LanUrl) lv_obj_clear_flag(ui_MainMenu_Button_LanUrl, LV_OBJ_FLAG_HIDDEN);
+    if (ui_MainMenu_Label_LanUrl) {
+      snprintf(buf, sizeof(buf), "URL: %s", lan_get_server());
+      lv_label_set_text(ui_MainMenu_Label_LanUrl, buf);
+    }
+    if (ui_MainMenu_Label_Label15) lv_label_set_text(ui_MainMenu_Label_Label15, "Tap LOAD to fetch LAN audio files");
+    if (ui_MainMenu_Label_trackCount) {
+      snprintf(buf, sizeof(buf), "LAN Tracks: %d", lan_get_file_count());
+      lv_label_set_text(ui_MainMenu_Label_trackCount, buf);
+    }
+  } else { // LOCAL
+    if (ui_MainMenu_Label_musicMode) lv_label_set_text(ui_MainMenu_Label_musicMode, "LOCAL");
+    if (ui_MainMenu_Button_musicMode) {
+      lv_obj_set_style_bg_color(ui_MainMenu_Button_musicMode, lv_color_hex(0x024564), LV_PART_MAIN);
+      lv_obj_set_style_border_color(ui_MainMenu_Button_musicMode, lv_color_hex(0x00D2FF), LV_PART_MAIN);
+    }
+    if (ui_MainMenu_Button_LanUrl) lv_obj_add_flag(ui_MainMenu_Button_LanUrl, LV_OBJ_FLAG_HIDDEN);
+    if (ui_MainMenu_Label_Label15) lv_label_set_text(ui_MainMenu_Label_Label15, "Tap LOAD to index SD card music");
+    if (ui_MainMenu_Label_trackCount) {
+      snprintf(buf, sizeof(buf), "Tracks: %d", trackListLength);
+      lv_label_set_text(ui_MainMenu_Label_trackCount, buf);
+    }
+  }
+}
+
+void openLanUrlPanel(lv_event_t *e) {
+  SCREEN_OFF_TIMER = millis();
+  if (ui_MainMenu_Textarea_LanUrl) {
+    lv_textarea_set_text(ui_MainMenu_Textarea_LanUrl, lan_get_server());
+  }
+  if (ui_MainMenu_Panel_LanUrl) {
+    lv_obj_clear_flag(ui_MainMenu_Panel_LanUrl, LV_OBJ_FLAG_HIDDEN);
+  }
+  if (ui_MainMenu_Keyboard_Keyboard1 && ui_MainMenu_Textarea_LanUrl) {
+    _ui_keyboard_set_target(ui_MainMenu_Keyboard_Keyboard1, ui_MainMenu_Textarea_LanUrl);
+    lv_obj_clear_flag(ui_MainMenu_Keyboard_Keyboard1, LV_OBJ_FLAG_HIDDEN);
+  }
+}
+
+void saveLanUrlAndClose(lv_event_t *e) {
+  SCREEN_OFF_TIMER = millis();
+  if (ui_MainMenu_Textarea_LanUrl) {
+    const char *url = lv_textarea_get_text(ui_MainMenu_Textarea_LanUrl);
+    if (url && strlen(url) > 0) {
+      lan_set_server(url);
+      log_i("[LAN SETTINGS] Updated LAN server: %s", url);
+    }
+  }
+  if (ui_MainMenu_Label_LanUrl) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "URL: %s", lan_get_server());
+    lv_label_set_text(ui_MainMenu_Label_LanUrl, buf);
+  }
+  if (ui_MainMenu_Panel_LanUrl) {
+    lv_obj_add_flag(ui_MainMenu_Panel_LanUrl, LV_OBJ_FLAG_HIDDEN);
+  }
+  if (ui_MainMenu_Keyboard_Keyboard1) {
+    lv_obj_add_flag(ui_MainMenu_Keyboard_Keyboard1, LV_OBJ_FLAG_HIDDEN);
+  }
+}
+
 //---------------------------------------
 void readKeyboard(lv_event_t *e) {
   lv_obj_t *kb = lv_event_get_target(e);
@@ -1202,15 +1440,22 @@ void readKeyboard(lv_event_t *e) {
   if (txt == NULL) return;
   if (strcmp(txt, LV_SYMBOL_OK) == 0) {
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN); // ✅ OK pressed → hide keyboard
+    if (ui_MainMenu_Textarea_LanUrl && lv_keyboard_get_textarea(kb) == ui_MainMenu_Textarea_LanUrl) {
+      saveLanUrlAndClose(NULL);
+    }
   }
   SCREEN_OFF_TIMER = millis(); // reset timer
 }
 
 // force update song list from sdcard and creaet index file in littleFS
 void loadMusicFromSDCARD(lv_event_t *e) {
-  // Playlist does NOT exist (or rescan needed), start the background task
-  scanMusic();
   SCREEN_OFF_TIMER = millis(); // reset timer
+  if (s_settings_music_mode == 1) { // LAN mode
+    if (ui_MainMenu_Label_Label15) lv_label_set_text(ui_MainMenu_Label_Label15, "Connecting to LAN server...");
+    lan_fetch_files_async();
+  } else { // LOCAL mode
+    scanMusic();
+  }
 }
 
 // copy stations.csv from sdcard to littleFS
@@ -1353,11 +1598,13 @@ void setTempUnit(lv_event_t *e) {
 // Utility -----------------------
 void torch_ON(lv_event_t *e) {
   setUpduty(LCD_PWM_MODE_255);
-  BL_OFF = true; // auto backlight on
+  BL_OFF = false;
+  SCREEN_OFF_TIMER = millis();
 }
 void torch_OFF(lv_event_t *e) {
   BL_OFF = false;
   setBrightness(NULL);
+  SCREEN_OFF_TIMER = millis();
 }
 void showSystemInfo(lv_event_t *e) {
   SCREEN_OFF_TIMER = millis(); // reset timer

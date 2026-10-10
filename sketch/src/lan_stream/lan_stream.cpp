@@ -7,6 +7,7 @@
 #include "file/file.h"
 #include "task_msg/task_msg.h"
 #include "ui/screens/ui_Screen_Player.h"
+#include "ui/screens/ui_Screen_MainMenu.h"
 #include "user_config.h"
 
 static LanFileEntry *s_files = NULL;
@@ -69,6 +70,15 @@ const LanFileEntry* lan_get_file(int idx) {
 int lan_fetch_files(void) {
     if (WiFi.status() != WL_CONNECTED) {
         log_w("[LAN STREAM] Cannot fetch files: WiFi not connected");
+        if (lvgl_port_lock(200)) {
+            if (ui_MainMenu_Label_Label15) lv_label_set_text(ui_MainMenu_Label_Label15, "WiFi not connected");
+            if (ui_MainMenu_Label_trackCount) {
+                char count_buf[32];
+                snprintf(count_buf, sizeof(count_buf), "LAN Tracks: %d", s_file_count);
+                lv_label_set_text(ui_MainMenu_Label_trackCount, count_buf);
+            }
+            lvgl_port_unlock();
+        }
         return -1;
     }
     if (s_is_fetching) {
@@ -104,6 +114,19 @@ int lan_fetch_files(void) {
         log_w("[LAN STREAM] HTTP GET %s returned %d", baseUrl.c_str(), code);
         http.end();
         s_is_fetching = false;
+        if (lvgl_port_lock(200)) {
+            if (ui_MainMenu_Label_Label15) {
+                char err_buf[64];
+                snprintf(err_buf, sizeof(err_buf), "HTTP error %d (check server)", code);
+                lv_label_set_text(ui_MainMenu_Label_Label15, err_buf);
+            }
+            if (ui_MainMenu_Label_trackCount) {
+                char count_buf[32];
+                snprintf(count_buf, sizeof(count_buf), "LAN Tracks: %d", s_file_count);
+                lv_label_set_text(ui_MainMenu_Label_trackCount, count_buf);
+            }
+            lvgl_port_unlock();
+        }
         return -1;
     }
 
@@ -245,14 +268,31 @@ int lan_fetch_files(void) {
     heap_caps_free(html_buf);
     log_i("[LAN STREAM] Total files indexed: %d", s_file_count);
 
-    if (mediaType == 1 && s_file_count > 0) {
-        if (lvgl_port_lock(200)) {
+    if (lvgl_port_lock(200)) {
+        if (ui_MainMenu_Label_Label15) {
+            char lbl_buf[64];
+            if (s_file_count > 0) {
+                snprintf(lbl_buf, sizeof(lbl_buf), "Indexed %d LAN audio files", s_file_count);
+            } else {
+                snprintf(lbl_buf, sizeof(lbl_buf), "No audio files found at URL");
+            }
+            lv_label_set_text(ui_MainMenu_Label_Label15, lbl_buf);
+            lv_obj_invalidate(ui_MainMenu_Label_Label15);
+        }
+        if (ui_MainMenu_Label_trackCount) {
+            char count_buf[32];
+            snprintf(count_buf, sizeof(count_buf), "LAN Tracks: %d", s_file_count);
+            lv_label_set_text(ui_MainMenu_Label_trackCount, count_buf);
+            lv_obj_invalidate(ui_MainMenu_Label_trackCount);
+        }
+
+        if (mediaType == 1 && s_file_count > 0) {
             char buf[48];
             snprintf(buf, sizeof(buf), "1 of %d (LAN)", s_file_count);
             if (ui_Player_Label_trackNumber) lv_label_set_text(ui_Player_Label_trackNumber, buf);
             if (ui_Player_Textarea_status) lv_textarea_set_text(ui_Player_Textarea_status, s_files[0].name);
-            lvgl_port_unlock();
         }
+        lvgl_port_unlock();
     }
 
     s_is_fetching = false;

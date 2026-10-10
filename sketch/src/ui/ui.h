@@ -47,6 +47,8 @@ extern lv_obj_t * ui_Startevents____initial_actions0;
 LV_IMG_DECLARE(ui_img_images_tunebar_banner_png);    // assets/images/tunebar_banner.png
 LV_IMG_DECLARE(ui_img_images_livestreaming_png);    // assets/images/livestreaming.png
 LV_IMG_DECLARE(ui_img_images_music_png);    // assets/images/music.png
+LV_IMG_DECLARE(ui_img_music_local_png);     // assets/images/music_local.png
+LV_IMG_DECLARE(ui_img_music_lan_png);       // assets/images/music_lan.png
 LV_IMG_DECLARE(ui_img_images_assistant_png);    // assets/images/assistant.png
 LV_IMG_DECLARE(ui_img_images_climate_png);    // assets/images/climate.png
 LV_IMG_DECLARE(ui_img_images_utility_png);    // assets/images/utility.png

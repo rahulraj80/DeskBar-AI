@@ -15,11 +15,14 @@
 #include "lan_stream/lan_stream.h"
 #include "lvgl_port/lvgl_port.h"
 #include "ui/ui.h"
+#include "ui/ui_events.h"
+#include "ui/screens/ui_Screen_Player.h"
 #include "user_config.h"
 
 extern Audio audio;
 extern Preferences pref;
 extern "C" void exit_clock_breathing(void);
+extern void screenPowerOn(void);
 extern void audioSetVolume(uint8_t vol);
 extern void updateInfoPanel(uint8_t pages);
 extern void on_clock_touch_or_button(void);
@@ -141,7 +144,7 @@ static const char HTML_PAGE[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       <div class="btn-group" style="flex:1">
         <button class="btn" onclick="sendTouch(80, 86)">⏰ Clock</button>
         <button class="btn" onclick="sendTouch(230, 86)">📻 Radio</button>
-        <button class="btn" onclick="sendTouch(380, 86)">🎵 LAN</button>
+        <button class="btn" onclick="sendTouch(380, 86)">🎵 Music</button>
         <button class="btn" onclick="sendTouch(530, 86)">🤖 AI Chat</button>
         <button class="btn warning" onclick="sendTouch(35, 140)">↩ Return</button>
       </div>
@@ -214,9 +217,9 @@ static const char HTML_PAGE[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- CARD 6: LAN MEDIA STREAMING -->
+  <!-- CARD 6: MUSIC (LOCAL & LAN) -->
   <div class="card">
-    <div class="card-title">LAN Media Streaming (LocalShare)</div>
+    <div class="card-title">🎵 MUSIC (Local & LAN)</div>
     <div class="input-row">
       <input type="text" id="lan-server" value="" placeholder="IP:port/path">
       <button class="btn primary" onclick="updateLanServer()">Connect</button>
@@ -534,13 +537,15 @@ static void handle_status() {
     }
 
     int offset = snprintf(buf, json_sz,
-        "{\"clock_active\":%d,\"bl_off\":%d,\"bl_state\":%d,\"vol\":%d,"
+        "{\"active_screen\":\"%s\",\"clock_active\":%d,\"bl_off\":%d,\"bl_state\":%d,\"vol\":%d,"
         "\"batt_v\":%.2f,\"batt_pct\":%d,\"heap\":%u,\"psram\":%u,"
         "\"dram_free\":%u,\"dram_pct\":%d,\"uptime_s\":%u,"
         "\"rssi\":%d,\"audio_running\":%d,\"alarm_enabled\":%d,"
         "\"alarm_time\":\"%s\",\"alarm_active\":%d,\"catalog\":%d,"
-        "\"catalog_name\":\"%s\",\"station_idx\":%d,\"station_name\":\"%s\","
+        "\"catalog_name\":\"%s\",\"radio_lang\":%d,\"radio_lang_code\":\"%s\",\"radio_lang_name\":\"%s\","
+        "\"station_idx\":%d,\"station_name\":\"%s\","
         "\"media_type\":%d,\"lan_server\":\"%s\",\"lan_count\":%d,\"lan_track_idx\":%d,\"stations\":[",
+        lvgl_port_get_active_screen_name(),
         (int)clock_face_active, (int)BL_OFF, (int)backlight_state,
         (int)audio.getVolume(), volt, pct,
         (unsigned int)dram_free, (unsigned int)ESP.getFreePsram(),
@@ -552,6 +557,9 @@ static void handle_status() {
         alarm_is_active() ? 1 : 0,
         (int)currentRadioCatalog,
         getRadioCatalogName(currentRadioCatalog),
+        (int)currentRadioLang,
+        getRadioLanguageCode(currentRadioLang),
+        getRadioLanguageName(currentRadioLang),
         (int)stationIndex,
         (stationIndex < stationListLength) ? stations[stationIndex].name : "",
         (int)mediaType,
@@ -592,6 +600,26 @@ static void handle_vol() {
     handle_status();
 }
 
+static void handle_radio_lang() {
+    if (server.hasArg("set")) {
+        String lang_str = server.arg("set");
+        uint8_t lang = RADIO_LANG_HI;
+        if (lang_str.equalsIgnoreCase("hi")) lang = RADIO_LANG_HI;
+        else if (lang_str.equalsIgnoreCase("en")) lang = RADIO_LANG_EN;
+        else if (lang_str.equalsIgnoreCase("es")) lang = RADIO_LANG_ES;
+        else if (lang_str.equalsIgnoreCase("cn")) lang = RADIO_LANG_CN;
+        else if (lang_str.equalsIgnoreCase("de")) lang = RADIO_LANG_DE;
+        else if (lang_str.equalsIgnoreCase("ja")) lang = RADIO_LANG_JA;
+        switchRadioLanguage(lang);
+    } else if (server.hasArg("id")) {
+        int id = server.arg("id").toInt();
+        if (id >= 0 && id <= 5) {
+            switchRadioLanguage((uint8_t)id);
+        }
+    }
+    handle_status();
+}
+
 static void handle_radio_catalog() {
     if (server.hasArg("id")) {
         int id = server.arg("id").toInt();
@@ -626,6 +654,11 @@ static void handle_radio_stop() {
 }
 
 static void handle_screen() {
+    exit_clock_breathing();
+    screenPowerOn();
+    resetScreenOffTimer(NULL);
+    UIStatusPayload ui_msg = {.type = STATUS_SCREEN_UNLOCK};
+    xQueueSend(ui_status_queue, &ui_msg, 100);
     if (server.hasArg("action")) {
         String act = server.arg("action");
         if (lvgl_port_lock(500)) {
@@ -634,16 +667,41 @@ static void handle_screen() {
                 updateInfoPanel(0);
                 _ui_screen_change(&ui_Screen_Info, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Info_screen_init);
             } else if (act == "weather") {
-                exit_clock_breathing();
                 infoPageIndex = 1;
                 updateInfoPanel(1);
                 _ui_screen_change(&ui_Screen_Info, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Info_screen_init);
+            } else if (act == "alarm") {
+                infoPageIndex = 2;
+                updateInfoPanel(2);
+                _ui_screen_change(&ui_Screen_Info, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Info_screen_init);
             } else if (act == "menu") {
-                exit_clock_breathing();
                 _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_MainMenu_screen_init);
+                if (server.hasArg("scroll")) {
+                    int sc = server.arg("scroll").toInt();
+                    lv_obj_scroll_to_x(ui_MainMenu_Panel_Menu, sc, LV_ANIM_OFF);
+                }
+            } else if (act == "settings") {
+                _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_MainMenu_screen_init);
+                _ui_flag_modify(ui_MainMenu_Button_closeConfig, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+                _ui_flag_modify(ui_MainMenu_Tabview_ConfigPanel, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+                if (server.hasArg("tab")) {
+                    int tab_idx = server.arg("tab").toInt();
+                    lv_tabview_set_act(ui_MainMenu_Tabview_ConfigPanel, tab_idx, LV_ANIM_OFF);
+                }
+            } else if (act == "utility") {
+                _ui_screen_change(&ui_Screen_Utility, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Utility_screen_init);
+                utilityMode(NULL);
+            } else if (act == "music" || act == "lan") {
+                _ui_screen_change(&ui_Screen_Player, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Player_screen_init);
+                musicPlayerMode(NULL);
+            } else if (act == "player" || act == "radio") {
+                _ui_screen_change(&ui_Screen_Player, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Player_screen_init);
+                livestreamMode(NULL);
+            } else if (act == "chat") {
+                _ui_screen_change(&ui_Screen_Player, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Player_screen_init);
+                chatBotMode(NULL);
             } else if (act == "touch") {
                 on_clock_touch_or_button();
-                resetScreenOffTimer(NULL);
             }
             lvgl_port_unlock();
         }
@@ -652,6 +710,8 @@ static void handle_screen() {
 }
 
 static void handle_touch() {
+    exit_clock_breathing();
+    screenPowerOn();
     on_clock_touch_or_button();
     resetScreenOffTimer(NULL);
 
@@ -776,6 +836,82 @@ static void handle_lan_play() {
     handle_status();
 }
 
+static void handle_screenshot() {
+    exit_clock_breathing();
+    screenPowerOn();
+    resetScreenOffTimer(NULL);
+    UIStatusPayload ui_msg = {.type = STATUS_SCREEN_UNLOCK};
+    xQueueSend(ui_status_queue, &ui_msg, 100);
+    lvgl_port_take_screenshot();
+    const uint16_t *fb = lvgl_port_get_framebuffer();
+    if (!fb) {
+        server.send(500, "text/plain", "Framebuffer unavailable");
+        return;
+    }
+
+    const uint32_t width = WAVESHARE_349_LCD_H_RES;
+    const uint32_t height = WAVESHARE_349_LCD_V_RES;
+    const uint32_t row_stride = ((width * 3 + 3) / 4) * 4;
+    const uint32_t image_size = row_stride * height;
+    const uint32_t file_size = 54 + image_size;
+
+    uint8_t bmp_hdr[54];
+    memset(bmp_hdr, 0, sizeof(bmp_hdr));
+    bmp_hdr[0] = 'B'; bmp_hdr[1] = 'M';
+    bmp_hdr[2] = (uint8_t)(file_size);
+    bmp_hdr[3] = (uint8_t)(file_size >> 8);
+    bmp_hdr[4] = (uint8_t)(file_size >> 16);
+    bmp_hdr[5] = (uint8_t)(file_size >> 24);
+    bmp_hdr[10] = 54;
+    bmp_hdr[14] = 40;
+    bmp_hdr[18] = (uint8_t)(width);
+    bmp_hdr[19] = (uint8_t)(width >> 8);
+    bmp_hdr[20] = (uint8_t)(width >> 16);
+    bmp_hdr[21] = (uint8_t)(width >> 24);
+    bmp_hdr[22] = (uint8_t)(height);
+    bmp_hdr[23] = (uint8_t)(height >> 8);
+    bmp_hdr[24] = (uint8_t)(height >> 16);
+    bmp_hdr[25] = (uint8_t)(height >> 24);
+    bmp_hdr[26] = 1;
+    bmp_hdr[28] = 24;
+    bmp_hdr[34] = (uint8_t)(image_size);
+    bmp_hdr[35] = (uint8_t)(image_size >> 8);
+    bmp_hdr[36] = (uint8_t)(image_size >> 16);
+    bmp_hdr[37] = (uint8_t)(image_size >> 24);
+
+    WiFiClient client = server.client();
+    server.setContentLength(file_size);
+    server.send(200, "image/bmp", "");
+    client.write(bmp_hdr, 54);
+
+    uint8_t *row_buf = (uint8_t *)heap_caps_malloc(row_stride, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!row_buf) {
+        server.send(500, "text/plain", "Out of memory for screenshot buffer");
+        return;
+    }
+    for (int y = (int)height - 1; y >= 0; y--) {
+        memset(row_buf, 0, row_stride);
+        const uint16_t *src_row = fb + (y * width);
+        uint8_t *dst = row_buf;
+        for (uint32_t x = 0; x < width; x++) {
+            uint16_t raw = src_row[x];
+#if LV_COLOR_16_SWAP
+            uint16_t p = (uint16_t)((raw >> 8) | (raw << 8));
+#else
+            uint16_t p = raw;
+#endif
+            uint8_t r = (p >> 11) & 0x1F;
+            uint8_t g = (p >> 5) & 0x3F;
+            uint8_t b = p & 0x1F;
+            *dst++ = (b * 255) / 31;
+            *dst++ = (g * 255) / 63;
+            *dst++ = (r * 255) / 31;
+        }
+        client.write(row_buf, row_stride);
+    }
+    heap_caps_free(row_buf);
+}
+
 static void handle_rec_wav() {
     if (LittleFS.exists("/rec.wav")) {
         File f = LittleFS.open("/rec.wav", "r");
@@ -813,10 +949,13 @@ void web_remote_init(void) {
     server.on("/", HTTP_GET, handle_root);
     server.on("/api/status", HTTP_GET, handle_status);
     server.on("/api/vol", HTTP_POST, handle_vol);
+    server.on("/api/radio/lang", HTTP_GET, handle_radio_lang);
+    server.on("/api/radio/lang", HTTP_POST, handle_radio_lang);
     server.on("/api/radio/catalog", HTTP_POST, handle_radio_catalog);
     server.on("/api/radio/play", HTTP_POST, handle_radio_play);
     server.on("/api/radio/resume", HTTP_POST, handle_radio_resume);
     server.on("/api/radio/stop", HTTP_POST, handle_radio_stop);
+    server.on("/api/screen", HTTP_GET, handle_screen);
     server.on("/api/screen", HTTP_POST, handle_screen);
     server.on("/api/touch", HTTP_GET, handle_touch);
     server.on("/api/touch", HTTP_POST, handle_touch);
@@ -837,6 +976,8 @@ void web_remote_init(void) {
     server.on("/rec.wav", HTTP_GET, handle_rec_wav);
     server.on("/api/rec", HTTP_GET, handle_rec_action);
     server.on("/api/rec", HTTP_POST, handle_rec_action);
+    server.on("/api/screenshot", HTTP_GET, handle_screenshot);
+    server.on("/screenshot.bmp", HTTP_GET, handle_screenshot);
 
     server.enableCORS(true);
     server.begin();

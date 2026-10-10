@@ -18,6 +18,15 @@
 #include "esp_task_wdt.h"
 #include "task_msg/task_msg.h"
 #include "ui/ui.h"
+#include "ui/screens/ui_Screen_Boot.h"
+#include "ui/screens/ui_Screen_Info.h"
+#include "ui/screens/ui_Screen_MainMenu.h"
+#include "ui/screens/ui_Screen_Player.h"
+#include "ui/screens/ui_Screen_Utility.h"
+
+extern uint8_t mediaType;
+extern "C" void exit_clock_breathing(void);
+extern void screenPowerOn(void);
 
 #define LCD_BIT_PER_PIXEL (16)
 
@@ -28,6 +37,7 @@ extern "C" void bsp_lcd_reset(void);
 
 static uint16_t *lvgl_dma_buf = NULL;
 static SemaphoreHandle_t lvgl_flush_semap;
+static const uint16_t *s_last_frame_buffer = NULL;
 
 #if (Rotated == USER_DISP_ROT_90)
 uint16_t *rotat_ptr = NULL;
@@ -87,7 +97,62 @@ static void WAVESHARE_349_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *are
     map += dmalen;
   }
   xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
+  s_last_frame_buffer = (const uint16_t *)color_map;
   lv_disp_flush_ready(drv);
+}
+
+const uint16_t* lvgl_port_get_framebuffer(void) {
+  return s_last_frame_buffer;
+}
+
+bool lvgl_port_take_screenshot(void) {
+  exit_clock_breathing();
+  screenPowerOn();
+  if (lvgl_port_lock(500)) {
+    lv_obj_invalidate(lv_scr_act());
+    lv_refr_now(NULL);
+    lvgl_port_unlock();
+    return (s_last_frame_buffer != NULL);
+  }
+  return false;
+}
+
+const char* lvgl_port_get_active_screen_name(void) {
+  lv_obj_t *act = lv_scr_act();
+  if (!act) return "UNKNOWN";
+  if (act == ui_Screen_MainMenu) {
+    if (ui_MainMenu_Tabview_ConfigPanel && !lv_obj_has_flag(ui_MainMenu_Tabview_ConfigPanel, LV_OBJ_FLAG_HIDDEN)) {
+      uint16_t tab = lv_tabview_get_tab_act(ui_MainMenu_Tabview_ConfigPanel);
+      switch(tab) {
+        case 0: return "MAIN_MENU (Config: Network)";
+        case 1: return "MAIN_MENU (Config: Screen)";
+        case 2: return "MAIN_MENU (Config: Station)";
+        case 3: return "MAIN_MENU (Config: Music)";
+        case 4: return "MAIN_MENU (Config: Region)";
+        case 5: return "MAIN_MENU (Config: Guide)";
+        default: return "MAIN_MENU (Config Panel)";
+      }
+    }
+    return "MAIN_MENU";
+  }
+  if (act == ui_Screen_Player) {
+    if (mediaType == 0) return "PLAYER (Web Radio)";
+    if (mediaType == 1) return "PLAYER (Music Player)";
+    if (mediaType == 2) return "PLAYER (AI Voice Assistant)";
+    return "PLAYER";
+  }
+  if (act == ui_Screen_Info) {
+    extern uint8_t infoPageIndex;
+    switch(infoPageIndex) {
+      case 0: return "INFO (Nixie Clock)";
+      case 1: return "INFO (Weather / Climate)";
+      case 2: return "INFO (Alarm)";
+      default: return "INFO";
+    }
+  }
+  if (act == ui_Screen_Utility) return "UTILITY";
+  if (act == ui_Screen_Boot) return "BOOT";
+  return "CUSTOM_SCREEN";
 }
 
 static bool s_sim_touch_active = false;
@@ -101,6 +166,9 @@ static uint32_t s_sim_swipe_start_ms = 0;
 static uint32_t s_sim_swipe_duration_ms = 0;
 
 void lvgl_port_inject_touch(int16_t x, int16_t y, uint32_t duration_ms) {
+  exit_clock_breathing();
+  screenPowerOn();
+  SCREEN_OFF_TIMER = millis();
   s_sim_swipe_active = false;
   s_sim_touch_point.x = x;
   s_sim_touch_point.y = y;
@@ -109,6 +177,9 @@ void lvgl_port_inject_touch(int16_t x, int16_t y, uint32_t duration_ms) {
 }
 
 void lvgl_port_inject_swipe(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint32_t duration_ms) {
+  exit_clock_breathing();
+  screenPowerOn();
+  SCREEN_OFF_TIMER = millis();
   s_sim_touch_active = false;
   s_sim_swipe_start.x = x1;
   s_sim_swipe_start.y = y1;
@@ -166,6 +237,9 @@ static void WAVESHARE_349_lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *da
   // ESP_LOGD(TAG, "Raw Touch: %d - %d", pointX, pointY);
 
   if (buff[1] > 0 && buff[1] < 5) {
+    exit_clock_breathing();
+    screenPowerOn();
+    SCREEN_OFF_TIMER = millis();
     data->state = LV_INDEV_STATE_PR;
 #if (Rotated != USER_DISP_ROT_NONO)
     if (pointX > WAVESHARE_349_LCD_V_RES) pointX = WAVESHARE_349_LCD_V_RES;

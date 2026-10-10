@@ -4,6 +4,8 @@
 // Project name: tune_bar
 
 #include "../ui.h"
+#include <stdint.h>
+extern uint8_t mediaType;
 
 lv_obj_t * ui_Screen_Player = NULL;
 lv_obj_t * ui_Player_Textarea_status = NULL;
@@ -31,6 +33,7 @@ lv_obj_t * ui_Player_Label_Label4 = NULL;
 lv_obj_t * ui_Player_Label_ElapseTime = NULL;
 lv_obj_t * ui_Player_Label_RemainTime = NULL;
 lv_obj_t * ui_Player_Container_albumCover = NULL;
+lv_obj_t * ui_Player_Label_albumSource = NULL;
 lv_obj_t * ui_Player_Button_returnMenu = NULL;
 lv_obj_t * ui_Player_Label_Label7 = NULL;
 lv_obj_t * ui_Player_Container_status1 = NULL;
@@ -45,9 +48,9 @@ void ui_event_Screen_Player(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
-    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_BOTTOM) {
+    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_TOP) {
         lv_indev_wait_release(lv_indev_get_act());
-        _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 500, 0, &ui_Screen_MainMenu_screen_init);
+        _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_TOP, 500, 0, &ui_Screen_MainMenu_screen_init);
     }
 }
 
@@ -150,6 +153,17 @@ void ui_event_Player_Button_returnMenu(lv_event_t * e)
 
     if(event_code == LV_EVENT_CLICKED) {
         _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 500, 0, &ui_Screen_MainMenu_screen_init);
+    }
+}
+
+void ui_event_Player_Container_albumCover(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        if (mediaType == 1) {
+            togglePlayerSource(e);
+        }
     }
 }
 
@@ -532,10 +546,30 @@ void ui_Screen_Player_screen_init(void)
     lv_obj_remove_style_all(ui_Player_Container_albumCover);
     lv_obj_set_width(ui_Player_Container_albumCover, 172);
     lv_obj_set_height(ui_Player_Container_albumCover, 172);
-    lv_obj_set_align(ui_Player_Container_albumCover, LV_ALIGN_LEFT_MID);
-    lv_obj_clear_flag(ui_Player_Container_albumCover, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_clear_flag(ui_Player_Container_albumCover, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_add_flag(ui_Player_Container_albumCover, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_style_bg_color(ui_Player_Container_albumCover, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Player_Container_albumCover, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_Player_Label_albumSource = lv_label_create(ui_Player_Container_albumCover);
+    lv_obj_set_width(ui_Player_Label_albumSource, LV_SIZE_CONTENT);
+    lv_obj_set_height(ui_Player_Label_albumSource, 20);
+    lv_obj_set_align(ui_Player_Label_albumSource, LV_ALIGN_BOTTOM_MID);
+    lv_obj_set_x(ui_Player_Label_albumSource, 0);
+    lv_obj_set_y(ui_Player_Label_albumSource, -12);
+    lv_label_set_text(ui_Player_Label_albumSource, " LOCAL ");
+    lv_obj_set_style_text_font(ui_Player_Label_albumSource, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_color(ui_Player_Label_albumSource, lv_color_hex(0xBD00FF), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ui_Player_Label_albumSource, lv_color_hex(0x1F0A2A), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(ui_Player_Label_albumSource, 255, LV_PART_MAIN);
+    lv_obj_set_style_pad_left(ui_Player_Label_albumSource, 10, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(ui_Player_Label_albumSource, 10, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(ui_Player_Label_albumSource, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(ui_Player_Label_albumSource, 2, LV_PART_MAIN);
+    lv_obj_set_style_radius(ui_Player_Label_albumSource, 4, LV_PART_MAIN);
+    lv_obj_set_style_border_color(ui_Player_Label_albumSource, lv_color_hex(0xBD00FF), LV_PART_MAIN);
+    lv_obj_set_style_border_width(ui_Player_Label_albumSource, 1, LV_PART_MAIN);
+    lv_obj_add_flag(ui_Player_Label_albumSource, LV_OBJ_FLAG_HIDDEN);
 
     ui_Player_Button_returnMenu = lv_btn_create(ui_Screen_Player);
     lv_obj_set_width(ui_Player_Button_returnMenu, 40);
@@ -629,6 +663,9 @@ void ui_Screen_Player_screen_init(void)
     lv_obj_add_event_cb(ui_Player_Button_skipforward, ui_event_Player_Button_skipforward, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Player_Button_next, ui_event_Player_Button_next, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Player_Button_returnMenu, ui_event_Player_Button_returnMenu, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_Player_Container_albumCover, ui_event_Player_Container_albumCover, LV_EVENT_ALL, NULL);
+    lv_obj_add_flag(ui_Player_Label_albumSource, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(ui_Player_Label_albumSource, ui_event_Player_Container_albumCover, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Player_Panel_blindPanel, ui_event_Player_Panel_blindPanel, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Screen_Player, ui_event_Screen_Player, LV_EVENT_ALL, NULL);
 
@@ -665,6 +702,7 @@ void ui_Screen_Player_screen_destroy(void)
     ui_Player_Label_ElapseTime = NULL;
     ui_Player_Label_RemainTime = NULL;
     ui_Player_Container_albumCover = NULL;
+    ui_Player_Label_albumSource = NULL;
     ui_Player_Button_returnMenu = NULL;
     ui_Player_Label_Label7 = NULL;
     ui_Player_Container_status1 = NULL;

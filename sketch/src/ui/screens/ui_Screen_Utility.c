@@ -27,9 +27,9 @@ void ui_event_Screen_Utility(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
-    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_BOTTOM) {
+    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_TOP) {
         lv_indev_wait_release(lv_indev_get_act());
-        _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 500, 0, &ui_Screen_MainMenu_screen_init);
+        _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_TOP, 500, 0, &ui_Screen_MainMenu_screen_init);
     }
     if(event_code == LV_EVENT_PRESSED) {
         showArrow(e);
@@ -45,9 +45,9 @@ void ui_event_Utility_Image_TorchButton(lv_event_t * e)
         torch_ON(e);
         _ui_flag_modify(ui_Utility_Button_returnMenu, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
     }
-    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_BOTTOM) {
+    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_TOP) {
         lv_indev_wait_release(lv_indev_get_act());
-        _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 500, 0, &ui_Screen_MainMenu_screen_init);
+        _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_TOP, 500, 0, &ui_Screen_MainMenu_screen_init);
     }
 }
 
@@ -60,9 +60,9 @@ void ui_event_Utility_Image_SystemInfoButton(lv_event_t * e)
         showSystemInfo(e);
         _ui_flag_modify(ui_Utility_Button_returnMenu, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
     }
-    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_BOTTOM) {
+    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_TOP) {
         lv_indev_wait_release(lv_indev_get_act());
-        _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 500, 0, &ui_Screen_MainMenu_screen_init);
+        _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_TOP, 500, 0, &ui_Screen_MainMenu_screen_init);
     }
 }
 
@@ -70,7 +70,7 @@ void ui_event_Utility_Panel_Torch(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
-    if(event_code == LV_EVENT_LONG_PRESSED) {
+    if(event_code == LV_EVENT_CLICKED || event_code == LV_EVENT_SHORT_CLICKED || event_code == LV_EVENT_PRESSED || event_code == LV_EVENT_LONG_PRESSED || event_code == LV_EVENT_GESTURE) {
         _ui_flag_modify(ui_Utility_Panel_Torch, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
         torch_OFF(e);
     }

@@ -213,7 +213,7 @@ void setup() {
 
   // Core 0 (System Core - lower priority than LVGL priority 5)
   createTaskChecked(serial_cli_task, "serial_cli", 6 * 1024, 2, 0);
-  createTaskChecked(web_server_task, "web_server", 4 * 1024, 2, 0);
+  createTaskChecked(web_server_task, "web_server", 8 * 1024, 2, 0);
 
 }
 
@@ -317,10 +317,13 @@ void serial_cli_task(void *param) {
           } else if (cmd.equalsIgnoreCase("status") || cmd.equalsIgnoreCase("ip")) {
             float volt = 0.0f; uint8_t pct = 0;
             getBatteryStatus(&volt, &pct);
-            Serial.printf("[CLI STATUS] IP: %s | GW: %s | WiFi: %s | Batt: %.2fV (%d%%) | Heap: %u | PSRAM: %u\n",
+            Serial.printf("[CLI STATUS] Screen: %s | IP: %s | GW: %s | WiFi: %s | Batt: %.2fV (%d%%) | Heap: %u | PSRAM: %u\n",
+                          lvgl_port_get_active_screen_name(),
                           WiFi.localIP().toString().c_str(), WiFi.gatewayIP().toString().c_str(),
                           (WiFi.status() == WL_CONNECTED) ? "CONNECTED" : "OFFLINE",
                           volt, pct, (unsigned int)ESP.getFreeHeap(), (unsigned int)ESP.getFreePsram());
+          } else if (cmd.equalsIgnoreCase("screen") || cmd.equalsIgnoreCase("screen status")) {
+            Serial.printf("[CLI SCREEN] Active: %s\n", lvgl_port_get_active_screen_name());
           } else if (cmd.equalsIgnoreCase("clock")) {
             log_i("[CLI] Switching to Clock Face...");
             screenPowerOn();
@@ -385,7 +388,7 @@ void serial_cli_task(void *param) {
             }
             Serial.println("[CLI] OK: Switched to Radio Player");
           } else if (cmd.equalsIgnoreCase("music") || cmd.equalsIgnoreCase("lan screen")) {
-            log_i("[CLI] Switching to Music / LAN Player Screen...");
+            log_i("[CLI] Switching to Music Player Screen...");
             exit_clock_breathing();
             screenPowerOn();
             resetScreenOffTimer(NULL);
@@ -396,7 +399,7 @@ void serial_cli_task(void *param) {
               musicPlayerMode(NULL);
               lvgl_port_unlock();
             }
-            Serial.println("[CLI] OK: Switched to Music / LAN Player");
+            Serial.println("[CLI] OK: Switched to Music Player");
           } else if (cmd.equalsIgnoreCase("chat") || cmd.equalsIgnoreCase("assistant screen")) {
             log_i("[CLI] Switching to AI ChatBot Screen...");
             exit_clock_breathing();
@@ -498,6 +501,25 @@ void serial_cli_task(void *param) {
           } else if (cmd.equalsIgnoreCase("radio radioindia") || cmd.equalsIgnoreCase("radio 1")) {
             switchRadioCatalog(RADIO_CATALOG_RADIO_INDIA);
             Serial.printf("[CLI RADIO] Switched site to RadioIndia.in (%d stations)\n", (int)stationListLength);
+          } else if (cmd.startsWith("radio lang ")) {
+            String larg = cmd.substring(11);
+            larg.trim();
+            uint8_t lidx = RADIO_LANG_HI;
+            if (larg.equalsIgnoreCase("en") || larg.equalsIgnoreCase("english") || larg == "1") lidx = RADIO_LANG_EN;
+            else if (larg.equalsIgnoreCase("es") || larg.equalsIgnoreCase("spanish") || larg == "2") lidx = RADIO_LANG_ES;
+            else if (larg.equalsIgnoreCase("cn") || larg.equalsIgnoreCase("chinese") || larg == "3") lidx = RADIO_LANG_CN;
+            else if (larg.equalsIgnoreCase("de") || larg.equalsIgnoreCase("german") || larg == "4") lidx = RADIO_LANG_DE;
+            else if (larg.equalsIgnoreCase("ja") || larg.equalsIgnoreCase("japanese") || larg == "5") lidx = RADIO_LANG_JA;
+            else lidx = RADIO_LANG_HI;
+
+            switchRadioLanguage(lidx);
+            extern lv_obj_t *ui_MainMenu_Dropdown_RadioLang;
+            if (ui_MainMenu_Dropdown_RadioLang && lvgl_port_lock(200)) {
+              lv_dropdown_set_selected(ui_MainMenu_Dropdown_RadioLang, lidx);
+              lvgl_port_unlock();
+            }
+            Serial.printf("[CLI RADIO] Language switched to %s (%s) [%d stations]\n",
+                          getRadioLanguageCode(lidx), getRadioLanguageName(lidx), (int)stationListLength);
           } else if (cmd.startsWith("radio play ")) {
             int idx = cmd.substring(11).toInt() - 1;
             if (idx >= 0 && idx < stationListLength) {
@@ -509,6 +531,7 @@ void serial_cli_task(void *param) {
               Serial.println("[CLI RADIO] Invalid station index");
             }
           } else if (cmd.equalsIgnoreCase("touch") || cmd.equalsIgnoreCase("tap")) {
+            exit_clock_breathing();
             screenPowerOn();
             bsp_set_audio_amp_power(true);
             UIStatusPayload ui_msg = {.type = STATUS_SCREEN_UNLOCK};
@@ -523,6 +546,7 @@ void serial_cli_task(void *param) {
             String args = cmd.substring(cmd.indexOf(' ') + 1);
             args.trim();
             int space_idx = args.indexOf(' ');
+            exit_clock_breathing();
             screenPowerOn();
             bsp_set_audio_amp_power(true);
             UIStatusPayload ui_msg = {.type = STATUS_SCREEN_UNLOCK};
@@ -649,7 +673,101 @@ void serial_cli_task(void *param) {
             speaker.setVolume(90);
             audio.setVolume(21);
             audio.connecttoFS(LittleFS, "/rec.wav");
-            Serial.println("[CLI] OK: Playing /rec.wav");
+          } else if (cmd.equalsIgnoreCase("screenshot") || cmd.equalsIgnoreCase("screen dump") || cmd.equalsIgnoreCase("snap")) {
+            screenPowerOn();
+            lvgl_port_take_screenshot();
+            const uint16_t *fb = lvgl_port_get_framebuffer();
+            if (!fb) {
+              Serial.println("[SCREEN_ERROR] Framebuffer unavailable");
+            } else {
+              const uint32_t width = WAVESHARE_349_LCD_H_RES;
+              const uint32_t height = WAVESHARE_349_LCD_V_RES;
+              const uint32_t row_stride = ((width * 3 + 3) / 4) * 4;
+              const uint32_t image_size = row_stride * height;
+              const uint32_t file_size = 54 + image_size;
+
+              Serial.printf("\n[SCREEN_START] %u %u %u\n", (unsigned)width, (unsigned)height, (unsigned)file_size);
+              uint8_t bmp_hdr[54];
+              memset(bmp_hdr, 0, sizeof(bmp_hdr));
+              bmp_hdr[0] = 'B'; bmp_hdr[1] = 'M';
+              bmp_hdr[2] = (uint8_t)(file_size);
+              bmp_hdr[3] = (uint8_t)(file_size >> 8);
+              bmp_hdr[4] = (uint8_t)(file_size >> 16);
+              bmp_hdr[5] = (uint8_t)(file_size >> 24);
+              bmp_hdr[10] = 54;
+              bmp_hdr[14] = 40;
+              bmp_hdr[18] = (uint8_t)(width);
+              bmp_hdr[19] = (uint8_t)(width >> 8);
+              bmp_hdr[20] = (uint8_t)(width >> 16);
+              bmp_hdr[21] = (uint8_t)(width >> 24);
+              bmp_hdr[22] = (uint8_t)(height);
+              bmp_hdr[23] = (uint8_t)(height >> 8);
+              bmp_hdr[24] = (uint8_t)(height >> 16);
+              bmp_hdr[25] = (uint8_t)(height >> 24);
+              bmp_hdr[26] = 1;
+              bmp_hdr[28] = 24;
+              bmp_hdr[34] = (uint8_t)(image_size);
+              bmp_hdr[35] = (uint8_t)(image_size >> 8);
+              bmp_hdr[36] = (uint8_t)(image_size >> 16);
+              bmp_hdr[37] = (uint8_t)(image_size >> 24);
+
+              static const char b64_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+              // Stream header b64
+              char hdr_b64[80];
+              int hpos = 0;
+              for (int i = 0; i < 54; i += 3) {
+                uint32_t b0 = bmp_hdr[i];
+                uint32_t b1 = (i + 1 < 54) ? bmp_hdr[i + 1] : 0;
+                uint32_t b2 = (i + 2 < 54) ? bmp_hdr[i + 2] : 0;
+                uint32_t triple = (b0 << 16) | (b1 << 8) | b2;
+                hdr_b64[hpos++] = b64_table[(triple >> 18) & 0x3F];
+                hdr_b64[hpos++] = b64_table[(triple >> 12) & 0x3F];
+                hdr_b64[hpos++] = (i + 1 < 54) ? b64_table[(triple >> 6) & 0x3F] : '=';
+                hdr_b64[hpos++] = (i + 2 < 54) ? b64_table[triple & 0x3F] : '=';
+              }
+              hdr_b64[hpos] = '\0';
+              Serial.print("[SCREEN_B64]:");
+              Serial.println(hdr_b64);
+
+              // Stream pixel rows
+              uint8_t row_buf[row_stride];
+              for (int y = (int)height - 1; y >= 0; y--) {
+                memset(row_buf, 0, row_stride);
+                const uint16_t *src_row = fb + (y * width);
+                uint8_t *dst = row_buf;
+                for (uint32_t x = 0; x < width; x++) {
+                  uint16_t p = src_row[x];
+                  uint8_t r = (p >> 11) & 0x1F;
+                  uint8_t g = (p >> 5) & 0x3F;
+                  uint8_t b = p & 0x1F;
+                  *dst++ = (b * 255) / 31;
+                  *dst++ = (g * 255) / 63;
+                  *dst++ = (r * 255) / 31;
+                }
+                // Send row encoded as b64 chunks
+                for (uint32_t offset = 0; offset < row_stride; ) {
+                  uint32_t chunk_len = (row_stride - offset > 120) ? 120 : (row_stride - offset);
+                  char line[170];
+                  int lpos = 0;
+                  for (uint32_t i = 0; i < chunk_len; i += 3) {
+                    uint32_t b0 = row_buf[offset + i];
+                    uint32_t b1 = (i + 1 < chunk_len) ? row_buf[offset + i + 1] : 0;
+                    uint32_t b2 = (i + 2 < chunk_len) ? row_buf[offset + i + 2] : 0;
+                    uint32_t triple = (b0 << 16) | (b1 << 8) | b2;
+                    line[lpos++] = b64_table[(triple >> 18) & 0x3F];
+                    line[lpos++] = b64_table[(triple >> 12) & 0x3F];
+                    line[lpos++] = (i + 1 < chunk_len) ? b64_table[(triple >> 6) & 0x3F] : '=';
+                    line[lpos++] = (i + 2 < chunk_len) ? b64_table[triple & 0x3F] : '=';
+                  }
+                  line[lpos] = '\0';
+                  Serial.print("[SCREEN_B64]:");
+                  Serial.println(line);
+                  offset += chunk_len;
+                  vTaskDelay(1);
+                }
+              }
+              Serial.println("[SCREEN_END]");
+            }
           } else if (cmd.equalsIgnoreCase("b64rec") || cmd.equalsIgnoreCase("b64dump")) {
             const uint8_t *src_buf = nullptr;
             size_t total_sz = 0;

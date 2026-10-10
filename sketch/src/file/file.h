@@ -54,6 +54,16 @@ typedef struct {
 extern radios *stations;
 extern int16_t stationIndex;
 extern uint8_t stationListLength;
+
+enum RadioLanguage {
+    RADIO_LANG_HI = 0,
+    RADIO_LANG_EN = 1,
+    RADIO_LANG_ES = 2,
+    RADIO_LANG_CN = 3,
+    RADIO_LANG_DE = 4,
+    RADIO_LANG_JA = 5
+};
+
 enum RadioCatalogSite {
     RADIO_CATALOG_ONLINE_RADIO_FM = 0,
     RADIO_CATALOG_RADIO_INDIA = 1
@@ -61,8 +71,15 @@ enum RadioCatalogSite {
 
 extern uint8_t playMode;
 extern uint8_t currentRadioCatalog;
+extern uint8_t currentRadioLang;
+
 void switchRadioCatalog(uint8_t catalogIndex);
 const char* getRadioCatalogName(uint8_t catalogIndex);
+
+void switchRadioLanguage(uint8_t langIndex);
+uint8_t getRadioLanguage();
+const char* getRadioLanguageCode(uint8_t langIndex);
+const char* getRadioLanguageName(uint8_t langIndex);
 
 void loadStationList();
 bool copyStationsCSV_SD_to_LittleFS();

@@ -15,6 +15,9 @@ bool lvgl_port_lock(int timeout_ms);
 void lvgl_port_unlock(void);
 void lvgl_port_inject_touch(int16_t x, int16_t y, uint32_t duration_ms);
 void lvgl_port_inject_swipe(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint32_t duration_ms);
+const uint16_t* lvgl_port_get_framebuffer(void);
+bool lvgl_port_take_screenshot(void);
+const char* lvgl_port_get_active_screen_name(void);
 
 #ifdef __cplusplus
 }

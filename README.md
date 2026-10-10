@@ -1,69 +1,151 @@
-# 🎧 TuneBar (Advanced Edition) — AI Voice Assistant & Smart Media Bar
+# 🎧 TuneBar (Advanced Edition) — Autonomous AI Voice Assistant & Smart Media Bar
 
 ![ESP32-S3](https://img.shields.io/badge/SoC-ESP32--S3-blue?logo=espressif)
 ![Flash/PSRAM](https://img.shields.io/badge/Memory-16MB%20Flash%20%2F%208MB%20PSRAM-orange)
-![Display](https://img.shields.io/badge/Display-3.49%22%20Capacitive%20Touch%20(640x172)-green)
+![Display](https://img.shields.io/badge/Display-3.49%22%20Capacitive%20Touch%20(640x180)-green)
 ![License](https://img.shields.io/badge/License-CC--BY--NC--SA--4.0-lightgrey)
 
-**TuneBar Advanced Edition** is an extensive architectural evolution of the original TuneBar project for the **Waveshare ESP32-S3-Touch-LCD-3.49** hardware. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart media bar, and distributed telemetry station with high-fidelity acoustic processing, advanced power management (breathing PWM & audio gating), robust DRAM memory engineering, and secure parameterization.
+**TuneBar Advanced Edition** is an extensive architectural evolution of the original TuneBar project for the **Waveshare ESP32-S3-Touch-LCD-3.49** hardware. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart media bar, and distributed telemetry station with high-fidelity acoustic processing, advanced power management (breathing PWM & audio gating), robust DRAM memory engineering, multilingual global internet radio across 6 languages, LAN media streaming, and secure parameterization.
 
 ---
 
-## 📸 Interface Showcase
+## 📸 Interface Showcase (Authentic Hardware Captures)
 
-TuneBar's redesigned interface utilizes a high-contrast Neon Card aesthetic tailored specifically for the ultra-wide **640 × 172** display:
+*All captures shown below are 100% genuine uncompressed framebuffers extracted directly from the physical ESP32-S3 hardware via `/api/screenshot`.*
 
-### 1. Autonomous AI Voice Assistant
-![AI Voice Assistant](document/simulated_screen_ai_voice.png)
-*Active voice interaction showing ES7210 microphone capture, real-time VAD auto-cutoff, Groq Whisper STT (<200ms), and streamed Edge-TTS audio playback over the onboard NS4150B amplifier.*
+### 1. Retro Nixie Digital Clock Face
+![Nixie Clock Face](document/screen_clock.png)
+- **What it is**: Authentic retro glowing Nixie tube display driven by the hardware PCF85063 RTC with real-time day/date and hardware battery telemetry (voltage and percentage).
+- **How to use**: Tap anywhere on the screen to wake the display to full configured brightness.
+- **Gestures**: Swipe **Left or Right ($\leftarrow / \rightarrow$)** to transition between the Clock, Weather Panel, and Alarm. Swipe **Up ($\uparrow$)** to open the Main Menu launcher.
+- **Power Optimization**: When left idle, the clock automatically activates gentle sine-wave breathing PWM dimming and powers down the Wi-Fi modem to conserve up to ~62% battery power.
 
-### 2. Digital Clock & Ambient Power-Saving Breathing Mode
-![Digital Clock & Breathing Backlight](document/simulated_screen_clock_breathing.png)
-*High-contrast PCF85063 clock face with live weather, AQI, and sine-wave breathing backlight saving >60% display power while idle.*
+---
 
-### 3. LAN Media Streaming Player (LocalShare)
-![LAN Media Streaming](document/simulated_screen_lan_player.png)
-*Direct Wi-Fi audio streaming from local HTTP media servers with full playback transport controls, catalog indexing, and real-time progress.*
+### 2. Live Weather, AQI & Climate Panel
+![Weather & Climate Panel](document/screen_weather.png)
+- **What it is**: Ambient climate station displaying live weather conditions, temperature ($^\circ\text{C}$ or $^\circ\text{F}$), relative humidity, local wind speed, and animated weather icons.
+- **Air Quality Monitoring**: Includes an integrated US AQI / PM2.5 particulate monitor with color-coded safety indices.
+- **How to use**: Telemetry updates automatically over Wi-Fi in the background; city and geolocation can be adjusted in `Settings -> Region`.
+- **Gestures**: Swipe **Right ($\rightarrow$)** to return to the Nixie Clock, swipe **Left ($\leftarrow$)** to open the Alarm Clock, or swipe **Up ($\uparrow$)** to return to the Main Menu.
 
-### 4. Hardware Health, DRAM & System Diagnostics
-![DRAM & System Diagnostics](document/simulated_screen_dram_sysinfo.png)
-*Real-time memory monitor demonstrating 204 KB of free internal DRAM, external Octal PSRAM utilization, and hardware peripheral status.*
+---
+
+### 3. Retro Alarm Clock
+![Retro Alarm Panel](document/screen_alarm.png)
+- **What it is**: Dedicated emerald-green retro alarm interface with independent hour and minute digit adjustment controls.
+- **How to use**: Use the **[+]** and **[-]** buttons above and below each digit to set your desired wake-up time. Tap the **Enable/Disable** button to arm or disarm the alarm.
+- **Acoustic Audit**: Tap the **TEST** button to immediately audit alarm audio playback through the NS4150B amplifier and 8Ω speaker.
+- **Gestures**: Swipe **Right ($\rightarrow$)** to return to the Weather Panel or Nixie Clock. Swipe **Up ($\uparrow$)** to return to the Main Menu. When an alarm is sounding, tap anywhere on screen to silence it.
+
+---
+
+### 4. Main Menu Carousel (Segoe UI Bold Neon Cards)
+![Main Menu Cards View 1](document/screen_menu_cards_1.png)
+![Main Menu Cards View 2](document/screen_menu_cards_2.png)
+- **What it is**: Ultra-crisp $640\times180$ horizontal launcher carousel featuring 6 custom neon cards: **CLIMATE** (Cyan), **RADIO** (Pink), **MUSIC** (Purple), **AI VOICE** (Emerald Green), **SYSTEM** (Amber Gold), and **SETTINGS** (Slate).
+- **How to use**: Drag horizontally left or right across the screen to pan across all 6 applications. Tap any card icon to launch that application instantly.
+- **Audio Pulse Feedback**: When an audio stream or music track is playing in the background, the active app card gently pulses with a slow, relaxed bounce animation in the carousel.
+- **Gestures**: Swipe down from the top edge to quickly lock or return to the Nixie Clock.
+
+---
+
+### 5. Multilingual Global Internet Radio Player
+![Radio Player Hindi](document/screen_radio_player_hi.png)
+![Radio Player English](document/screen_radio_player_en.png)
+![Radio Player German](document/screen_radio_player_de.png)
+- **What it is**: International live-streaming internet radio player supporting 6 world languages (**HI**, **EN**, **ES**, **CN**, **DE**, **JA**) with dynamic language badge indicators (`[ ♫ HI ]`, `[ ♫ EN ]`, `[ ♫ DE ]`, etc.).
+- **How to use**: Tap **Play/Pause** to start or stop streaming; use **Next Track ($▶▶$)** and **Previous Track ($◀◀$)** to cycle through the 10 curated stations.
+- **Catalog Cycling**: Tap the catalog badge button directly to cycle through station presets or switch sub-catalogs.
+- **Gestures**: Swipe **Up ($\uparrow$)** anywhere on the player screen to return smoothly to the Main Menu while radio audio continues playing uninterrupted in the background.
+
+---
+
+### 6. Settings Suite — Multilingual Radio Language Selector
+![Settings Radio](document/screen_settings_radio.png)
+- **What it is**: Dedicated radio configuration tab in `Settings -> Radio` equipped with an on-device 2-letter language dropdown selector (`HI`, `EN`, `ES`, `CN`, `DE`, `JA`).
+- **How to use**: Select any 2-letter language code from the dropdown to immediately write the 10 curated stations to LittleFS `/stations.csv` and persist your preference in NVS across reboots.
+- **MicroSD Card Loading**: Insert a microSD card with a custom `stations.csv` file and click **Load** to import your own custom station catalog.
+- **Live Diagnostics**: The status readout confirms the total loaded stations and active language code (e.g. `Total 10 stations loaded (EN)`). Tap the top-right **[X]** button to save settings and exit.
+
+---
+
+### 7. Media Player Subsystem — Local SD & LAN Streaming
+![Music Player Local SD](document/screen_music_local.png)
+![Music Player LAN Stream](document/screen_music_lan.png)
+- **What it is**: Unified high-performance media engine with single-tap source switching between **LOCAL SD** (purple neon glow, $O(1)$ PSRAM seek) and **LAN STREAM** (cyan neon glow, local Wi-Fi HTTP streaming).
+- **How to use**: Tap the album art card icon in the top-left corner to toggle instantly between Local SD card playback and LAN streaming modes.
+- **Playback Controls**: Features Play/Pause, Next/Previous track, Seek Forward (+5s), Seek Rewind (-5s), Shuffle mode toggle, and an on-screen volume slider.
+- **Gestures**: Swipe **Up ($\uparrow$)** anywhere on the player screen to return to the Main Menu while audio continues playing in the background.
+
+---
+
+### 8. Autonomous AI Voice Assistant
+![AI Voice Assistant](document/screen_assistant.png)
+- **What it is**: Full-duplex conversational voice interface utilizing the onboard dual ES7210 MEMS microphones, hardware voice activity detection (VAD), and cloud AI reasoning.
+- **How to use**: Tap the green microphone button on screen (or send an `ask <prompt>` serial/REST command) to begin speaking. Speak naturally; the assistant automatically detects when you stop speaking.
+- **Pipeline Speed**: Audio is compressed and sent to Groq Whisper STT (<200ms), processed by Llama 3.3 70B reasoning, and streamed back via Microsoft Edge-TTS through the onboard speaker.
+- **Gestures**: Swipe **Up ($\uparrow$)** anywhere on screen to dismiss the assistant and return to the Main Menu.
+
+---
+
+### 9. System Diagnostics & Hardware Utilities
+![System Diagnostics](document/screen_utility.png)
+- **What it is**: Utility dashboard providing instant access to the ultra-bright **LED Torch** flashlight and deep **System Info** diagnostics.
+- **Torch Operation**: Tap the Torch icon to drive the AP3032 backlight boost converter to 100% brightness (maximum LCD white screen luminance). Simply **tap anywhere on the screen** to turn off the torch.
+- **System Telemetry**: Tap the System Info button to view real-time internal DRAM free memory, external PSRAM usage, FreeRTOS task high-water marks, battery voltage, and firmware version.
+- **Gestures**: Swipe **Up ($\uparrow$)** anywhere on the screen to dismiss utilities and return to the Main Menu.
+
+---
+
+### 10. Comprehensive Device Settings Tabs
+![Settings Wi-Fi](document/screen_settings_wifi.png)
+![Settings Screen](document/screen_settings_screen.png)
+![Settings Music](document/screen_settings_music.png)
+![Settings Region](document/screen_settings_region.png)
+- **Wi-Fi Tab**: Scans local 2.4GHz Wi-Fi networks in real time; select an SSID from the dropdown and enter the password via on-screen keyboard. Automatically stores up to 10 networks in NVS.
+- **Screen Tab**: Set backlight brightness levels (Low, Medium, High), configure inactivity sleep timeouts (15s, 30s, 1m, 2m, 5m, 10m, or Never), and choose wallpaper themes.
+- **Music Tab**: Toggle the default music startup source, trigger a recursive microSD audio track scan, or configure the LAN HTTP streaming server URL with full on-screen keyboard support.
+- **Region Tab**: Set geolocation coordinates, configure UTC timezone offsets via hour/minute roller wheels with instant PCF85063 RTC synchronization, and toggle between Celsius and Fahrenheit temperature units.
+- **Dismiss**: Tap the top-right **[X]** button on any tab to save changes to NVS flash and close the settings overlay.
 
 ---
 
 ## 📑 Table of Contents
-1. [Key Differences vs Upstream](#-key-differences-vs-upstream)
-2. [Hardware Architecture & Audio Subsystem](#-hardware-architecture--audio-subsystem)
-3. [Media Player Subsystem: SD Card & LAN Streaming](#-media-player-subsystem-sd-card--lan-streaming)
-4. [Display, Brightness & Power Saving Architecture](#-display-brightness--power-saving-architecture)
-5. [Hardware Bugs, Silicon Quirks & Verified Fixes](#-hardware-bugs-silicon-quirks--verified-fixes)
-6. [DRAM Optimization Deep-Dive](#-dram-optimization-deep-dive)
-7. [What Didn't Work & Our Workarounds](#-what-didnt-work--our-workarounds)
-8. [Self-Hosting the Backend APIs (How to Replicate)](#-self-hosting-the-backend-apis-how-to-replicate)
-9. [Secrets Management Architecture](#-secrets-management-architecture)
-10. [Step-by-Step Reproduction Guide](#-step-by-step-reproduction-guide)
-11. [Credits & License](#-credits--license)
+1. [Key Architectural Differences vs Upstream](#-key-architectural-differences-vs-upstream)
+2. [Hardware Specifications & Pinout](#-hardware-specifications--pinout)
+3. [Multilingual Global Internet Radio](#-multilingual-global-internet-radio)
+4. [Media Player Subsystem: SD Card & LAN Streaming](#-media-player-subsystem-sd-card--lan-streaming)
+5. [Autonomous AI Voice Assistant Pipeline](#-autonomous-ai-voice-assistant-pipeline)
+6. [Display, Brightness & Power Saving Architecture](#-display-brightness--power-saving-architecture)
+7. [Comprehensive Web Remote REST API](#-comprehensive-web-remote-rest-api)
+8. [USB Serial CLI Commands](#-usb-serial-cli-commands)
+9. [Touch Gestures & Navigation Guide](#-touch-gestures--navigation-guide)
+10. [Hardware Bugs, Silicon Quirks & Verified Fixes](#-hardware-bugs-silicon-quirks--verified-fixes)
+11. [DRAM Optimization Deep-Dive](#-dram-optimization-deep-dive)
+12. [Step-by-Step Build & Flash Guide](#-step-by-step-build--flash-guide)
+13. [Credits & License](#-credits--license)
 
 ---
 
-## ⚖️ Key Differences vs Upstream
+## ⚖️ Key Architectural Differences vs Upstream
 
 | Subsystem / Feature | Upstream TuneBar (v1.2.x) | TuneBar Advanced Edition (This Repo) |
 | :--- | :--- | :--- |
-| **Voice Interaction** | None (planned placeholder only) | **Full autonomous AI Voice Assistant**: Dual ES7210 MEMS mic capture, dynamic VAD auto-cutoff, instant local repeat loop, HTTPS TLS upload, and streaming Edge-TTS speech. |
-| **Audio Hardware Driver** | Output-only (ES8311 DAC) | **Full-duplex I2S**: Custom ES7210 4-ch ADC driver with corrected 256 LRCK clock dividers, 32-bit DMA frame stride extraction, and LittleFS WAV buffering. |
+| **Multilingual Radio** | Static Indian stations only | **6-Language Curated Global Radio**: Dynamic language switching across **HI**, **EN**, **ES**, **CN**, **DE**, and **JA** with NVS persistence and dynamic player badges. |
+| **Voice Interaction** | None (planned placeholder only) | **Full Autonomous AI Voice Assistant**: Dual ES7210 MEMS mic capture, dynamic VAD auto-cutoff, local acoustic loopback, HTTPS TLS upload, and streaming Edge-TTS speech. |
+| **Audio Hardware Driver** | Output-only (ES8311 DAC) | **Full-Duplex I2S**: Custom ES7210 4-ch ADC driver with corrected 256 LRCK clock dividers, 32-bit DMA frame stride extraction, and LittleFS WAV buffering. |
 | **Display & Backlight** | Static PWM brightness | **LEDC PWM + Ambient Breathing Animation**: Dynamic dimming after inactivity, sine-wave breathing saving ~62% power, and capacitive touch wake. |
 | **Power Management** | Always-on amplifier & display | **Power-Gated Audio Domain**: NS4150B Class-D amplifier powered down via TCA9554 expander when idle (0 quiescent draw/hiss); Wi-Fi modem sleep enabled. |
 | **Internal DRAM Free** | <25 KB (frequent heap panics) | **~204 KB Free (40% used)**: Audio decoders, stream ring buffers, and LVGL object allocations relocated to external PSRAM. |
 | **Networking & Streaming**| SD card & static online radio | **LAN Media Streaming (LocalShare)**: Discovers and plays music from local HTTP servers across Wi-Fi. |
+| **Remote Control & API** | Rudimentary web page | **Comprehensive REST API**: Full remote control over screen navigation, touch events, volume, radio language, alarm, and high-res framebuffer screenshots. |
 | **Telemetry & Observability**| None | **Batch Telemetry Ring Buffer**: Periodic circular buffer flushes metrics (battery mV, RSSI, heap, uptime) to remote servers via background TLS. |
 | **Credentials & Security** | Hardcoded URLs & API keys | **Zero-Leak Parameterized Headers**: Air-gapped `secrets.h` (git-ignored) with comprehensive public template `secrets_example.h`. |
 
 ---
 
-## 🛠️ Hardware Architecture & Audio Subsystem
-
-The Waveshare board utilizes a multi-chip audio pipeline:
+## 🛠️ Hardware Specifications & Pinout
 
 ```
 [ MEMS Mic 1 (Left)  ] ----\
@@ -77,7 +159,6 @@ The Waveshare board utilizes a multi-chip audio pipeline:
                               (I2C: 0x20)
 ```
 
-### Complete Pin Assignment Table
 | Signal / Function | ESP32-S3 Pin | Purpose |
 | :--- | :--- | :--- |
 | **I2C SDA / SCL** | `GPIO 47` / `GPIO 48` | Shared control bus (ES7210, ES8311, TCA9554, PCF85063, AXS15231B Touch) |
@@ -90,6 +171,25 @@ The Waveshare board utilizes a multi-chip audio pipeline:
 | **TCA9554 SYS_EN** | `EXIO Pin 1` | Power rail enable for audio subsystem (Active HIGH) |
 | **TCA9554 NS_MODE** | `EXIO Pin 2` | Un-mute NS4150B Class-D Power Amplifier (Active HIGH) |
 | **TCA9554 BL_EN** | `EXIO Pin 1` | Hardware Backlight Enable |
+| **Battery ADC** | `GPIO 4` | Analog voltage sensing through 2:1 resistive divider |
+
+---
+
+## 🌍 Multilingual Global Internet Radio
+
+To cater to a global audience, TuneBar features an international internet radio catalog covering 6 major world languages:
+- **Hindi (`HI`)**: Integrates 20 top national and Bollywood stations across dual catalogs (`OnlineRadioFM.in` and `RadioIndia.in`).
+- **English (`EN`)**: 10 top live streams (BBC World Service, Dance Wave!, Classic Vinyl HD, WALM Old Time Radio, 101 Smooth Jazz, Radio Paradise EU, Classic Hits 70s-80s, WALM 2 HD, Mango Radio EN, NPR 24/7 News).
+- **Spanish (`ES`)**: 10 top live stations from Spain and the Americas (Cadena 100 Spain, Ibiza Global Radio, Chocolate FM, Rock FM Spain, Blu Radio Colombia, 80s Exitos Latino, Caracol Radio, Los 40 Urban, Los 40 Dance, esRadio Madrid).
+- **Chinese / Mandarin (`CN`)**: 10 top live stations (Asia DREAM China, Hong Kong RTHK 1, Classical FM 97.7, Chinese Radio 2, CNR-1 Voice of China, Chinese Radio 4, Chinese Radio 5, YES 933 Mandopop, Love 972 Radio, Jesus Is Lord Radio).
+- **German (`DE`)**: Selected based on non-HI/EN/ES/CN world GDP ranking (#1 Germany, \$4.59T) — 1LIVE WDR, Antenne Bayern, Rock Antenne, WDR 5 Information, Sunshine Live 90er, 80s80s Wave, 90s90s Hits, Rock Antenne Metal, TranceBase.FM, Mango Radio DE.
+- **Japanese (`JA`)**: Selected based on non-HI/EN/ES/CN world GDP ranking (#2 Japan, \$4.11T) — Jazz Sakura Asia Dream, Anime Para Ti, Listen.Moe J-Pop, Retro PC Game Music, R/a/dio Anime, J1 Gold Nostalgia, FM Kahoku 78.7, Shonan Beach FM 78.9, Free FM Tokyo, J1 Hits Japan.
+
+### Dynamic Switching & Persistence Architecture
+1. **On-Device Dropdown**: Navigate to `Settings -> Radio` to select any language from the dropdown menu.
+2. **Flash & NVS Caching**: Switching languages instantly writes the 10 stations to `/stations.csv` on LittleFS and persists the user's selection in NVS (`tb_radio.lang`), ensuring preferences survive reboots.
+3. **Adaptive Player Badge**: On the player screen, the catalog button dynamically reflects the current language (`[ ♫ EN ]`, `[ ♫ DE ]`, `[ ♫ ES ]`, etc.), or toggles between `[ ♫ FM ]` and `[ 📶 IN ]` for Hindi.
+4. **Remote Switching**: Fully switchable over Wi-Fi via `GET/POST /api/radio/lang?set=<hi|en|es|cn|de|ja>` and over serial CLI via `radio lang <lang>`.
 
 ---
 
@@ -104,35 +204,28 @@ TuneBar features a unified media player engine that seamlessly handles both **Lo
 * **Crash-Proof SD Card Scanner**:
   - Re-architected recursive directory traversal (`scanDirRecursive`). Path buffers and recursion tracking are allocated on the PSRAM heap (`heap_caps_malloc(PATH_BUF_LEN, MALLOC_CAP_SPIRAM)`), eliminating FreeRTOS stack canary overflows.
   - Enforced cross-screen widget null guards in `task_msg.cpp` so background scanning status messages never dereference uninstantiated UI objects when scanning from `Settings -> Music`.
-  - Clean SPI bus reset (`SD.end()` followed by re-initialization) prevents bus lockups on repeated scans.
-* **Continuous Autoplay Queue Engine**:
-  - Full support for **Sequential (Normal)**, **Shuffle / Random** (PRNG avoiding immediate repeats), and **Repeat Single Track** modes.
-  - Automatically advances to the next track upon `audio_eof_mp3()` / EOF events with zero audio pops or heap leaks.
 * **Progressive Metadata Display**:
-  - Instantly displays the cleaned track filename (stripping directory path and extension) upon start, progressively updating with ID3v2 title and artist tags once decoded from the stream.
-* **Missing SD Card & Hardware Fallback**:
-  - If no SD card is detected or FAT mount fails, the system logs a clean warning, displays "Card Mount Failed" without panicking, and gracefully routes audio requests to Web Radio, AI Voice Assistant, or LAN Streaming.
+  - Instantly displays the cleaned track filename upon start, progressively updating with ID3v2 title and artist tags once decoded from the stream.
+
+### 2. Switching Between SD Card and LAN Player
+* **Single-Tap Album Cover Toggle**: Tapping the album cover card on the player screen dynamically toggles between **LOCAL SD** (purple neon glow) and **LAN STREAM** (cyan neon glow).
+* **Track Memory**: Remembers last track index for both engines independently.
+* **Empty Library Guard**: Displays *"Please go to Settings -> Music and tap LOAD to index"* if the library is unindexed.
 
 ---
 
-### 2. Switching Between SD Card Player and LAN Player
+## 🎙️ Autonomous AI Voice Assistant Pipeline
 
-Both SD card playback and LAN streaming share TuneBar's unified Neon Card **Player Screen** (`ui_Screen_Player` with `mediaType = 1`). Switching between the two playback sources is straightforward across all interfaces:
-
-#### Mode Priority & Routing Rule
-When entering the Music Player screen:
-1. **If LAN files are indexed (`lan_get_file_count() > 0`)**: The player enters **LAN Streaming Mode**. The track header displays `X of Y (LAN)`, and transport controls (Play, Pause, Skip, Rewind) stream audio directly from the local HTTP media server.
-2. **If no LAN files are indexed (`lan_get_file_count() == 0`)**: The player defaults to the **Local SD Card Library**. The track header displays `X of Y`, reading audio from FatFS/SPI.
-
----
-
-#### How to Switch Across Interfaces:
-
-| Interface | To Switch to LAN Player | To Switch to SD Card Player |
-| :--- | :--- | :--- |
-| **🌐 Web Remote** (`http://<ip>/`) | Under **LAN Media Streaming (LocalShare)** card, enter your server `IP:port/path` (e.g. `192.168.3.10:8080/e37bd4`), click **Connect** / **Fetch**, and click any song or **▶ Play First Track**. Playback begins streaming immediately (`/api/lan/play?idx=N`). | Under **Remote Touch Controller**, tap **Radio** or **Return**, or navigate to Music when LAN catalog is not active. Or tap **⏯** to control local playback. |
-| **📱 Touchscreen UI** | Open Main Menu $\rightarrow$ Tap **Music** card. If a LAN server was previously fetched, it automatically plays LAN tracks (`X of Y (LAN)`). | If LAN server is not configured or 0 files found, tapping **Music** card directly plays SD Card tracks (`X of Y`). (Go to `Settings -> Music -> Scan SDCard` to index SD tracks). |
-| **💻 USB Serial CLI** | Run `lan server <ip:port>` $\rightarrow$ `lan fetch` $\rightarrow$ `lan play <N>` (e.g. `lan play 1`). | Run `music` to enter player screen, and control playback via `click play` / `click next` (when LAN file count is 0). |
+1. **Acoustic Front-End**:
+   - Dual onboard MEMS microphones capture audio via the ES7210 4-channel ADC at 16 kHz / 16-bit mono.
+   - Dynamic Voice Activity Detection (VAD) monitors energy levels and automatically terminates recording after speech pauses.
+2. **Local Loopback Verification**:
+   - Audio is saved to `/rec.wav` on LittleFS and immediately echoed locally through the speaker to confirm capture quality.
+3. **Low-Latency Cloud Pipeline**:
+   - Audio payload is uploaded via background HTTPS TLS to the FastAPI backend.
+   - **Groq Whisper Large V3 Turbo** transcribes speech in <200ms.
+   - **Llama 3.3 70B Versatile** generates concise, intelligent responses in <250ms.
+   - **Microsoft Edge-TTS** streams natural neural speech back to the ESP32-S3 over Wi-Fi.
 
 ---
 
@@ -140,33 +233,120 @@ When entering the Music Player screen:
 
 ### 1. Hardware Pin Corrections & PWM Polarity (V2 Board)
 On the Waveshare V2 board revision (marked with `Rev1.1` silkscreen):
-- Upstream firmware targeted the discontinued V1 board pinout (`BK_LIGHT` on GPIO 8). On V2 hardware, backlight PWM was moved to **`GPIO 42`**, while **`EXIO Pin 1`** on the TCA9554 expander acts as hardware backlight enable (`BL_EN`).
-- The PWM logic uses ESP32-S3 **LEDC timer channels** (5 kHz, 8-bit resolution). We implemented non-volatile NVS storage for user brightness preferences (`Low: 35%`, `Med: 65%`, `High: 100%`).
+- Backlight PWM is mapped to **`GPIO 42`**, while **`EXIO Pin 1`** on the TCA9554 expander acts as hardware backlight enable (`BL_EN`).
+- The PWM logic uses ESP32-S3 **LEDC timer channels** (5 kHz, 8-bit resolution) with non-volatile NVS brightness storage (`Low: 35%`, `Med: 65%`, `High: 100%`).
 
 ### 2. Sine-Wave Ambient Breathing Animation
 To transform the device into an unobtrusive, elegant desk accessory while drastically curbing energy consumption, we engineered a hardware **Sine-Wave Breathing Algorithm**:
 $$PWM(t) = \text{Base} + A \cdot \sin\left(\frac{2\pi t}{T}\right)$$
-- When sitting in Clock or Idle mode, the backlight gently oscillates between **15% and 45%** over an 8-second cycle.
-- **Power Impact**: Operating at an average duty cycle of ~30% reduces display backlight power draw from **~1.1W to ~0.38W** (>62% power saved), preventing heat buildup in the ultra-compact enclosure.
+- In Clock or Idle mode, the backlight oscillates between **15% and 45%** over an 8-second cycle.
+- **Power Impact**: Reduces display power draw from **~1.1W to ~0.38W** (>62% power saved).
 
-### 3. Dynamic Display Dimming & Capacitive Touch Wake
-- After 45 seconds of user inactivity, the screen fades smoothly to 10% minimal brightness.
-- The AXS15231B touch controller generates a hardware interrupt (`TOUCH_INT` on TCA9554 EXIO 0) that instantly restores full brightness upon capacitive contact, without any reboot or screen flicker.
+### 3. Audio Domain Power Gating
+- The onboard **NS4150B Class-D audio amplifier** is dynamically gated: whenever audio playback or recording finishes, the firmware asserts `NS_MODE = LOW` and `SYS_EN = LOW` via the TCA9554 expander. The amplifier completely powers down to **0 mA quiescent drain**, eliminating background hiss and extending battery runtime.
 
-### 4. Audio Domain Power Gating
-- The onboard **NS4150B Class-D audio amplifier** has a significant quiescent idle current draw and can produce faint background noise when unmuted.
-- We implemented dynamic hardware gating: whenever audio playback or recording finishes, the firmware asserts `NS_MODE = LOW` and `SYS_EN = LOW` via the TCA9554 expander. The amplifier completely powers down to **0 mA quiescent drain**, eliminating background hiss and extending battery runtime.
+### 4. Calibrated Battery Voltage Filtering
+- Implemented a 10-second Exponential Moving Average (EMA) low-pass filter to prevent Wi-Fi transmission bursts (350–400 mA) from causing erratic battery percentage jumps.
 
-### 5. Wi-Fi Modem Sleep
-- Configured `esp_wifi_set_ps(WIFI_PS_MIN_MODEM)` via `sdkconfig.defaults`.
-- Between beacon intervals when not actively streaming internet radio or uploading audio, the Wi-Fi baseband enters low-power sleep, cooling SoC operating temperature by ~6°C.
+---
 
-### 6. Battery Voltage 10-Second Moving Average Filtering (Wi-Fi Sag & Noise Suppression)
-- **The Hardware Challenge**: The ESP32-S3 SAR ADC monitors battery cell voltage on `GPIO 4` via a 2:1 resistive divider (`BATTERY_VDIV = 3.0f`). During Wi-Fi transmission bursts (350–400 mA current draw during audio uploads, radio stream chunks, or telemetry flushes), battery internal impedance causes instantaneous terminal voltage sags of $40\text{ to }70\text{ mV}$. Without filtering, the battery percentage displayed on screen would jump erratically (e.g. 76% $\rightarrow$ 68% $\rightarrow$ 75%).
-- **The Solution**: Implemented a calibrated 10-second Exponential Moving Average (EMA) low-pass filter:
-  $$V_{\text{filtered}} = \alpha \cdot V_{\text{sample}} + (1 - \alpha) \cdot V_{\text{filtered}} \quad (\alpha = 0.10,\ f_s = 1\text{ Hz})$$
-- **DRAM & CPU Footprint**: Requires exactly **8 bytes of DRAM** (`s_smoothed_voltage` float + `s_last_sample_ms` uint32_t) and <0.005% of one CPU core, with zero array allocations or heap fragmentation.
-- **Instant Cold-Boot Latching**: On the very first boot reading, $V_{\text{filtered}}$ latches directly to $V_{\text{sample}}$, displaying the true battery percentage instantaneously upon power-up without a 10-second ramp-up delay.
+## 🌐 Comprehensive Web Remote REST API
+
+TuneBar hosts an embedded HTTP REST API on port 80:
+
+| Endpoint | Method | Parameters | Description |
+| :--- | :---: | :--- | :--- |
+| `/api/status` | `GET` | — | Returns full device telemetry JSON (screen, DRAM/PSRAM, battery, RSSI, radio lang, track, alarm, volume). |
+| `/api/screen` | `GET/POST`| `action=<clock\|weather\|alarm\|menu\|settings\|utility\|music\|radio\|chat>` | Switches active screen. Supports `tab=<0..4>` for Settings and `scroll=<px>` for Menu. |
+| `/api/touch` | `GET/POST`| `x=<X>&y=<Y>` or `swipe=<up\|down\|left\|right>` | Injects capacitive touch tap or gesture swipe event. |
+| `/api/radio/lang` | `GET/POST`| `set=<hi\|en\|es\|cn\|de\|ja>` or `id=<0..5>` | Dynamically loads pre-curated radio station list for language and saves to LittleFS/NVS. |
+| `/api/radio/catalog` | `POST`| `id=<0\|1>` | Toggles between OnlineRadioFM (`0`) and RadioIndia (`1`) for Hindi radio. |
+| `/api/radio/play` | `POST`| `idx=<0..N>` | Plays specific radio station from loaded catalog. |
+| `/api/radio/resume` | `POST`| — | Resumes playback of currently selected radio station. |
+| `/api/radio/stop` | `POST`| — | Stops audio playback. |
+| `/api/vol` | `POST`| `val=<0..21>` | Sets audio output volume (0 to 21). |
+| `/api/bl` | `POST`| `state=<0\|1\|2>` | Sets backlight brightness level (0=Low, 1=Med, 2=High). |
+| `/api/alarm` | `GET/POST`| `enabled=<0\|1>&time=<HH:MM>` | Reads or configures RTC alarm time and active state. |
+| `/api/alarm/stop` | `POST`| — | Stops currently sounding alarm buzzer. |
+| `/api/alarm/test` | `POST`| — | Triggers immediate test alarm audio. |
+| `/api/lan/server` | `GET/POST`| `url=<ip:port/path>` | Configures or inspects LAN streaming server address. |
+| `/api/lan/fetch` | `GET/POST`| — | Asynchronously triggers indexing of remote LAN music server. |
+| `/api/lan/play` | `GET/POST`| `idx=<0..N>` | Plays track index from indexed LAN library. |
+| `/api/rec` | `GET/POST`| `action=<rec\|stop\|play>` | Triggers voice recording, stops & processes, or plays back `/rec.wav`. |
+| `/api/ask` | `GET/POST`| `q=<text_query>` | Sends text question directly to AI Assistant over Wi-Fi. |
+| `/api/screenshot` | `GET` | — | Returns 100% authentic RGB24 BMP framebuffer screenshot (640×180). |
+
+---
+
+## 💻 USB Serial CLI Commands
+
+Connect over USB serial at **115200 baud** to access the interactive CLI:
+
+```bash
+# System & Status
+status                    # Print uptime, battery voltage, WiFi RSSI, and audio state
+heap                      # Print detailed internal DRAM and external PSRAM breakdown
+touch                     # Wake screen and reset sleep timer
+
+# Radio Subsystem
+radio lang hi             # Switch radio to Hindi (OnlineRadioFM & RadioIndia)
+radio lang en             # Switch radio to English
+radio lang es             # Switch radio to Spanish
+radio lang cn             # Switch radio to Chinese
+radio lang de             # Switch radio to German
+radio lang ja             # Switch radio to Japanese
+radio play <N>            # Play station index N
+radio stop                # Stop playback
+
+# Media & LAN Streaming
+music                     # Switch UI to Music Player
+lan server <ip:port>      # Set LAN HTTP media server address
+lan fetch                 # Index LAN media tracks
+lan play <N>              # Play LAN track N
+
+# Display & Backlight
+bl <low|med|high>         # Set backlight brightness preset
+wifi on / wifi off        # Control Wi-Fi radio power state
+```
+
+---
+
+## 👆 Touch Gestures & Navigation Guide
+
+```
+                [ CLOCK / WEATHER / ALARM ] (ui_Screen_Info)
+                             │
+                      Swipe UP (↑)
+                             ▼
+                [ MAIN MENU CAROUSEL ] (ui_Screen_MainMenu)
+       [CLIMATE]  [RADIO]  [MUSIC]  [AI VOICE]  [SYSTEM]  [SETTINGS]
+          │          │        │         │          │          │
+          ▼          ▼        ▼         ▼          ▼          ▼
+       Weather     Radio    Player  AI Voice    Utility    Settings
+       Screen     Screen    Screen   Screen      Screen     Overlay
+```
+
+* **From Clock / Weather / Alarm Panels**:
+  - **Swipe Left / Right ($\leftarrow / \rightarrow$)**: Cycle between Nixie Clock, Weather Panel, and Retro Alarm.
+  - **Swipe Up ($\uparrow$)**: Dismiss to Main Menu launcher.
+* **From Main Menu Carousel**:
+  - **Drag Left / Right ($\leftarrow / \rightarrow$)**: Scroll smoothly across all 6 neon cards.
+  - **Tap any card**: Launch corresponding application.
+* **From Music Player Screen**:
+  - **Tap Album Cover Card**: Instantly toggle between **LOCAL SD** and **LAN STREAM** sources.
+  - **Transport Buttons**: Play/Pause, Next Track, Previous Track, Fast Forward +5s, Rewind -5s, Shuffle, Volume slider.
+  - **Swipe Up ($\uparrow$)**: Harmonized dismiss gesture — returns to Main Menu while audio continues in the background.
+* **From Radio Player Screen**:
+  - **Tap Catalog Badge (`[ ♫ EN ]`, etc.)**: Cycle through available station presets or switch sub-catalogs.
+  - **Transport Buttons**: Play/Pause, Next/Previous station.
+  - **Swipe Up ($\uparrow$)**: Harmonized dismiss gesture — returns to Main Menu while streaming continues in the background.
+* **From AI Voice Assistant Screen**:
+  - **Tap Microphone**: Activate full-duplex conversational voice capture.
+  - **Swipe Up ($\uparrow$)**: Harmonized dismiss gesture — dismisses voice assistant to Main Menu.
+* **From System Utility Screen**:
+  - **Tap Torch**: Activates full-screen maximum brightness flashlight. **Tap anywhere on screen** to turn off.
+  - **Tap System Info**: Opens deep diagnostic dashboard (FreeRTOS tasks, heap, PSRAM, battery).
+  - **Swipe Up ($\uparrow$)**: Harmonized dismiss gesture — returns to Main Menu.
 
 ---
 
@@ -174,48 +354,25 @@ $$PWM(t) = \text{Base} + A \cdot \sin\left(\frac{2\pi t}{T}\right)$$
 
 Rigorous empirical testing on physical silicon diagnosed several critical bugs present in vendor reference code:
 
-### 1. The ES7210 8× Clock Divider Bug (Vendor Flaw)
-* **Symptom**: Audio recorded from the ES7210 ADC sounded 8× slowed down, pitch-shifted, and accompanied by repetitive rhythmic clicks.
-* **Root Cause**: In vendor sample `08_Audio_Test`, ES7210 register `0x02` (Clock Divider) was left at default `0x03` ($F_s = \text{MCLK} / (256 \times 8) = 3000\text{ Hz}$) instead of `0x00` ($F_s = \text{MCLK} / 256 = 24000\text{ Hz}$).
-* **Fix**: Re-initialized register `0x02` to `0x00`, aligning the ADC sampling rate with standard I2S master clocking.
-
-### 2. ESP32 DMA 32-bit vs. 16-bit Slot Width Mismatch
-* **Symptom**: Captured audio exhibited severe phase distortion and crackle.
-* **Root Cause**: The ESP32-S3 I2S DMA controller packs 16-bit audio into 32-bit slot frames (16 bits audio + 16 bits zero padding). Reading raw DMA buffers assuming contiguous 16-bit packed stereo caused alternating audio data with zero pads.
-* **Fix**: Implemented a calibrated stride extractor that extracts the high 16 bits from the active channel slot, producing clean, noise-free mono PCM.
-
-### 3. Monolithic I2S 1000ms Driver Timeout
-* **Symptom**: Voice recordings longer than 1.0 second were abruptly cut off with `ESP_ERR_TIMEOUT`.
-* **Root Cause**: Vendor sample code called `i2s_channel_read()` with a single 192,000-byte block. The underlying ESP-IDF driver has a hardcoded internal transfer timeout of 1000 ms. A 2.0-second buffer requires 2000 ms to capture, triggering the timeout halfway through.
-* **Fix**: Re-architected all audio capture and playback loops to stream in **2048-byte chunks** inside a cooperative FreeRTOS loop with periodic watchdog yields.
-
-### 4. Uninitialized PSRAM Static Blast
-* **Symptom**: Pressing "Play" immediately after booting blasted maximum-volume harsh white noise through the speaker.
-* **Root Cause**: External PSRAM (`MALLOC_CAP_SPIRAM`) retains random decay bits on boot and is not zeroed by hardware. Feeding this directly into the ES8311 DAC drove the power amplifier to full-rail static.
-* **Fix**: Added explicit buffer zeroing on boot (`memset(audio_ptr, 0, ...)`), coupled with an `audio_recorded` state guard that prevents playback until a valid recording is made.
-
-### 5. Windows CDC DTR/RTS Hardware Reset Loop
-* **Symptom**: Connecting Python serial monitor tools over USB caused the ESP32-S3 to flash white and reboot with `rst:0x15 (USB_UART_CHIP_RESET)`.
-* **Root Cause**: Windows `usbser.sys` toggles DTR and RTS lines upon opening the serial COM port, triggering the ESP32-S3 built-in hardware bootloader reset circuit.
-* **Fix**: Explicitly disabled DTR and RTS before opening COM ports in all diagnostic scripts (`ser.dtr = False; ser.rts = False; ser.open()`).
-
-### 6. Newlib VFS CRLF Binary Mangling
-* **Symptom**: Transferring captured PCM buffers over USB serial produced corrupted, screeching audio.
-* **Root Cause**: ESP-IDF standard output (`stdout`) treats text streams with automatic line termination. Any raw audio byte equal to `0x0A` (LF) was translated by newlib VFS into `0x0D 0x0A` (CRLF), offsetting all subsequent 16-bit samples by 8 bits!
-* **Fix**: Discontinued raw binary over `stdout`; audio buffers are retrieved either via HTTP (`http://<ip>/rec.wav`) or as chunked **Base64** text payloads with explicit framing delimiters.
-
-### 7. SD Card Scan Crash: Screen Switch Null Dereference & Stack Canary Overflow
-* **Symptom**: Navigating to `Settings -> Music` and tapping `Scan SDCard` triggered an immediate `LoadProhibited` kernel panic or stack canary crash.
-* **Root Causes**:
-  1. **Cross-Screen Widget Null Dereference**: When on `ui_Screen_MainMenu`, the Player screen widgets (`ui_Player_Label_SDcard`, `ui_Player_Label_WiFi`) are unloaded and set to `NULL`. The background status queue handler called `lv_obj_set_style_text_color(ui_Player_Label_SDcard, ...)` without null guards, crashing inside LVGL's `get_local_style()`.
-  2. **Stack Canary Overflow**: The directory scanner allocated 512 bytes (`childDir`) on the FreeRTOS task stack *per recursion level*. Combined with FatFS objects, 5 nested levels consumed >4.5 KB on a 6 KB stack, tripping the stack canary.
-  3. **Task Handle Self-Deletion Race**: Calling `vTaskDelete(scanMusicTask)` could race if Core 1 scheduled before the handle pointer was written from Core 0.
-  4. **FatFS SPI Bus Desync**: Re-initializing the SD card without `SD.end()` left the SPI bus in an unrecoverable state.
-* **Fixes & Zero-DRAM O(1) Seek Engine**:
-  * **Null Safety**: Added null guards across all status queue handlers in `task_msg.cpp`.
-  * **PSRAM Directory Buffers**: Moved traversal buffers to external PSRAM (`heap_caps_malloc(PATH_BUF_LEN, MALLOC_CAP_SPIRAM)`), reducing task stack frame usage from ~600 bytes to ~60 bytes.
-  * **O(1) PSRAM Track Offset Table**: Replaced $O(N)$ linear file seeking in LittleFS with an in-memory PSRAM byte offset table (`uint32_t *s_track_file_offsets`), enabling instant 0ms track seeking across thousands of tracks with **0 bytes of internal DRAM** consumed.
-  * **No-SD Graceful Fallback**: If no SD card is detected, the UI reports card failure cleanly without crashing, gracefully falling back to Web Radio, AI Voice Assistant, and LAN streaming.
+1. **The ES7210 8× Clock Divider Bug (Vendor Flaw)**:
+   - *Symptom*: Recorded audio sounded 8× slowed down with repetitive rhythmic clicks.
+   - *Root Cause*: ES7210 register `0x02` was left at default `0x03` ($F_s = \text{MCLK} / (256 \times 8) = 3000\text{ Hz}$).
+   - *Fix*: Initialized register `0x02` to `0x00` ($F_s = \text{MCLK} / 256 = 24000\text{ Hz}$), aligning ADC sampling with standard I2S clocking.
+2. **ESP32 DMA 32-bit vs. 16-bit Slot Width Mismatch**:
+   - *Symptom*: Severe phase distortion and crackle on mic capture.
+   - *Fix*: Implemented calibrated stride extractor to unpack 16-bit audio from 32-bit DMA frames.
+3. **Monolithic I2S 1000ms Driver Timeout**:
+   - *Symptom*: Recordings longer than 1.0s cut off with `ESP_ERR_TIMEOUT`.
+   - *Fix*: Re-architected all capture loops into **2048-byte chunks** with periodic watchdog yields.
+4. **Uninitialized PSRAM Static Blast**:
+   - *Symptom*: Pressing "Play" on boot blasted maximum-volume harsh white noise.
+   - *Fix*: Explicit buffer zeroing on boot (`memset(audio_ptr, 0, ...)`), with `audio_recorded` state guard.
+5. **Windows CDC DTR/RTS Hardware Reset Loop**:
+   - *Symptom*: Opening serial monitor reset the ESP32-S3 in bootloader mode.
+   - *Fix*: Explicitly disabled DTR and RTS lines before opening COM port (`ser.dtr = False; ser.rts = False`).
+6. **Newlib VFS CRLF Binary Mangling**:
+   - *Symptom*: Transferring raw audio over serial produced corrupted screeching audio due to `0x0A` -> `0x0D 0x0A` substitution.
+   - *Fix*: Audio transferred via HTTP (`/rec.wav`) or framed Base64 payloads.
 
 ---
 
@@ -223,99 +380,20 @@ Rigorous empirical testing on physical silicon diagnosed several critical bugs p
 
 On the ESP32-S3, internal **DRAM** (Data RAM) is limited to ~320 KB usable. Critical operations—such as **DMA transfers, Wi-Fi baseband descriptors, and FreeRTOS ISR stacks**—**must** reside in internal DRAM.
 
-When running **Wi-Fi + TLS + LVGL + Audio Decoding** concurrently, the device previously hovered below 25 KB free DRAM, resulting in heap exhaustion panics.
-
-### Quantified DRAM Optimization Steps
-
 | Optimization Step | Technique / Implementation | DRAM Saved | Impact |
 | :--- | :--- | :---: | :--- |
-| **1. Audio Buffers to PSRAM** | Relocated circular ring buffers, MP3 frame decoders, and LittleFS scratch buffers from internal SRAM to external PSRAM using `heap_caps_malloc(..., MALLOC_CAP_SPIRAM)`. | **~120 KB** | Eliminated largest memory hogs from internal DRAM. |
-| **2. LVGL Custom Allocator** | Enabled `LV_MEM_CUSTOM` in `lv_conf.h` and hooked LVGL dynamic object allocations to PSRAM. Kept only the 2 small LCD draw buffers in internal DMA-capable memory. | **~64 KB** | Allowed complex multi-screen UI without consuming heap. |
-| **3. lwIP & Wi-Fi Buffer Sizing** | Tuned `sdkconfig.defaults` to optimize socket buffers (`CONFIG_LWIP_TCP_SND_BUF_DEFAULT`, `CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM`), reducing statically reserved networking pools. | **~38 KB** | Prevented network stack from hoarding inactive DRAM. |
-| **4. Task Stack Re-Sizing** | Audited High-Water Marks (HWM) across all tasks (`task_audio`, `task_lvgl`, `task_net`, `task_telemetry`), trimming over-provisioned task stacks to exact operating bounds. | **~24 KB** | Reduced baseline static memory reservations. |
-| **5. Asynchronous Telemetry Ring**| Replaced heavy synchronous JSON document allocations with an efficient in-memory ring buffer of compact C structs, serializing only during flush. | **~16 KB** | Prevented heap fragmentation spikes. |
+| **1. Audio Buffers to PSRAM** | Relocated circular ring buffers, MP3 decoders, and LittleFS scratch buffers from internal SRAM to external PSRAM. | **~120 KB** | Eliminated largest memory hogs from internal DRAM. |
+| **2. LVGL Custom Allocator** | Enabled `LV_MEM_CUSTOM` in `lv_conf.h` and hooked LVGL dynamic object allocations to PSRAM. Kept only LCD draw buffers in internal DMA RAM. | **~64 KB** | Allowed complex multi-screen UI without consuming heap. |
+| **3. lwIP & Wi-Fi Buffer Sizing** | Tuned `sdkconfig.defaults` to optimize socket buffers (`CONFIG_LWIP_TCP_SND_BUF_DEFAULT`, `CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM`). | **~38 KB** | Prevented network stack from hoarding inactive DRAM. |
+| **4. Task Stack Re-Sizing** | Audited High-Water Marks (HWM) across all tasks, trimming over-provisioned task stacks to exact operating bounds. | **~24 KB** | Reduced baseline static memory reservations. |
+| **5. Asynchronous Telemetry Ring**| Replaced heavy synchronous JSON allocations with an efficient in-memory ring buffer of compact C structs. | **~16 KB** | Prevented heap fragmentation spikes. |
 
 * **Usable Internal DRAM Free**: **~204 KB** (40.3% utilization, down from >92% prior to optimization).
-* **External PSRAM Free**: **~7.2 MB** available for audio caches, fonts, and streaming buffers.
+* **External PSRAM Free**: **~6.0 MB** available for audio caches, fonts, and streaming buffers.
 
 ---
 
-## 🛑 What Didn't Work & Our Workarounds
-
-Embedded engineering requires discovering what approaches fail in practice. Here are the architectural dead-ends encountered and the solutions that solved them:
-
-### 1. What Failed: Placing FreeRTOS Task Stacks Directly in PSRAM
-* **The Attempt**: To save internal DRAM, we attempted allocating FreeRTOS task stacks in external PSRAM using `pvPortMallocCaps(..., MALLOC_CAP_SPIRAM)`.
-* **Why It Failed**: On ESP32-S3, external PSRAM is accessed via cache lines through the SPI peripheral. Whenever flash writing occurs (e.g. LittleFS saves, NVS writes) or during interrupt service routines (ISRs) when cache is temporarily disabled, accessing a task stack in PSRAM causes an immediate **Cache Disabled / Load Store Error Fatal Panic**.
-* **Workaround**: Keep all FreeRTOS task stacks in fast, deterministic **internal DRAM**, but aggressively move the large buffers, audio queues, and heap objects *referenced* by those tasks into PSRAM.
-
-### 2. What Failed: Concurrent HTTPS Upload While Playing Audio
-* **The Attempt**: Attempted streaming voice audio to the AI backend via HTTPS while simultaneously playing back the local feedback repeat audio.
-* **Why It Failed**: Simultaneous TLS encryption and audio MP3 decoding caused high CPU core contention and Wi-Fi/I2S DMA arbitration conflicts, resulting in audible audio stutter and dropped TLS packets.
-* **Workaround**: Built a **Sequential Processing Guard** in `ai_upload_task`. The task monitors `audio.isRunning()` and gracefully waits for local feedback playback to complete before opening the TLS connection to upload the audio query.
-
-### 3. What Failed: Direct Synchronous HTTPS Telemetry in the UI Loop
-* **The Attempt**: Pushing system metrics directly over HTTPS inside the main application state checks.
-* **Why It Failed**: MbedTLS handshake handoffs take between 300 ms to 1500 ms depending on network latency. This blocked LVGL UI rendering, caused sluggish touch responses, and triggered stack canary overflows (`rst:0x1`).
-* **Workaround**: Decoupled telemetry entirely: state collectors push compact structs to a circular queue in microseconds. A dedicated low-priority background FreeRTOS worker (`telemetry_task`) with a dedicated 8 KB stack wakes periodically to flush buffered batches in a single compact HTTPS POST.
-
----
-
-## 🚀 Self-Hosting the Backend APIs (How to Replicate)
-
-TuneBar Advanced Edition includes complete, self-contained reference servers in the [`backend/`](backend/) directory so anyone can host the backend on their own server, VPS, or Raspberry Pi.
-
-### 1. AI Voice Assistant Backend (`backend/ai_assistant_server.py`)
-A production-ready Python FastAPI server integrating:
-- **Groq Whisper Large V3 Turbo** for speech-to-text (~180 ms latency).
-- **Llama 3.3 70B Versatile** for concise conversational reasoning (~250 ms latency).
-- **Microsoft Edge-TTS** for natural neural speech streaming in MP3 format with zero subscription cost.
-
-#### Quick Start:
-```bash
-cd backend
-pip install fastapi uvicorn edge-tts groq python-multipart
-
-export GROQ_API_KEY="gsk_your_groq_api_key_here"
-python ai_assistant_server.py --port 8000
-```
-
-### 2. Distributed Telemetry Backend (`backend/telemetry_server.py`)
-An asynchronous FastAPI server with SQLite/PostgreSQL storage for TuneBar batch metrics:
-```bash
-cd backend
-python telemetry_server.py --port 8080
-```
-Database schema and table structures are provided in [`backend/schema.sql`](backend/schema.sql). Full deployment instructions (Nginx reverse proxy, SSL, and systemd service units) are detailed in [`backend/README.md`](backend/README.md).
-
----
-
-## 🔐 Secrets Management Architecture
-
-To ensure zero private server addresses, domain names, or API keys ever leak to public repositories, TuneBar uses an air-gapped configuration pattern:
-
-* **`sketch/include/secrets.h`**: Local active configuration file. **Strictly ignored by git** via `.gitignore`.
-* **`sketch/include/secrets_example.h`**: Tracked public template containing placeholder macros and detailed architecture guides.
-* **`sketch/include/user_config.h`**: Conditional inclusion logic:
-  ```cpp
-  #if __has_include("secrets.h")
-  #include "secrets.h"
-  #else
-  #include "secrets_example.h"
-  #endif
-  ```
-
-To configure:
-```bash
-cp sketch/include/secrets_example.h sketch/include/secrets.h
-# Edit sketch/include/secrets.h with your private hostnames and keys
-```
-
----
-
-## 🛠️ Step-by-Step Reproduction Guide
-
-To build and run TuneBar Advanced Edition on a stock Waveshare ESP32-S3-Touch-LCD-3.49 board:
+## 🛠️ Step-by-Step Build & Flash Guide
 
 ### 1. Clone & Configure
 ```bash
@@ -328,12 +406,11 @@ cp sketch/include/secrets_example.h sketch/include/secrets.h
 
 ### 2. Compile via PlatformIO
 ```bash
-# Build firmware binary
 pio run -d sketch
 ```
 
 ### 3. Flash to Board via USB
-Connect the board to your PC via the USB-C port:
+Connect the board to your PC via USB-C:
 ```bash
 # Upload firmware
 pio run -d sketch -t upload
@@ -342,19 +419,6 @@ pio run -d sketch -t upload
 pio device monitor -b 115200
 ```
 
-### 4. CLI Terminal Interaction
-Once booted, you can send diagnostic commands over serial:
-- `help` — List all available commands.
-- `status` — View uptime, Wi-Fi status, and battery ADC mV.
-- `heap` — Print detailed internal DRAM and external PSRAM breakdown.
-- `bl <low|med|high>` — Test backlight presets.
-- `ask <question>` — Test AI assistant voice query over Wi-Fi.
-- `lan server <ip:port>` — Configure LAN HTTP media server endpoint.
-- `lan fetch` — Index remote audio files across Wi-Fi.
-- `lan play <N>` — Play track N from LAN media library.
-- `music` / `player` — Switch UI to the Media Player screen.
-- `click mic` — Simulate capacitive touch on the physical microphone icon.
-
 ---
 
 ## 📜 Credits & License
@@ -362,6 +426,6 @@ Once booted, you can send diagnostic commands over serial:
 * Original TuneBar project by **[VaAndCob](https://github.com/VaAndCob/TuneBar)**.
 * Core audio functionality powered by the **[ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S)** library.
 * UI engine powered by **[LVGL 8.4.0](https://lvgl.io/)**.
-* Advanced Audio Engineering, ES7210 driver fixes, DRAM optimization, power saving architecture, and AI Voice Assistant by **Rahul Raj**.
+* Advanced Audio Engineering, ES7210 driver fixes, DRAM optimization, power saving architecture, multilingual radio expansion, and AI Voice Assistant by **Rahul Raj**.
 
 This project is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/) license.

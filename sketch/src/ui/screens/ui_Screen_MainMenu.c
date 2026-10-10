@@ -9,6 +9,7 @@ lv_obj_t * ui_Screen_MainMenu = NULL;
 lv_obj_t * ui_MainMenu_Panel_Menu = NULL;
 lv_obj_t * ui_MainMenu_Image_LiveStreaming = NULL;
 lv_obj_t * ui_MainMenu_Image_MusicPlayer = NULL;
+lv_obj_t * ui_MainMenu_Label_MusicTitle = NULL;
 lv_obj_t * ui_MainMenu_Image_ChatBot = NULL;
 lv_obj_t * ui_MainMenu_Image_Information = NULL;
 lv_obj_t * ui_MainMenu_Image_Utility = NULL;
@@ -34,11 +35,20 @@ lv_obj_t * ui_MainMenu_Textarea_stationList = NULL;
 lv_obj_t * ui_MainMenu_Label_Label10 = NULL;
 lv_obj_t * ui_MainMenu_Button_LoadStation = NULL;
 lv_obj_t * ui_MainMenu_Label_Label20 = NULL;
+lv_obj_t * ui_MainMenu_Dropdown_RadioLang = NULL;
 lv_obj_t * ui_MainMenu_Tabpage_music = NULL;
+lv_obj_t * ui_MainMenu_Button_musicMode = NULL;
+lv_obj_t * ui_MainMenu_Label_musicMode = NULL;
+lv_obj_t * ui_MainMenu_Button_LanUrl = NULL;
+lv_obj_t * ui_MainMenu_Label_LanUrl = NULL;
 lv_obj_t * ui_MainMenu_Button_scanMusic = NULL;
 lv_obj_t * ui_MainMenu_Label_Label14 = NULL;
 lv_obj_t * ui_MainMenu_Label_Label15 = NULL;
 lv_obj_t * ui_MainMenu_Label_trackCount = NULL;
+lv_obj_t * ui_MainMenu_Panel_LanUrl = NULL;
+lv_obj_t * ui_MainMenu_Textarea_LanUrl = NULL;
+lv_obj_t * ui_MainMenu_Button_LanUrlDone = NULL;
+lv_obj_t * ui_MainMenu_Label_LanUrlDone = NULL;
 lv_obj_t * ui_MainMenu_Tabpage_region = NULL;
 lv_obj_t * ui_MainMenu_Image_Globe = NULL;
 lv_obj_t * ui_MainMenu_Checkbox_AutoIP = NULL;
@@ -259,12 +269,61 @@ void ui_event_MainMenu_Button_LoadStation(lv_event_t * e)
     }
 }
 
+void ui_event_MainMenu_Dropdown_RadioLang(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_VALUE_CHANGED) {
+        extern void on_radio_language_changed(lv_event_t * e);
+        on_radio_language_changed(e);
+    }
+}
+
 void ui_event_MainMenu_Tabpage_music(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_PRESSED) {
         resetScreenOffTimer(e);
+    }
+}
+
+void ui_event_MainMenu_Button_musicMode(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        toggleMusicMode(e);
+    }
+}
+
+void ui_event_MainMenu_Button_LanUrl(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        openLanUrlPanel(e);
+    }
+}
+
+void ui_event_MainMenu_Textarea_LanUrl(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_PRESSED || event_code == LV_EVENT_FOCUSED) {
+        if(ui_MainMenu_Keyboard_Keyboard1) {
+            _ui_keyboard_set_target(ui_MainMenu_Keyboard_Keyboard1, ui_MainMenu_Textarea_LanUrl);
+            _ui_flag_modify(ui_MainMenu_Keyboard_Keyboard1, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+        }
+    }
+}
+
+void ui_event_MainMenu_Button_LanUrlDone(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        saveLanUrlAndClose(e);
     }
 }
 
@@ -704,20 +763,32 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_style_bg_opa(ui_MainMenu_Textarea_stationList, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Label_Label10 = lv_label_create(ui_MainMenu_Tabpage_station);
-    lv_obj_set_width(ui_MainMenu_Label_Label10, 300);
+    lv_obj_set_width(ui_MainMenu_Label_Label10, 310);
     lv_obj_set_height(ui_MainMenu_Label_Label10, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_MainMenu_Label_Label10, 11);
-    lv_obj_set_y(ui_MainMenu_Label_Label10, 13);
+    lv_obj_set_y(ui_MainMenu_Label_Label10, 10);
     lv_obj_set_align(ui_MainMenu_Label_Label10, LV_ALIGN_BOTTOM_RIGHT);
     lv_label_set_text(ui_MainMenu_Label_Label10,
-                      "Insert a microSD card with filename\n[ stations.csv ]  click Load.\nDefaults will be used\nif the file is unavailable.");
+                      "Insert a microSD card with filename\n[ stations.csv ]  click Load.\nOR, select pre-selected stations\nbasis language drop down above.");
     lv_obj_set_scrollbar_mode(ui_MainMenu_Label_Label10, LV_SCROLLBAR_MODE_OFF);
-    lv_obj_set_style_text_font(ui_MainMenu_Label_Label10, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_MainMenu_Label_Label10, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_MainMenu_Dropdown_RadioLang = lv_dropdown_create(ui_MainMenu_Tabpage_station);
+    lv_dropdown_set_options(ui_MainMenu_Dropdown_RadioLang, "HI\nEN\nES\nCN\nDE\nJA");
+    lv_obj_set_width(ui_MainMenu_Dropdown_RadioLang, 80);
+    lv_obj_set_height(ui_MainMenu_Dropdown_RadioLang, LV_SIZE_CONTENT);
+    lv_obj_set_x(ui_MainMenu_Dropdown_RadioLang, 52);
+    lv_obj_set_y(ui_MainMenu_Dropdown_RadioLang, -13);
+    lv_obj_set_align(ui_MainMenu_Dropdown_RadioLang, LV_ALIGN_TOP_MID);
+    lv_obj_add_flag(ui_MainMenu_Dropdown_RadioLang, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_set_style_text_font(ui_MainMenu_Dropdown_RadioLang, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+    extern uint8_t currentRadioLang;
+    lv_dropdown_set_selected(ui_MainMenu_Dropdown_RadioLang, currentRadioLang);
 
     ui_MainMenu_Button_LoadStation = lv_btn_create(ui_MainMenu_Tabpage_station);
-    lv_obj_set_width(ui_MainMenu_Button_LoadStation, 144);
-    lv_obj_set_height(ui_MainMenu_Button_LoadStation, 50);
-    lv_obj_set_x(ui_MainMenu_Button_LoadStation, 88);
+    lv_obj_set_width(ui_MainMenu_Button_LoadStation, 100);
+    lv_obj_set_height(ui_MainMenu_Button_LoadStation, 46);
+    lv_obj_set_x(ui_MainMenu_Button_LoadStation, 168);
     lv_obj_set_y(ui_MainMenu_Button_LoadStation, -13);
     lv_obj_set_align(ui_MainMenu_Button_LoadStation, LV_ALIGN_TOP_MID);
     lv_obj_add_flag(ui_MainMenu_Button_LoadStation, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
@@ -726,7 +797,7 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_style_bg_opa(ui_MainMenu_Button_LoadStation, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_color(ui_MainMenu_Button_LoadStation, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(ui_MainMenu_Button_LoadStation, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(ui_MainMenu_Button_LoadStation, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui_MainMenu_Button_LoadStation, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Label_Label20 = lv_label_create(ui_MainMenu_Button_LoadStation);
     lv_obj_set_width(ui_MainMenu_Label_Label20, LV_SIZE_CONTENT);   /// 1
@@ -734,21 +805,41 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_x(ui_MainMenu_Label_Label20, 1);
     lv_obj_set_y(ui_MainMenu_Label_Label20, 0);
     lv_obj_set_align(ui_MainMenu_Label_Label20, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_MainMenu_Label_Label20, "D Load");
-    lv_obj_set_style_text_font(ui_MainMenu_Label_Label20, &lv_font_montserrat_32, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(ui_MainMenu_Label_Label20, "SD Load");
+    lv_obj_set_style_text_font(ui_MainMenu_Label_Label20, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Tabpage_music = lv_tabview_add_tab(ui_MainMenu_Tabview_ConfigPanel, "Music");
     lv_obj_set_scrollbar_mode(ui_MainMenu_Tabpage_music, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_scroll_dir(ui_MainMenu_Tabpage_music, LV_DIR_HOR);
 
+    ui_MainMenu_Button_musicMode = lv_btn_create(ui_MainMenu_Tabpage_music);
+    lv_obj_set_width(ui_MainMenu_Button_musicMode, 144);
+    lv_obj_set_height(ui_MainMenu_Button_musicMode, 40);
+    lv_obj_set_x(ui_MainMenu_Button_musicMode, -6);
+    lv_obj_set_y(ui_MainMenu_Button_musicMode, -52);
+    lv_obj_set_align(ui_MainMenu_Button_musicMode, LV_ALIGN_BOTTOM_LEFT);
+    lv_obj_add_flag(ui_MainMenu_Button_musicMode, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_clear_flag(ui_MainMenu_Button_musicMode, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(ui_MainMenu_Button_musicMode, lv_color_hex(0x024564), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_MainMenu_Button_musicMode, 220, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(ui_MainMenu_Button_musicMode, lv_color_hex(0x00D2FF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui_MainMenu_Button_musicMode, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_MainMenu_Label_musicMode = lv_label_create(ui_MainMenu_Button_musicMode);
+    lv_obj_set_width(ui_MainMenu_Label_musicMode, LV_SIZE_CONTENT);
+    lv_obj_set_height(ui_MainMenu_Label_musicMode, LV_SIZE_CONTENT);
+    lv_obj_set_align(ui_MainMenu_Label_musicMode, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_MainMenu_Label_musicMode, "LOCAL");
+    lv_obj_set_style_text_font(ui_MainMenu_Label_musicMode, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
+
     ui_MainMenu_Button_scanMusic = lv_btn_create(ui_MainMenu_Tabpage_music);
     lv_obj_set_width(ui_MainMenu_Button_scanMusic, 144);
-    lv_obj_set_height(ui_MainMenu_Button_scanMusic, 50);
+    lv_obj_set_height(ui_MainMenu_Button_scanMusic, 46);
     lv_obj_set_x(ui_MainMenu_Button_scanMusic, -6);
     lv_obj_set_y(ui_MainMenu_Button_scanMusic, 0);
     lv_obj_set_align(ui_MainMenu_Button_scanMusic, LV_ALIGN_BOTTOM_LEFT);
-    lv_obj_add_flag(ui_MainMenu_Button_scanMusic, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
-    lv_obj_clear_flag(ui_MainMenu_Button_scanMusic, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_add_flag(ui_MainMenu_Button_scanMusic, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_clear_flag(ui_MainMenu_Button_scanMusic, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(ui_MainMenu_Button_scanMusic, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_MainMenu_Button_scanMusic, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_color(ui_MainMenu_Button_scanMusic, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -756,28 +847,52 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_style_border_width(ui_MainMenu_Button_scanMusic, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Label_Label14 = lv_label_create(ui_MainMenu_Button_scanMusic);
-    lv_obj_set_width(ui_MainMenu_Label_Label14, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_MainMenu_Label_Label14, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_width(ui_MainMenu_Label_Label14, LV_SIZE_CONTENT);
+    lv_obj_set_height(ui_MainMenu_Label_Label14, LV_SIZE_CONTENT);
     lv_obj_set_x(ui_MainMenu_Label_Label14, 1);
     lv_obj_set_y(ui_MainMenu_Label_Label14, 0);
     lv_obj_set_align(ui_MainMenu_Label_Label14, LV_ALIGN_CENTER);
     lv_label_set_text(ui_MainMenu_Label_Label14, "D Load");
-    lv_obj_set_style_text_font(ui_MainMenu_Label_Label14, &lv_font_montserrat_32, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_MainMenu_Label_Label14, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Label_Label15 = lv_label_create(ui_MainMenu_Tabpage_music);
-    lv_obj_set_width(ui_MainMenu_Label_Label15, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_MainMenu_Label_Label15, LV_SIZE_CONTENT);    /// 1
-    lv_label_set_text(ui_MainMenu_Label_Label15, "Tap  LOAD to refresh the music library from the SD card");
+    lv_obj_set_width(ui_MainMenu_Label_Label15, 450);
+    lv_obj_set_height(ui_MainMenu_Label_Label15, LV_SIZE_CONTENT);
+    lv_obj_set_x(ui_MainMenu_Label_Label15, 150);
+    lv_obj_set_y(ui_MainMenu_Label_Label15, -60);
+    lv_obj_set_align(ui_MainMenu_Label_Label15, LV_ALIGN_BOTTOM_LEFT);
+    lv_label_set_text(ui_MainMenu_Label_Label15, "Tap LOAD to index SD card music");
+    lv_obj_set_style_text_font(ui_MainMenu_Label_Label15, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_MainMenu_Button_LanUrl = lv_btn_create(ui_MainMenu_Tabpage_music);
+    lv_obj_set_width(ui_MainMenu_Button_LanUrl, 380);
+    lv_obj_set_height(ui_MainMenu_Button_LanUrl, 30);
+    lv_obj_set_x(ui_MainMenu_Button_LanUrl, 150);
+    lv_obj_set_y(ui_MainMenu_Button_LanUrl, -30);
+    lv_obj_set_align(ui_MainMenu_Button_LanUrl, LV_ALIGN_BOTTOM_LEFT);
+    lv_obj_add_flag(ui_MainMenu_Button_LanUrl, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_bg_color(ui_MainMenu_Button_LanUrl, lv_color_hex(0x0a1c26), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_MainMenu_Button_LanUrl, 200, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(ui_MainMenu_Button_LanUrl, lv_color_hex(0x00d2ff), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui_MainMenu_Button_LanUrl, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_MainMenu_Label_LanUrl = lv_label_create(ui_MainMenu_Button_LanUrl);
+    lv_obj_set_width(ui_MainMenu_Label_LanUrl, 360);
+    lv_obj_set_height(ui_MainMenu_Label_LanUrl, LV_SIZE_CONTENT);
+    lv_obj_set_align(ui_MainMenu_Label_LanUrl, LV_ALIGN_LEFT_MID);
+    lv_label_set_long_mode(ui_MainMenu_Label_LanUrl, LV_LABEL_LONG_DOT);
+    lv_label_set_text(ui_MainMenu_Label_LanUrl, "URL: (Tap to Edit)");
+    lv_obj_set_style_text_font(ui_MainMenu_Label_LanUrl, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Label_trackCount = lv_label_create(ui_MainMenu_Tabpage_music);
-    lv_obj_set_width(ui_MainMenu_Label_trackCount, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_MainMenu_Label_trackCount, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_width(ui_MainMenu_Label_trackCount, LV_SIZE_CONTENT);
+    lv_obj_set_height(ui_MainMenu_Label_trackCount, LV_SIZE_CONTENT);
     lv_obj_set_x(ui_MainMenu_Label_trackCount, 150);
-    lv_obj_set_y(ui_MainMenu_Label_trackCount, -9);
+    lv_obj_set_y(ui_MainMenu_Label_trackCount, -4);
     lv_obj_set_align(ui_MainMenu_Label_trackCount, LV_ALIGN_BOTTOM_LEFT);
     lv_label_set_long_mode(ui_MainMenu_Label_trackCount, LV_LABEL_LONG_SCROLL);
-    lv_label_set_text(ui_MainMenu_Label_trackCount, "Card Mount Failed");
-    lv_obj_set_style_text_font(ui_MainMenu_Label_trackCount, &lv_font_montserrat_24, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(ui_MainMenu_Label_trackCount, "Tracks: 0");
+    lv_obj_set_style_text_font(ui_MainMenu_Label_trackCount, &lv_font_montserrat_20, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Tabpage_region = lv_tabview_add_tab(ui_MainMenu_Tabview_ConfigPanel, "Region");
     lv_obj_set_scrollbar_mode(ui_MainMenu_Tabpage_region, LV_SCROLLBAR_MODE_OFF);
@@ -1001,6 +1116,50 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_style_border_color(ui_MainMenu_Panel_blindPanel, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(ui_MainMenu_Panel_blindPanel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    ui_MainMenu_Panel_LanUrl = lv_obj_create(ui_Screen_MainMenu);
+    lv_obj_set_width(ui_MainMenu_Panel_LanUrl, 280);
+    lv_obj_set_height(ui_MainMenu_Panel_LanUrl, 172);
+    lv_obj_set_align(ui_MainMenu_Panel_LanUrl, LV_ALIGN_TOP_LEFT);
+    lv_obj_add_flag(ui_MainMenu_Panel_LanUrl, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(ui_MainMenu_Panel_LanUrl, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_radius(ui_MainMenu_Panel_LanUrl, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ui_MainMenu_Panel_LanUrl, lv_color_hex(0x060c14), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(ui_MainMenu_Panel_LanUrl, 255, LV_PART_MAIN);
+    lv_obj_set_style_border_color(ui_MainMenu_Panel_LanUrl, lv_color_hex(0x00d2ff), LV_PART_MAIN);
+    lv_obj_set_style_border_width(ui_MainMenu_Panel_LanUrl, 2, LV_PART_MAIN);
+
+    lv_obj_t * lbl_lan_title = lv_label_create(ui_MainMenu_Panel_LanUrl);
+    lv_label_set_text(lbl_lan_title, "LAN Audio Server URL:");
+    lv_obj_set_x(lbl_lan_title, 4);
+    lv_obj_set_y(lbl_lan_title, -64);
+    lv_obj_set_align(lbl_lan_title, LV_ALIGN_LEFT_MID);
+    lv_obj_set_style_text_font(lbl_lan_title, &lv_font_montserrat_14, LV_PART_MAIN);
+
+    ui_MainMenu_Textarea_LanUrl = lv_textarea_create(ui_MainMenu_Panel_LanUrl);
+    lv_obj_set_width(ui_MainMenu_Textarea_LanUrl, 260);
+    lv_obj_set_height(ui_MainMenu_Textarea_LanUrl, 38);
+    lv_obj_set_x(ui_MainMenu_Textarea_LanUrl, 4);
+    lv_obj_set_y(ui_MainMenu_Textarea_LanUrl, -28);
+    lv_obj_set_align(ui_MainMenu_Textarea_LanUrl, LV_ALIGN_LEFT_MID);
+    lv_textarea_set_one_line(ui_MainMenu_Textarea_LanUrl, true);
+    lv_textarea_set_max_length(ui_MainMenu_Textarea_LanUrl, 96);
+    lv_textarea_set_placeholder_text(ui_MainMenu_Textarea_LanUrl, "IP:port/path");
+    lv_obj_set_style_text_font(ui_MainMenu_Textarea_LanUrl, &lv_font_montserrat_14, LV_PART_MAIN);
+
+    ui_MainMenu_Button_LanUrlDone = lv_btn_create(ui_MainMenu_Panel_LanUrl);
+    lv_obj_set_width(ui_MainMenu_Button_LanUrlDone, 120);
+    lv_obj_set_height(ui_MainMenu_Button_LanUrlDone, 38);
+    lv_obj_set_x(ui_MainMenu_Button_LanUrlDone, 4);
+    lv_obj_set_y(ui_MainMenu_Button_LanUrlDone, 24);
+    lv_obj_set_align(ui_MainMenu_Button_LanUrlDone, LV_ALIGN_LEFT_MID);
+    lv_obj_set_style_bg_color(ui_MainMenu_Button_LanUrlDone, lv_color_hex(0x0088cc), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(ui_MainMenu_Button_LanUrlDone, 255, LV_PART_MAIN);
+
+    ui_MainMenu_Label_LanUrlDone = lv_label_create(ui_MainMenu_Button_LanUrlDone);
+    lv_obj_set_align(ui_MainMenu_Label_LanUrlDone, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_MainMenu_Label_LanUrlDone, "Save & OK");
+    lv_obj_set_style_text_font(ui_MainMenu_Label_LanUrlDone, &lv_font_montserrat_16, LV_PART_MAIN);
+
     lv_obj_add_event_cb(ui_MainMenu_Image_LiveStreaming, ui_event_MainMenu_Image_LiveStreaming, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Image_MusicPlayer, ui_event_MainMenu_Image_MusicPlayer, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Image_ChatBot, ui_event_MainMenu_Image_ChatBot, LV_EVENT_ALL, NULL);
@@ -1018,8 +1177,13 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_add_event_cb(ui_MainMenu_Dropdown_Wallpaper, ui_event_MainMenu_Dropdown_Wallpaper, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Tabpage_screen, ui_event_MainMenu_Tabpage_screen, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Button_LoadStation, ui_event_MainMenu_Button_LoadStation, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_MainMenu_Dropdown_RadioLang, ui_event_MainMenu_Dropdown_RadioLang, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Tabpage_station, ui_event_MainMenu_Tabpage_station, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_MainMenu_Button_musicMode, ui_event_MainMenu_Button_musicMode, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Button_scanMusic, ui_event_MainMenu_Button_scanMusic, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_MainMenu_Button_LanUrl, ui_event_MainMenu_Button_LanUrl, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_MainMenu_Textarea_LanUrl, ui_event_MainMenu_Textarea_LanUrl, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_MainMenu_Button_LanUrlDone, ui_event_MainMenu_Button_LanUrlDone, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Tabpage_music, ui_event_MainMenu_Tabpage_music, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Checkbox_AutoIP, ui_event_MainMenu_Checkbox_AutoIP, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Textarea_Latitude, ui_event_MainMenu_Textarea_Latitude, LV_EVENT_ALL, NULL);
@@ -1049,6 +1213,7 @@ void ui_Screen_MainMenu_screen_destroy(void)
     ui_MainMenu_Panel_Menu = NULL;
     ui_MainMenu_Image_LiveStreaming = NULL;
     ui_MainMenu_Image_MusicPlayer = NULL;
+    ui_MainMenu_Label_MusicTitle = NULL;
     ui_MainMenu_Image_ChatBot = NULL;
     ui_MainMenu_Image_Information = NULL;
     ui_MainMenu_Image_Utility = NULL;
@@ -1074,11 +1239,20 @@ void ui_Screen_MainMenu_screen_destroy(void)
     ui_MainMenu_Label_Label10 = NULL;
     ui_MainMenu_Button_LoadStation = NULL;
     ui_MainMenu_Label_Label20 = NULL;
+    ui_MainMenu_Dropdown_RadioLang = NULL;
     ui_MainMenu_Tabpage_music = NULL;
+    ui_MainMenu_Button_musicMode = NULL;
+    ui_MainMenu_Label_musicMode = NULL;
+    ui_MainMenu_Button_LanUrl = NULL;
+    ui_MainMenu_Label_LanUrl = NULL;
     ui_MainMenu_Button_scanMusic = NULL;
     ui_MainMenu_Label_Label14 = NULL;
     ui_MainMenu_Label_Label15 = NULL;
     ui_MainMenu_Label_trackCount = NULL;
+    ui_MainMenu_Panel_LanUrl = NULL;
+    ui_MainMenu_Textarea_LanUrl = NULL;
+    ui_MainMenu_Button_LanUrlDone = NULL;
+    ui_MainMenu_Label_LanUrlDone = NULL;
     ui_MainMenu_Tabpage_region = NULL;
     ui_MainMenu_Image_Globe = NULL;
     ui_MainMenu_Checkbox_AutoIP = NULL;

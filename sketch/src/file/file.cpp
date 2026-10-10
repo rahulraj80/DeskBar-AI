@@ -457,6 +457,7 @@ radios *stations = nullptr;
 int16_t stationIndex = 0;
 uint8_t stationListLength = 0;
 uint8_t currentRadioCatalog = RADIO_CATALOG_ONLINE_RADIO_FM;
+uint8_t currentRadioLang = RADIO_LANG_HI;
 
 // Catalog 0: https://onlineradiofm.in/ curated Indian stations
 const char defaultStationsOnlineRadioFM_CSV[] PROGMEM =
@@ -484,12 +485,108 @@ const char defaultStationsRadioIndia_CSV[] PROGMEM =
     "Boom FM 94.1,http://192.99.8.192:3630/stream\n"
     "NTN Radio 89.1,http://auds1.intacs.com/ntnradio\n";
 
+// English (EN) Curated Top 10
+const char defaultStationsEnglish_CSV[] PROGMEM =
+    "Dance Wave!,https://dancewave.online/dance.mp3\n"
+    "BBC World Service,http://stream.live.vc.bbcmedia.co.uk/bbc_world_service\n"
+    "Classic Vinyl HD,https://icecast.walmradio.com:8443/classic\n"
+    "WALM Old Time Radio,https://icecast.walmradio.com:8443/otr\n"
+    "101 Smooth Jazz,http://jking.cdnstream1.com/b22139_128mp3\n"
+    "Radio Paradise EU,http://stream-uk1.radioparadise.com/aac-320\n"
+    "Classic Hits 70s 80s,https://radiopanther.radiolebowski.com/play\n"
+    "WALM 2 HD,https://icecast.walmradio.com:8443/walm2\n"
+    "Mango Radio EN,https://mangoradio.stream.laut.fm/mangoradio\n"
+    "NPR 24/7 News,https://npr-ice.streamguys1.com/live.mp3\n";
+
+// Spanish (ES) Curated Top 10
+const char defaultStationsSpanish_CSV[] PROGMEM =
+    "Cadena 100 Spain,http://cadena100-streamers-mp3.flumotion.com/cope/cadena100.mp3\n"
+    "Ibiza Global Radio,http://ibizaglobalradio.streaming-pro.com:8024/\n"
+    "Chocolate FM,http://streaming5.elitecomunicacion.es:8082/live.mp3\n"
+    "Rock FM Spain,http://flucast02-h-cloud.flumotion.com/cope/rockfm-low.mp3\n"
+    "Blu Radio Colombia,http://24503.live.streamtheworld.com/BLURADIO_SC\n"
+    "80s Exitos Latino,https://80sexitos.stream.laut.fm/80sexitos\n"
+    "Caracol Radio,http://27343.live.streamtheworld.com:3690/CARACOL_RADIOAAC_SC\n"
+    "Los 40 Urban,https://playerservices.streamtheworld.com/api/livestream-redirect/LOS40_URBAN.mp3\n"
+    "Los 40 Dance,http://playerservices.streamtheworld.com/api/livestream-redirect/LOS40_DANCE_SC\n"
+    "esRadio Madrid,http://livestreaming.esradio.fm/stream64.mp3\n";
+
+// Chinese / Mandarin (CN) Curated Top 10
+const char defaultStationsChinese_CSV[] PROGMEM =
+    "Asia DREAM China,http://kathy.torontocast.com:3330/stream/1/\n"
+    "Hong Kong RTHK 1,http://stm.rthk.hk/radio1\n"
+    "Classical FM 97.7,http://59.120.88.155:8000/live.mp3\n"
+    "Chinese Radio 2,https://lhttp.qingting.fm/live/4804/64k.mp3\n"
+    "CNR-1 Voice of China,https://lhttp.qtfm.cn/live/15318317/64k.mp3\n"
+    "Chinese Radio 4,https://lhttp.qtfm.cn/live/20500172/64k.mp3\n"
+    "Chinese Radio 5,http://lhttp.qingting.fm/live/4915/64k.mp3\n"
+    "YES 933 Mandopop,http://playerservices.streamtheworld.com/api/livestream-redirect/YES933AAC.aac\n"
+    "Love 972 Radio,http://playerservices.streamtheworld.com/api/livestream-redirect/LOVE972FMAAC.aac\n"
+    "Jesus Is Lord Radio,https://s3.radio.co/s97f38db97/listen\n";
+
+// German (DE) Curated Top 10 (#1 GDP non-EN/CN/ES/HI)
+const char defaultStationsGerman_CSV[] PROGMEM =
+    "1LIVE WDR,http://wdr-1live-live.icecast.wdr.de/wdr/1live/live/mp3/128/stream.mp3\n"
+    "Antenne Bayern,http://mp3channels.webradio.antenne.de/antenne\n"
+    "Rock Antenne,http://mp3channels.webradio.rockantenne.de/rockantenne\n"
+    "WDR 5 Information,http://wdr-wdr5-live.icecast.wdr.de/wdr/wdr5/live/mp3/128/stream.mp3\n"
+    "Sunshine Live 90er,http://stream.sunshine-live.de/90er/mp3-192/stream.sunshine-live.de\n"
+    "80s80s Wave,http://streams.80s80s.de/web/mp3-192/streams.80s80s.de/\n"
+    "90s90s Hits,http://streams.90s90s.de/pop/mp3-192/streams.90s90s.de/\n"
+    "Rock Antenne Metal,http://mp3channels.webradio.rockantenne.de/heavy-metal\n"
+    "TranceBase.FM,http://listen.trancebase.fm/tunein-aac-hd-pls\n"
+    "Mango Radio DE,https://mangoradio.stream.laut.fm/mangoradio\n";
+
+// Japanese (JA) Curated Top 10 (#2 GDP non-EN/CN/ES/HI)
+const char defaultStationsJapanese_CSV[] PROGMEM =
+    "Jazz Sakura Asia Dream,http://kathy.torontocast.com:3330/stream/1/?esPlayer&cb=82181.mp3\n"
+    "Anime Para Ti,https://stream.zeno.fm/qpn8mkt8c4duv\n"
+    "Listen.Moe J-Pop,https://listen.moe/stream\n"
+    "Retro PC Game Music,http://gyusyabu.ddo.jp:8000/\n"
+    "R/a/dio Anime,https://relay0.r-a-d.io/main.mp3\n"
+    "J1 Gold Nostalgia,http://jenny.torontocast.com:8062/\n"
+    "FM Kahoku 78.7,http://radio.kahoku.net:8000/;\n"
+    "Shonan Beach FM 78.9,http://shonanbeachfm.out.airtime.pro:8000/shonanbeachfm_a\n"
+    "Free FM Tokyo,https://rocafmadrid.radioca.st/\n"
+    "J1 Hits Japan,http://jenny.torontocast.com:8056/\n";
+
 const char* getRadioCatalogName(uint8_t catalogIndex) {
-  switch (catalogIndex) {
-    case RADIO_CATALOG_ONLINE_RADIO_FM: return "OnlineRadioFM.in";
-    case RADIO_CATALOG_RADIO_INDIA:      return "RadioIndia.in";
-    default:                            return "Default";
+  if (currentRadioLang == RADIO_LANG_HI) {
+    switch (catalogIndex) {
+      case RADIO_CATALOG_ONLINE_RADIO_FM: return "OnlineRadioFM.in";
+      case RADIO_CATALOG_RADIO_INDIA:      return "RadioIndia.in";
+      default:                            return "Hindi Radio";
+    }
   }
+  return getRadioLanguageName(currentRadioLang);
+}
+
+const char* getRadioLanguageCode(uint8_t langIndex) {
+  switch (langIndex) {
+    case RADIO_LANG_HI: return "HI";
+    case RADIO_LANG_EN: return "EN";
+    case RADIO_LANG_ES: return "ES";
+    case RADIO_LANG_CN: return "CN";
+    case RADIO_LANG_DE: return "DE";
+    case RADIO_LANG_JA: return "JA";
+    default:            return "HI";
+  }
+}
+
+const char* getRadioLanguageName(uint8_t langIndex) {
+  switch (langIndex) {
+    case RADIO_LANG_HI: return "Hindi";
+    case RADIO_LANG_EN: return "English";
+    case RADIO_LANG_ES: return "Spanish";
+    case RADIO_LANG_CN: return "Chinese";
+    case RADIO_LANG_DE: return "German";
+    case RADIO_LANG_JA: return "Japanese";
+    default:            return "Hindi";
+  }
+}
+
+uint8_t getRadioLanguage() {
+  return currentRadioLang;
 }
 
 bool parseCSVLine(const char *line, char *name, size_t nameSize, char *url, size_t urlSize) {
@@ -533,29 +630,53 @@ bool initStationsPSRAM() {
 }
 
 
-void switchRadioCatalog(uint8_t catalogIndex) {
-  if (catalogIndex > 1) catalogIndex = 0;
-  currentRadioCatalog = catalogIndex;
+void switchRadioLanguage(uint8_t langIndex) {
+  if (langIndex > RADIO_LANG_JA) langIndex = RADIO_LANG_HI;
+  currentRadioLang = langIndex;
 
   Preferences rpref;
   rpref.begin("tb_radio", false);
-  rpref.putUChar("cat", currentRadioCatalog);
+  rpref.putUChar("lang", currentRadioLang);
   rpref.end();
 
   if (!initStationsPSRAM()) return;
 
-  const char *cachePath = (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) 
-                          ? "/radio_cat0.csv" : "/radio_cat1.csv";
+  const char *cachePath = "/radio_cat0.csv";
+  const char *csvData = defaultStationsOnlineRadioFM_CSV;
 
-  // Ensure cache file exists in LittleFS; if missing, write it from PROGMEM
+  switch (currentRadioLang) {
+    case RADIO_LANG_HI:
+      cachePath = (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? "/radio_cat0.csv" : "/radio_cat1.csv";
+      csvData = (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? defaultStationsOnlineRadioFM_CSV : defaultStationsRadioIndia_CSV;
+      break;
+    case RADIO_LANG_EN:
+      cachePath = "/radio_en.csv";
+      csvData = defaultStationsEnglish_CSV;
+      break;
+    case RADIO_LANG_ES:
+      cachePath = "/radio_es.csv";
+      csvData = defaultStationsSpanish_CSV;
+      break;
+    case RADIO_LANG_CN:
+      cachePath = "/radio_cn.csv";
+      csvData = defaultStationsChinese_CSV;
+      break;
+    case RADIO_LANG_DE:
+      cachePath = "/radio_de.csv";
+      csvData = defaultStationsGerman_CSV;
+      break;
+    case RADIO_LANG_JA:
+      cachePath = "/radio_ja.csv";
+      csvData = defaultStationsJapanese_CSV;
+      break;
+  }
+
   if (!LittleFS.exists(cachePath)) {
     File fc = LittleFS.open(cachePath, "w");
     if (fc) {
-      const char *csvData = (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) 
-                            ? defaultStationsOnlineRadioFM_CSV : defaultStationsRadioIndia_CSV;
       fc.print(csvData);
       fc.close();
-      log_i("Cached radio catalog to %s", cachePath);
+      log_i("Cached radio language %s to %s", getRadioLanguageCode(currentRadioLang), cachePath);
     }
   }
 
@@ -580,7 +701,6 @@ void switchRadioCatalog(uint8_t catalogIndex) {
     f.close();
   }
 
-  // Also sync to active /stations.csv
   File actF = LittleFS.open(STATION_LIST_FILENAME, "w");
   if (actF) {
     for (uint8_t i = 0; i < stationListLength; i++) {
@@ -590,14 +710,54 @@ void switchRadioCatalog(uint8_t catalogIndex) {
   }
 
   if (ui_MainMenu_Textarea_stationList) {
-    char txt[64];
-    snprintf(txt, sizeof(txt), "Total %d stations loaded (%s)", stationListLength, getRadioCatalogName(currentRadioCatalog));
+    char txt[96];
+    snprintf(txt, sizeof(txt), "Total %d stations loaded (%s)", stationListLength, getRadioLanguageCode(currentRadioLang));
     lv_textarea_set_text(ui_MainMenu_Textarea_stationList, txt);
   }
-  log_i("[RADIO CATALOG] Switched to %s (%d stations cached & loaded)", getRadioCatalogName(currentRadioCatalog), stationListLength);
+
+  extern lv_obj_t *ui_Player_Label_trackNumber;
+  extern lv_obj_t *ui_Player_Textarea_status;
+  extern lv_obj_t *ui_Player_Label_Catalog;
+  if (ui_Player_Label_trackNumber) {
+    char status_buffer[32];
+    snprintf(status_buffer, sizeof(status_buffer), "%d of %d", stationIndex + 1, stationListLength);
+    lv_label_set_text(ui_Player_Label_trackNumber, status_buffer);
+  }
+  if (ui_Player_Textarea_status) {
+    if (stationListLength > 0 && stations[stationIndex].name) {
+      lv_textarea_set_text(ui_Player_Textarea_status, stations[stationIndex].name);
+    }
+  }
+  if (ui_Player_Label_Catalog) {
+    if (currentRadioLang == RADIO_LANG_HI) {
+      lv_label_set_text(ui_Player_Label_Catalog,
+          (currentRadioCatalog == RADIO_CATALOG_ONLINE_RADIO_FM) ? LV_SYMBOL_AUDIO " FM" : LV_SYMBOL_WIFI " IN");
+    } else {
+      char cbuf[16];
+      snprintf(cbuf, sizeof(cbuf), LV_SYMBOL_AUDIO " %s", getRadioLanguageCode(currentRadioLang));
+      lv_label_set_text(ui_Player_Label_Catalog, cbuf);
+    }
+  }
+
+  log_i("[RADIO LANG] Switched to %s (%s) - %d stations loaded", getRadioLanguageCode(currentRadioLang), getRadioLanguageName(currentRadioLang), stationListLength);
 }
 
-// load station list from littleFS or default
+void switchRadioCatalog(uint8_t catalogIndex) {
+  if (catalogIndex > 1) catalogIndex = 0;
+  currentRadioCatalog = catalogIndex;
+
+  Preferences rpref;
+  rpref.begin("tb_radio", false);
+  rpref.putUChar("cat", currentRadioCatalog);
+  rpref.end();
+
+  if (currentRadioLang == RADIO_LANG_HI) {
+    switchRadioLanguage(RADIO_LANG_HI);
+  } else {
+    switchRadioLanguage(currentRadioLang);
+  }
+}
+
 void loadStationList() {
   if (!initStationsPSRAM()) {
     if (ui_MainMenu_Textarea_stationList) {
@@ -606,7 +766,6 @@ void loadStationList() {
     return;
   }
 
-  // 1. Detect and purge stale vendor demo stations.csv (e.g. Chou Chou, Top Radio FM93.5)
   if (LittleFS.exists(STATION_LIST_FILENAME)) {
     File testF = LittleFS.open(STATION_LIST_FILENAME, "r");
     if (testF) {
@@ -619,33 +778,34 @@ void loadStationList() {
     }
   }
 
-  // 2. Ensure both catalogs are cached in LittleFS
-  if (!LittleFS.exists("/radio_cat0.csv")) {
-    File fc = LittleFS.open("/radio_cat0.csv", "w");
-    if (fc) {
-      fc.print(defaultStationsOnlineRadioFM_CSV);
-      fc.close();
-      log_i("Cached Catalog 0 to LittleFS /radio_cat0.csv");
-    }
-  }
-  if (!LittleFS.exists("/radio_cat1.csv")) {
-    File fc = LittleFS.open("/radio_cat1.csv", "w");
-    if (fc) {
-      fc.print(defaultStationsRadioIndia_CSV);
-      fc.close();
-      log_i("Cached Catalog 1 to LittleFS /radio_cat1.csv");
+  const struct { const char *path; const char *data; } langFiles[] = {
+    {"/radio_cat0.csv", defaultStationsOnlineRadioFM_CSV},
+    {"/radio_cat1.csv", defaultStationsRadioIndia_CSV},
+    {"/radio_en.csv", defaultStationsEnglish_CSV},
+    {"/radio_es.csv", defaultStationsSpanish_CSV},
+    {"/radio_cn.csv", defaultStationsChinese_CSV},
+    {"/radio_de.csv", defaultStationsGerman_CSV},
+    {"/radio_ja.csv", defaultStationsJapanese_CSV}
+  };
+  for (size_t i = 0; i < sizeof(langFiles)/sizeof(langFiles[0]); i++) {
+    if (!LittleFS.exists(langFiles[i].path)) {
+      File fc = LittleFS.open(langFiles[i].path, "w");
+      if (fc) {
+        fc.print(langFiles[i].data);
+        fc.close();
+      }
     }
   }
 
-  // 3. Retrieve saved catalog preference (default = 0: OnlineRadioFM)
   Preferences rpref;
   rpref.begin("tb_radio", false);
+  currentRadioLang = rpref.getUChar("lang", RADIO_LANG_HI);
   currentRadioCatalog = rpref.getUChar("cat", RADIO_CATALOG_ONLINE_RADIO_FM);
   rpref.end();
+  if (currentRadioLang > RADIO_LANG_JA) currentRadioLang = RADIO_LANG_HI;
   if (currentRadioCatalog > 1) currentRadioCatalog = 0;
 
-  // 4. Load active catalog from cached file
-  switchRadioCatalog(currentRadioCatalog);
+  switchRadioLanguage(currentRadioLang);
 }
 
 // copy file 'stations.csv' to littleFS

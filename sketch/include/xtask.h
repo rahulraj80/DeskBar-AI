@@ -28,6 +28,7 @@ CORE 0:
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include "user_config.h"
+#include "lan_stream/lan_stream.h"
 
 extern "C" void on_clock_boot_button_pressed(void);
 extern bool wifiEnable;
@@ -649,6 +650,31 @@ void stop_ai_voice_recording_and_process() {
     xQueueSend(ui_status_queue, &p_idle, 100);
   }
 }
+static void utf8_safe_truncate(char *str) {
+  if (!str) return;
+  size_t len = strlen(str);
+  if (len == 0) return;
+  size_t i = len;
+  while (i > 0 && (len - i) < 4) {
+    unsigned char c = (unsigned char)str[i - 1];
+    if ((c & 0x80) == 0) {
+      break;
+    }
+    if ((c & 0xC0) == 0xC0) {
+      int needed = 0;
+      if ((c & 0xE0) == 0xC0) needed = 2;
+      else if ((c & 0xF0) == 0xE0) needed = 3;
+      else if ((c & 0xF8) == 0xF0) needed = 4;
+      int available = len - (i - 1);
+      if (available < needed) {
+        str[i - 1] = '\0';
+      }
+      break;
+    }
+    i--;
+  }
+}
+
 //--------------------------------
 // audio information callback
 void my_audio_info(Audio::msg_t m) {
@@ -662,9 +688,35 @@ void my_audio_info(Audio::msg_t m) {
       msg.type = STATUS_UPDATE_TRACK_DESC_SET;
       const char *st_name = (stations && stationIndex < stationListLength && stations[stationIndex].name) 
                             ? stations[stationIndex].name : "Online Radio";
-      snprintf(msg.trackDesc, sizeof(msg.trackDesc), "%s\n%s", st_name, m.msg);
+      const char *title_ptr = m.msg;
+      const char *st_tag = strstr(m.msg, "StreamTitle='");
+      char clean_title[80] = {0};
+      if (st_tag) {
+        title_ptr = st_tag + 13;
+        const char *end_quote = strchr(title_ptr, '\'');
+        if (end_quote) {
+          size_t tlen = end_quote - title_ptr;
+          if (tlen >= sizeof(clean_title)) tlen = sizeof(clean_title) - 1;
+          strncpy(clean_title, title_ptr, tlen);
+          clean_title[tlen] = '\0';
+        } else {
+          snprintf(clean_title, sizeof(clean_title), "%s", title_ptr);
+        }
+      } else {
+        snprintf(clean_title, sizeof(clean_title), "%s", title_ptr);
+      }
+      int tlen = strlen(clean_title);
+      while (tlen > 0 && (clean_title[tlen-1] == ';' || clean_title[tlen-1] == ' ' || clean_title[tlen-1] == '\r' || clean_title[tlen-1] == '\n')) {
+        clean_title[--tlen] = '\0';
+      }
+      if (clean_title[0] != '\0') {
+        snprintf(msg.trackDesc, sizeof(msg.trackDesc), "%s\n%s", st_name, clean_title);
+      } else {
+        snprintf(msg.trackDesc, sizeof(msg.trackDesc), "%s", st_name);
+      }
+      utf8_safe_truncate(msg.trackDesc);
       xQueueSend(ui_status_queue, &msg, 100); // send message
-      log_i("[RADIO INFO] %s", m.msg);
+      log_i("[RADIO INFO] %s", msg.trackDesc);
     }
     break;
   }
@@ -881,7 +933,7 @@ void audio_loop_task(void *param) {
             //---------
             // detect end of file track -> next track
             if ((mediaType == 1) && (current_total - current_pos <= 1)) {
-              if (lan_get_file_count() > 0) {
+              if (get_active_player_source() == 1 && lan_get_file_count() > 0) {
                 switch (playMode) {
                 case 0: { // normal loop all
                   lan_track_idx = (lan_track_idx + 1) % lan_get_file_count();
@@ -902,6 +954,7 @@ void audio_loop_task(void *param) {
                   break;
                 }
                 }
+                set_last_lan_track_idx(lan_track_idx);
                 snprintf(msg.trackNumber, sizeof(msg.trackNumber), "%d of %d (LAN)", lan_track_idx + 1, lan_get_file_count());
                 msg.type = STATUS_UPDATE_TRACK_NUMBER;
                 xQueueSend(ui_status_queue, &msg, 100);
@@ -927,7 +980,7 @@ void audio_loop_task(void *param) {
               switch (playMode) {
               case 0: { // normal play mode
                 trackIndex++;
-                if (trackIndex == trackListLength) trackIndex = 0;
+                if (trackIndex >= trackListLength) trackIndex = 0;
                 break;
               }
               case 1: { // random play, avoid same track twice
@@ -939,10 +992,11 @@ void audio_loop_task(void *param) {
                 break;
               }
               }
+              set_last_local_track_idx(trackIndex);
               // switch
               //  update track index
               msg.type = STATUS_UPDATE_TRACK_NUMBER;
-               snprintf(msg.trackNumber, sizeof(msg.trackNumber), "%d of %d", trackIndex + 1, trackListLength);
+              snprintf(msg.trackNumber, sizeof(msg.trackNumber), "%d of %d (LOCAL)", trackIndex + 1, trackListLength);
               xQueueSend(ui_status_queue, &msg, 100); // send message
 
               // play track
