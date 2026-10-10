@@ -5,9 +5,34 @@
 ![Display](https://img.shields.io/badge/Display-3.49%22%20Capacitive%20Touch%20(640x180)-green)
 ![License](https://img.shields.io/badge/License-CC--BY--NC--SA--4.0-lightgrey)
 
-**TuneBar Advanced Edition** is an extensive architectural evolution of the original TuneBar project for the **Waveshare ESP32-S3-Touch-LCD-3.49** hardware. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart media bar, and distributed telemetry station with high-fidelity acoustic processing, advanced power management (breathing PWM & audio gating), robust DRAM memory engineering, multilingual global internet radio across 6 languages, LAN media streaming, and secure parameterization.
+**TuneBar Advanced Edition** is an extensive architectural evolution of the original TuneBar project for the official [Waveshare ESP32-S3-Touch-LCD-3.49](https://docs.waveshare.com/ESP32-S3-Touch-LCD-3.49?variant=ESP32-S3-Touch-LCD-3.49) development platform. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart media bar, and distributed telemetry station with high-fidelity acoustic processing, advanced power management (breathing PWM & audio gating), robust DRAM memory engineering, multilingual global internet radio across 6 languages, LAN media streaming, and secure parameterization.
 
 ---
+
+### 📦 Hardware Overview & Global Sourcing
+
+TuneBar runs on the 3.49-inch capacitive touch screen development board powered by the **ESP32-S3R8** (dual-core 240 MHz, 16MB Flash, 8MB OPI PSRAM) with an integrated acoustic front-end (dual MEMS microphones + ES7210 ADC), audio codec (ES8311 DAC + NS4150B amplifier), 6-axis IMU, and RTC:
+
+<p align="center">
+  <img src="document/hw_header.png" alt="Waveshare ESP32-S3-Touch-LCD-3.49 Front View" width="48%" />
+  <img src="document/hw_overview.png" alt="ESP32-S3-Touch-LCD-3.49 PCB Layout" width="48%" />
+</p>
+<p align="center">
+  <img src="document/hw_size1.png" alt="Hardware Dimensions Version A" width="48%" />
+  <img src="document/hw_size2.png" alt="Hardware Dimensions Version B" width="48%" />
+</p>
+
+*Hardware photos and dimensional diagrams source: [Waveshare Documentation](https://docs.waveshare.com/ESP32-S3-Touch-LCD-3.49?variant=ESP32-S3-Touch-LCD-3.49).*
+
+#### 🛒 Where to Buy (Trusted Resellers by Region & Supported Languages)
+For makers looking to build or replicate this device, the board is widely available through established distributors:
+* **🇮🇳 India (Hindi / HI)**: [Evelta Electronics](https://www.evelta.com) (Search SKU `061-32374` / *Waveshare ESP32-S3 Touch LCD 3.49*).
+* **🌐 Global / North America (English / EN & Spanish / ES)**: [Waveshare Official Store](https://www.waveshare.com/esp32-s3-touch-lcd-3.49.htm) and official stores on AliExpress.
+* **🇪🇺 Europe / DACH (German / DE)**: [BerryBase](https://www.berrybase.de) and [Welectron](https://www.welectron.com).
+* **🇯🇵 Japan (Japanese / JA)**: [Switch Science](https://www.switch-science.com) and Waveshare Direct.
+
+> [!NOTE]
+> **Community Notice**: The purchase links above are provided strictly for community reference to help makers source genuine hardware across supported regions. **None of these are affiliate links**, and the author receives no compensation, commission, or financial benefit from any retailer.
 
 ## 📸 Interface Showcase (Authentic Hardware Captures)
 
@@ -45,7 +70,7 @@
 ![Main Menu Cards View 2](document/screen_menu_cards_2.png)
 - **What it is**: Ultra-crisp $640\times180$ horizontal launcher carousel featuring 6 custom neon cards: **CLIMATE** (Cyan), **RADIO** (Pink), **MUSIC** (Purple), **AI VOICE** (Emerald Green), **SYSTEM** (Amber Gold), and **SETTINGS** (Slate).
 - **How to use**: Drag horizontally left or right across the screen to pan across all 6 applications. Tap any card icon to launch that application instantly.
-- **Audio Pulse Feedback**: When an audio stream or music track is playing in the background, the active app card gently pulses with a slow, relaxed bounce animation in the carousel.
+- **Audio Pulse Feedback**: When an audio stream or music track is playing in the background, the active app card gently breathes with a soft 1.0s luminance opacity curve in the carousel, providing elegant visual playback status without burning CPU cycles on texture scaling.
 - **Gestures**: Swipe down from the top edge to quickly lock or return to the Nixie Clock.
 
 ---
@@ -219,10 +244,11 @@ TuneBar features a unified media player engine that seamlessly handles both **Lo
 1. **Acoustic Front-End**:
    - Dual onboard MEMS microphones capture audio via the ES7210 4-channel ADC at 16 kHz / 16-bit mono.
    - Dynamic Voice Activity Detection (VAD) monitors energy levels and automatically terminates recording after speech pauses.
-2. **Local Loopback Verification (Zero-Cloud Audio Auditing)**:
-   - **LittleFS Buffer Persistence**: Every voice interaction is recorded directly to LittleFS flash as `/rec.wav` with a standardized 44-byte RIFF WAV header after digital DC-offset removal and peak normalization.
-   - **Local Acoustic Playback**: Recorded voice can be played back immediately through the ES8311 DAC and NS4150B amplifier without contacting external cloud servers, verifying microphone clarity, gain staging, and acoustic fidelity directly on hardware (`/api/rec?action=play` or serial `rec play`).
-   - **Diagnostic WAV Download**: Audio files can be inspected or extracted over the network via `http://<device-ip>/rec.wav` for automated STT benchmark analysis.
+2. **On-Demand Local Acoustic Auditing (Zero-Cloud Loopback)**:
+   - **LittleFS Flash Buffer**: Every voice interaction is automatically recorded to LittleFS flash as `/rec.wav` with a standardized 44-byte RIFF WAV header after digital DC-offset filtering and peak normalization.
+   - **Instant Repeat Disabled by Default**: To keep voice conversations swift and natural, the device does **not** repeat the user's voice aloud by default; instead, it transitions immediately into the cloud pipeline and speaks the AI answer.
+   - **Diagnostic Local Loopback**: Whenever acoustic testing or mic calibration is needed, the local `/rec.wav` buffer can be played back immediately through the ES8311 DAC and NS4150B amplifier without cloud access via `/api/rec?action=play` or serial `rec play`.
+   - **Raw WAV Download**: The audio file can be inspected or retrieved across your LAN via `http://<device-ip>/rec.wav` for audio quality and STT accuracy audits.
 3. **Low-Latency Cloud Pipeline**:
    - Audio payload is uploaded via background HTTPS TLS to the FastAPI backend.
    - **Groq Whisper Large V3 Turbo** transcribes speech in <200ms.

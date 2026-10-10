@@ -1200,12 +1200,12 @@ void livestreamMode(lv_event_t *e) {
       }
     }
   }
-  lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_image_zoom);
-  if (ui_MainMenu_Image_MusicPlayer) lv_img_set_zoom(ui_MainMenu_Image_MusicPlayer, 256);
-  if (ui_MainMenu_Image_ChatBot) lv_img_set_zoom(ui_MainMenu_Image_ChatBot, 256);
+  lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_opacity);
+  if (ui_MainMenu_Image_MusicPlayer) lv_obj_set_style_opa(ui_MainMenu_Image_MusicPlayer, 255, 0);
+  if (ui_MainMenu_Image_ChatBot) lv_obj_set_style_opa(ui_MainMenu_Image_ChatBot, 255, 0);
   if (ui_MainMenu_Image_LiveStreaming) {
     if (lv_scr_act() == ui_Screen_MainMenu) bounce_Animation(ui_MainMenu_Image_LiveStreaming, 0);
-    else lv_img_set_zoom(ui_MainMenu_Image_LiveStreaming, 256);
+    else lv_obj_set_style_opa(ui_MainMenu_Image_LiveStreaming, 255, 0);
   }
   if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_livestreaming_png, LV_PART_MAIN);
   updateAlbumCoverStyle();
@@ -1234,12 +1234,12 @@ void musicPlayerMode(lv_event_t *e) {
   if (ui_Player_Button_Catalog) {
     lv_obj_add_flag(ui_Player_Button_Catalog, LV_OBJ_FLAG_HIDDEN);
   }
-  lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_image_zoom);
-  if (ui_MainMenu_Image_LiveStreaming) lv_img_set_zoom(ui_MainMenu_Image_LiveStreaming, 256);
-  if (ui_MainMenu_Image_ChatBot) lv_img_set_zoom(ui_MainMenu_Image_ChatBot, 256);
+  lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_opacity);
+  if (ui_MainMenu_Image_LiveStreaming) lv_obj_set_style_opa(ui_MainMenu_Image_LiveStreaming, 255, 0);
+  if (ui_MainMenu_Image_ChatBot) lv_obj_set_style_opa(ui_MainMenu_Image_ChatBot, 255, 0);
   if (ui_MainMenu_Image_MusicPlayer) {
     if (lv_scr_act() == ui_Screen_MainMenu) bounce_Animation(ui_MainMenu_Image_MusicPlayer, 0);
-    else lv_img_set_zoom(ui_MainMenu_Image_MusicPlayer, 256);
+    else lv_obj_set_style_opa(ui_MainMenu_Image_MusicPlayer, 255, 0);
   }
   if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_music_png, LV_PART_MAIN);
   updateAlbumCoverStyle();
@@ -1258,12 +1258,12 @@ void chatBotMode(lv_event_t *e) {
   if (ui_Player_Textarea_status) {
     lv_textarea_set_text(ui_Player_Textarea_status, "AI Voice Assistant Ready\nTap [ MIC ] to speak or ask via Web Remote / CLI!");
   }
-  lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_image_zoom);
-  if (ui_MainMenu_Image_MusicPlayer) lv_img_set_zoom(ui_MainMenu_Image_MusicPlayer, 256);
-  if (ui_MainMenu_Image_LiveStreaming) lv_img_set_zoom(ui_MainMenu_Image_LiveStreaming, 256);
+  lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_opacity);
+  if (ui_MainMenu_Image_MusicPlayer) lv_obj_set_style_opa(ui_MainMenu_Image_MusicPlayer, 255, 0);
+  if (ui_MainMenu_Image_LiveStreaming) lv_obj_set_style_opa(ui_MainMenu_Image_LiveStreaming, 255, 0);
   if (ui_MainMenu_Image_ChatBot) {
     if (lv_scr_act() == ui_Screen_MainMenu) bounce_Animation(ui_MainMenu_Image_ChatBot, 0);
-    else lv_img_set_zoom(ui_MainMenu_Image_ChatBot, 256);
+    else lv_obj_set_style_opa(ui_MainMenu_Image_ChatBot, 255, 0);
   }
   if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_assistant_png, LV_PART_MAIN);
   updateAlbumCoverStyle();
