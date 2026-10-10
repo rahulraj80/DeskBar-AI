@@ -219,8 +219,10 @@ TuneBar features a unified media player engine that seamlessly handles both **Lo
 1. **Acoustic Front-End**:
    - Dual onboard MEMS microphones capture audio via the ES7210 4-channel ADC at 16 kHz / 16-bit mono.
    - Dynamic Voice Activity Detection (VAD) monitors energy levels and automatically terminates recording after speech pauses.
-2. **Local Loopback Verification**:
-   - Audio is saved to `/rec.wav` on LittleFS and immediately echoed locally through the speaker to confirm capture quality.
+2. **Local Loopback Verification (Zero-Cloud Audio Auditing)**:
+   - **LittleFS Buffer Persistence**: Every voice interaction is recorded directly to LittleFS flash as `/rec.wav` with a standardized 44-byte RIFF WAV header after digital DC-offset removal and peak normalization.
+   - **Local Acoustic Playback**: Recorded voice can be played back immediately through the ES8311 DAC and NS4150B amplifier without contacting external cloud servers, verifying microphone clarity, gain staging, and acoustic fidelity directly on hardware (`/api/rec?action=play` or serial `rec play`).
+   - **Diagnostic WAV Download**: Audio files can be inspected or extracted over the network via `http://<device-ip>/rec.wav` for automated STT benchmark analysis.
 3. **Low-Latency Cloud Pipeline**:
    - Audio payload is uploaded via background HTTPS TLS to the FastAPI backend.
    - **Groq Whisper Large V3 Turbo** transcribes speech in <200ms.
@@ -256,25 +258,26 @@ TuneBar hosts an embedded HTTP REST API on port 80:
 
 | Endpoint | Method | Parameters | Description |
 | :--- | :---: | :--- | :--- |
-| `/api/status` | `GET` | — | Returns full device telemetry JSON (screen, DRAM/PSRAM, battery, RSSI, radio lang, track, alarm, volume). |
-| `/api/screen` | `GET/POST`| `action=<clock\|weather\|alarm\|menu\|settings\|utility\|music\|radio\|chat>` | Switches active screen. Supports `tab=<0..4>` for Settings and `scroll=<px>` for Menu. |
-| `/api/touch` | `GET/POST`| `x=<X>&y=<Y>` or `swipe=<up\|down\|left\|right>` | Injects capacitive touch tap or gesture swipe event. |
-| `/api/radio/lang` | `GET/POST`| `set=<hi\|en\|es\|cn\|de\|ja>` or `id=<0..5>` | Dynamically loads pre-curated radio station list for language and saves to LittleFS/NVS. |
-| `/api/radio/catalog` | `POST`| `id=<0\|1>` | Toggles between OnlineRadioFM (`0`) and RadioIndia (`1`) for Hindi radio. |
-| `/api/radio/play` | `POST`| `idx=<0..N>` | Plays specific radio station from loaded catalog. |
-| `/api/radio/resume` | `POST`| — | Resumes playback of currently selected radio station. |
-| `/api/radio/stop` | `POST`| — | Stops audio playback. |
-| `/api/vol` | `POST`| `val=<0..21>` | Sets audio output volume (0 to 21). |
-| `/api/bl` | `POST`| `state=<0\|1\|2>` | Sets backlight brightness level (0=Low, 1=Med, 2=High). |
-| `/api/alarm` | `GET/POST`| `enabled=<0\|1>&time=<HH:MM>` | Reads or configures RTC alarm time and active state. |
-| `/api/alarm/stop` | `POST`| — | Stops currently sounding alarm buzzer. |
-| `/api/alarm/test` | `POST`| — | Triggers immediate test alarm audio. |
-| `/api/lan/server` | `GET/POST`| `url=<ip:port/path>` | Configures or inspects LAN streaming server address. |
-| `/api/lan/fetch` | `GET/POST`| — | Asynchronously triggers indexing of remote LAN music server. |
-| `/api/lan/play` | `GET/POST`| `idx=<0..N>` | Plays track index from indexed LAN library. |
-| `/api/rec` | `GET/POST`| `action=<rec\|stop\|play>` | Triggers voice recording, stops & processes, or plays back `/rec.wav`. |
-| `/api/ask` | `GET/POST`| `q=<text_query>` | Sends text question directly to AI Assistant over Wi-Fi. |
-| `/api/screenshot` | `GET` | — | Returns 100% authentic RGB24 BMP framebuffer screenshot (640×180). |
+| `/api/status` | `GET` | *none* | Full device telemetry JSON (screen, heap, battery, RSSI, radio, alarm). |
+| `/api/screen` | `GET/POST` | `action=<target>&tab=<N>&scroll=<px>` | Switch screen (`clock`, `weather`, `alarm`, `menu`, `settings`, `utility`, `music`, `radio`, `chat`). |
+| `/api/touch` | `GET/POST` | `x=<X>&y=<Y>` or `swipe=<dir>` | Injects capacitive touch tap coordinates or directional swipe gesture. |
+| `/api/radio/lang` | `GET/POST` | `set=<hi\|en\|es\|cn\|de\|ja>` | Dynamically loads pre-curated 10-station catalog for chosen language. |
+| `/api/radio/catalog` | `POST` | `id=<0\|1>` | Toggles between OnlineRadioFM (`0`) and RadioIndia (`1`) sub-catalogs. |
+| `/api/radio/play` | `POST` | `idx=<0..N>` | Plays specific station index from loaded catalog. |
+| `/api/radio/resume` | `POST` | *none* | Resumes playback of currently active radio station. |
+| `/api/radio/stop` | `POST` | *none* | Stops all audio playback and gates off audio amplifier power. |
+| `/api/vol` | `POST` | `val=<0..21>` | Sets master audio volume level. |
+| `/api/bl` | `POST` | `state=<0\|1\|2>` | Sets backlight brightness (0=Low: 35%, 1=Med: 65%, 2=High: 100%). |
+| `/api/alarm` | `GET/POST` | `enabled=<0\|1>&time=<HH:MM>` | Reads or configures RTC alarm wake-up time and armed state. |
+| `/api/alarm/stop` | `POST` | *none* | Silences currently active alarm buzzer. |
+| `/api/alarm/test` | `POST` | *none* | Triggers immediate test alarm audio sequence. |
+| `/api/lan/server` | `GET/POST` | `srv=<ip:port/path>` | Configures or inspects LAN music server target URL. |
+| `/api/lan/fetch` | `GET/POST` | *none* | Triggers asynchronous indexing of remote LAN music tracks. |
+| `/api/lan/play` | `GET/POST` | `idx=<0..N>` | Plays track index from indexed LAN library. |
+| `/api/rec` | `GET/POST` | `action=<start\|stop\|play>` | Triggers voice recording, stops & normalizes, or plays local `/rec.wav` loopback. |
+| `/api/ask` | `GET/POST` | `q=<text_query>` | Sends text query to AI Assistant pipeline over Wi-Fi. |
+| `/api/telemetry` | `POST` | `action=<snap\|flush>` | Captures immediate telemetry sample or flushes ring buffer to server. |
+| `/api/screenshot` | `GET` | *none* | Dumps live 640×172 RGB24 BMP framebuffer screenshot over HTTP. |
 
 ---
 
@@ -426,6 +429,6 @@ pio device monitor -b 115200
 * Original TuneBar project by **[VaAndCob](https://github.com/VaAndCob/TuneBar)**.
 * Core audio functionality powered by the **[ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S)** library.
 * UI engine powered by **[LVGL 8.4.0](https://lvgl.io/)**.
-* Advanced Audio Engineering, ES7210 driver fixes, DRAM optimization, power saving architecture, multilingual radio expansion, and AI Voice Assistant by **Rahul Raj**.
+* Advanced Audio Engineering, ES7210 driver fixes, DRAM optimization, power saving architecture, multilingual radio expansion, and AI Voice Assistant by **Rahul Raj** ([@rahulraj80](https://github.com/rahulraj80)).
 
-This project is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/) license.
+This software and firmware codebase is licensed under the **GNU General Public License v3.0 (GPL-3.0)** (see [`LICENSE`](LICENSE)). Any hardware designs, UI assets, and media components derived from upstream TuneBar remain licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/) license. Attribution to original author Va&Cob and contributing author Rahul Raj is required on all derivative distributions.
