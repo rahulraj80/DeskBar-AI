@@ -45,11 +45,12 @@ struct NamedOrientationRow {
     lv_obj_t *status_label;
 };
 
-static NamedOrientationRow s_named_orientations[4] = {
-    {"[01] NORMAL LANDSCAPE",   "X[>0.8]",   0.0f,  1.0f,  0.0f, NULL, NULL},
-    {"[02] INVERTED LANDSCAPE", "X[<-0.8]",  0.0f, -1.0f,  0.0f, NULL, NULL},
-    {"[03] FLAT DESK",          "Z[<1.2]",   0.0f,  0.0f,  1.0f, NULL, NULL},
-    {"[04] PORTRAIT",           "Y[>0.8]",   1.0f,  0.0f,  0.0f, NULL, NULL}
+static NamedOrientationRow s_named_orientations[5] = {
+    {"[01] NORMAL LANDSCAPE",   "Y[<-0.6]",   0.0f, -1.0f,  0.0f, NULL, NULL},
+    {"[02] TILTED LANDSCAPE",   "Y<-.3 Z>.3", 0.0f, -0.86f, 0.5f, NULL, NULL},
+    {"[03] INVERTED LANDSCAPE", "Y[>0.4]",    0.0f,  1.0f,  0.0f, NULL, NULL},
+    {"[04] FLAT DESK (FACE UP)","Z[>0.8]",    0.0f,  0.0f,  1.0f, NULL, NULL},
+    {"[05] PORTRAIT (LOCKED)",  "X[>0.7]",    1.0f,  0.0f,  0.0f, NULL, NULL}
 };
 
 static float s_tolerance_deg = 2.0f;
@@ -114,10 +115,10 @@ struct CalPose {
 // (7) Screen facing ceiling (Desk Face-Up / Flat Level)
 // (8) Screen facing floor (Desk Face-Down)
 static CalPose s_cal_poses[8] = {
-    {"STEP 1: WALL UPRIGHT",       "Screen facing wall/user, power buttons facing ceiling.", 0.0f,  1.0f,  0.0f, false, 0, 0, 0},
-    {"STEP 2: WALL TILTED UP",     "Tilted back with screen facing slightly upwards.",       0.0f,  0.86f, 0.5f, false, 0, 0, 0},
-    {"STEP 3: INVERTED UPRIGHT",   "Vertical flip of Step 1: buttons facing floor.",         0.0f, -1.0f,  0.0f, false, 0, 0, 0},
-    {"STEP 4: INVERTED TILTED",    "Vertical flip of Step 2: screen tilted downwards.",      0.0f, -0.86f, -0.5f, false, 0, 0, 0},
+    {"STEP 1: WALL UPRIGHT",       "Screen facing wall/user, power buttons facing ceiling.", 0.0f, -1.0f,  0.0f, false, 0, 0, 0},
+    {"STEP 2: WALL TILTED UP",     "Tilted back with screen facing slightly upwards.",       0.0f, -0.86f, 0.5f, false, 0, 0, 0},
+    {"STEP 3: INVERTED UPRIGHT",   "Vertical flip of Step 1: buttons facing floor.",         0.0f,  1.0f,  0.0f, false, 0, 0, 0},
+    {"STEP 4: INVERTED TILTED",    "Vertical flip of Step 2: screen tilted downwards.",      0.0f,  0.86f, -0.5f, false, 0, 0, 0},
     {"STEP 5: LEFT EDGE REST",     "Resting on left edge. USB-C port MUST face top/ceiling.",1.0f,  0.0f,  0.0f, false, 0, 0, 0},
     {"STEP 6: RIGHT EDGE REST",    "Resting on right edge. USB-C port MUST face desk/bottom.",-1.0f, 0.0f, 0.0f, false, 0, 0, 0},
     {"STEP 7: DESK FACE-UP",       "Place TuneBar flat on desk, screen facing ceiling.",    0.0f,  0.0f,  1.0f, false, 0, 0, 0},
@@ -279,7 +280,7 @@ static void update_cal_ui_step(void) {
             lv_label_set_text(s_wireframe_usb_lbl, "USB: BOT");
             lv_obj_set_style_text_color(s_wireframe_usb_lbl, lv_color_hex(0xFFB800), LV_PART_MAIN);
         } else {
-            lv_label_set_text(s_wireframe_usb_lbl, "USB: LFT");
+            lv_label_set_text(s_wireframe_usb_lbl, "USB: RIGHT");
             lv_obj_set_style_text_color(s_wireframe_usb_lbl, lv_color_hex(0x70A0C0), LV_PART_MAIN);
         }
     }
@@ -340,10 +341,23 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
         return;
     }
 
-    // Pitch: forward/back angle (-180 to +180)
-    // Roll : side-to-side angle (-90 to +90)
-    float pitch_deg = atan2f(-imu.ay, sqrtf(imu.ax * imu.ax + imu.az * imu.az)) * 180.0f / M_PI;
-    float roll_deg = atan2f(imu.ax, imu.az) * 180.0f / M_PI;
+    // Determine posture: Upright/Wall mode vs Surface (Flat Desk) mode
+    bool is_upright = (fabsf(imu.ay) > 0.40f || (imu.ay < -0.30f && imu.az > 0.20f));
+
+    float pitch_deg = 0.0f;
+    float roll_deg = 0.0f;
+
+    if (is_upright) {
+        // Landscape Upright against wall:
+        // Horizontal declination (roll): angle between horizontal edge and true level
+        roll_deg = atan2f(imu.ax, -imu.ay) * 180.0f / M_PI;
+        // Depth declination (pitch): leaning back away from wall (+) vs pitching forward (-)
+        pitch_deg = atan2f(imu.az, -imu.ay) * 180.0f / M_PI;
+    } else {
+        // Flat surface mode (Desk face-up):
+        pitch_deg = atan2f(-imu.ay, imu.az) * 180.0f / M_PI;
+        roll_deg  = atan2f(imu.ax, imu.az) * 180.0f / M_PI;
+    }
 
     // Convert acceleration to m/s^2 for Screen 1
     float ax_ms2 = imu.ax * 9.80665f;
@@ -380,13 +394,14 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
             lv_label_set_text(s_lbl_tolerances_val, buf);
         }
 
-        // Update Named Orientations Rows
-        for (int i = 0; i < 4; i++) {
+        // Update Named Orientations Rows (5 rows)
+        for (int i = 0; i < 5; i++) {
             bool matches = false;
-            if (i == 0 && fabsf(imu.ax) < 0.35f && imu.ay > 0.70f) matches = true; // Normal Landscape
-            else if (i == 1 && fabsf(imu.ax) < 0.35f && imu.ay < -0.70f) matches = true; // Inverted Landscape
-            else if (i == 2 && fabsf(imu.az) > 0.80f && fabsf(imu.ay) < 0.35f) matches = true; // Flat Desk
-            else if (i == 3 && fabsf(imu.ax) > 0.70f && fabsf(imu.ay) < 0.40f) matches = true; // Portrait
+            if (i == 0 && fabsf(imu.ax) < 0.40f && imu.ay < -0.60f) matches = true; // Normal Landscape Upright
+            else if (i == 1 && imu.ay < -0.30f && imu.az > 0.30f && fabsf(imu.ax) < 0.50f) matches = true; // Tilted Landscape Stand
+            else if (i == 2 && imu.ay > 0.35f && fabsf(imu.ax) < 0.50f) matches = true; // Inverted Landscape
+            else if (i == 3 && imu.az > 0.80f && fabsf(imu.ay) < 0.35f && fabsf(imu.ax) < 0.35f) matches = true; // Flat Desk Screen Up
+            else if (i == 4 && fabsf(imu.ax) > 0.70f && fabsf(imu.ay) < 0.45f) matches = true; // Portrait Locked
 
             if (s_named_orientations[i].row_container) {
                 if (matches) {
@@ -415,12 +430,12 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
         // Numeric Readouts & Indicators
         if (s_lbl_pitch_val) {
             char buf[32];
-            snprintf(buf, sizeof(buf), "PITCH: %+.2f deg", pitch_deg);
+            snprintf(buf, sizeof(buf), "%s: %+.2f deg", is_upright ? "DEPTH" : "PITCH", pitch_deg);
             lv_label_set_text(s_lbl_pitch_val, buf);
         }
         if (s_lbl_roll_val) {
             char buf[32];
-            snprintf(buf, sizeof(buf), "ROLL : %+.2f deg", roll_deg);
+            snprintf(buf, sizeof(buf), "%s: %+.2f deg", is_upright ? "HORIZ" : "ROLL ", roll_deg);
             lv_label_set_text(s_lbl_roll_val, buf);
         }
         if (s_bar_pitch_status) {
@@ -442,8 +457,9 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
         // Center Bullseye Reticle Bubble Physics
         if (s_bubble_obj) {
             float max_disp = 44.0f;
-            float dx = (roll_deg / 15.0f) * max_disp;
-            float dy = (-pitch_deg / 15.0f) * max_disp;
+            // Air bubble rises uphill to highest elevation point
+            float dx = -(roll_deg / 15.0f) * max_disp;
+            float dy = is_upright ? -(pitch_deg / 15.0f) * max_disp : (pitch_deg / 15.0f) * max_disp;
             float dist = sqrtf(dx * dx + dy * dy);
             if (dist > max_disp) {
                 dx = (dx / dist) * max_disp;
@@ -460,17 +476,16 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
         }
 
         // Right Dual Horizontal Inclinometer Sliders
+        // Center (0 deg) is at x = 92. Sensitivity range: -45 deg to +45 deg
         if (s_pitch_bubble_knob) {
-            // Track width is 200px, range -180 to +180 deg. Center (0 deg) is at x = 100 - 8 = 92
-            float norm_p = (pitch_deg + 180.0f) / 360.0f;
+            float norm_p = (pitch_deg + 45.0f) / 90.0f;
             if (norm_p < 0.0f) norm_p = 0.0f;
             if (norm_p > 1.0f) norm_p = 1.0f;
             int kx = (int)(norm_p * 184.0f);
             lv_obj_set_pos(s_pitch_bubble_knob, kx, 1);
         }
         if (s_roll_bubble_knob) {
-            // Track width is 200px, range -90 to +90 deg. Center (0 deg) is at x = 100 - 8 = 92
-            float norm_r = (roll_deg + 90.0f) / 180.0f;
+            float norm_r = (roll_deg + 45.0f) / 90.0f;
             if (norm_r < 0.0f) norm_r = 0.0f;
             if (norm_r > 1.0f) norm_r = 1.0f;
             int kx = (int)(norm_r * 184.0f);
@@ -788,10 +803,10 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
     lv_obj_set_style_text_color(c2_hdr, lv_color_hex(0x00F0FF), LV_PART_MAIN);
     lv_obj_set_style_text_font(c2_hdr, &lv_font_montserrat_10, LV_PART_MAIN);
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         lv_obj_t * r = lv_obj_create(c2);
-        lv_obj_set_size(r, 316, 24);
-        lv_obj_set_pos(r, 2, 22 + (i * 26));
+        lv_obj_set_size(r, 316, 21);
+        lv_obj_set_pos(r, 2, 18 + (i * 22));
         lv_obj_clear_flag(r, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_style_bg_color(r, lv_color_hex(0x0B1220), LV_PART_MAIN);
         lv_obj_set_style_border_color(r, lv_color_hex(0x203548), LV_PART_MAIN);
@@ -801,19 +816,19 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
         s_named_orientations[i].row_container = r;
 
         lv_obj_t * nm = lv_label_create(r);
-        lv_obj_set_pos(nm, 4, 2);
+        lv_obj_set_pos(nm, 4, 1);
         lv_label_set_text(nm, s_named_orientations[i].name);
         lv_obj_set_style_text_color(nm, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
         lv_obj_set_style_text_font(nm, &lv_font_montserrat_10, LV_PART_MAIN);
 
         s_named_orientations[i].status_label = lv_label_create(r);
-        lv_obj_set_pos(s_named_orientations[i].status_label, 172, 2);
+        lv_obj_set_pos(s_named_orientations[i].status_label, 172, 1);
         lv_label_set_text(s_named_orientations[i].status_label, "[IDLE]");
         lv_obj_set_style_text_color(s_named_orientations[i].status_label, lv_color_hex(0x607890), LV_PART_MAIN);
         lv_obj_set_style_text_font(s_named_orientations[i].status_label, &lv_font_montserrat_10, LV_PART_MAIN);
 
         lv_obj_t * th = lv_label_create(r);
-        lv_obj_set_pos(th, 242, 2);
+        lv_obj_set_pos(th, 242, 1);
         lv_label_set_text(th, s_named_orientations[i].threshold_str);
         lv_obj_set_style_text_color(th, lv_color_hex(0x00D2FF), LV_PART_MAIN);
         lv_obj_set_style_text_font(th, &lv_font_montserrat_10, LV_PART_MAIN);
@@ -1179,7 +1194,7 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
     lv_obj_set_style_pad_all(s_wireframe_usb, 0, LV_PART_MAIN);
 
     s_wireframe_usb_lbl = lv_label_create(s_wireframe_usb);
-    lv_label_set_text(s_wireframe_usb_lbl, "USB: LFT");
+    lv_label_set_text(s_wireframe_usb_lbl, "USB: RIGHT");
     lv_obj_set_align(s_wireframe_usb_lbl, LV_ALIGN_CENTER);
     lv_obj_set_style_text_font(s_wireframe_usb_lbl, &lv_font_montserrat_10, LV_PART_MAIN);
     lv_obj_set_style_text_color(s_wireframe_usb_lbl, lv_color_hex(0x70A0C0), LV_PART_MAIN);
@@ -1223,6 +1238,7 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
 
 void ui_spirit_level_open(void) {
     if (s_container) {
+        load_calibration_from_nvs();
         lv_obj_clear_flag(s_container, LV_OBJ_FLAG_HIDDEN);
         switch_tab(1); // Always default to Screen 2: Spirit Level
         SCREEN_OFF_TIMER = millis();

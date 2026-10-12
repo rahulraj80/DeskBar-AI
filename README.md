@@ -29,6 +29,7 @@
 * [🌍 Multilingual Global Internet Radio](#multilingual-radio)
 * [🎵 Media Player Subsystem: SD Card & LAN Streaming](#media-player)
 * [🤖 Autonomous AI Voice Assistant Pipeline](#voice-assistant)
+* [🔒 Privacy, Multi-Tenant Telemetry & Decoupled Secrets](#privacy-telemetry)
 * [💡 Display, Brightness & Power Saving Architecture](#power-saving)
 * [🌐 Comprehensive Web Remote REST API](#rest-api)
 * [📐 6-Axis IMU, Spirit Level & Auto-Rotation (QMI8658)](#imu-orientation)
@@ -168,18 +169,18 @@ TuneBar runs on the 3.49-inch capacitive touch screen development board powered 
 - **Approved Repositories Switcher**: Switch between Official (`rahulraj80/TuneBar`) and Upstream (`VaAndCob/TuneBar`) repositories with automatic catalog re-fetching.
 - **Web Remote Integration**: Full OTA firmware upload and repository switching available from the browser at `http://<device-ip>/`.
 
-#### 📐 3-Panel Spirit Level & Guided Inclinometer Calibration
+#### 📐 3-Panel Spirit Level & Guided Inclinometer Calibration &nbsp;&nbsp;[ [🔝 Index](#index) ]
 <p align="center">
-  <img src="document/screen_spirit_level_panel1.png" alt="Spirit Level 2D Dial" width="48%" />
-  <img src="document/screen_spirit_level_panel2.png" alt="Raw IMU & Presets" width="48%" />
+  <img src="document/screen_spirit_level_panel1.png" alt="Raw IMU & Named Orientations" width="48%" />
+  <img src="document/screen_spirit_level_panel2.png" alt="2D Spirit Level & Dual Inclinometers" width="48%" />
 </p>
 <p align="center">
   <img src="document/screen_spirit_level_panel3.png" alt="Guided 8-Step Calibration Wizard" width="60%" />
 </p>
 
-- **Panel 1 (Spirit Level)**: High-precision 2D bullseye reticle with dynamic liquid bubble physics, pitch/roll readouts in degrees, and level-lock status indicator.
-- **Panel 2 (Raw Scores & Presets)**: Live calibrated 6-axis accelerometer ($g$), gyroscope ($\text{dps}$), and temperature telemetry, orientation badge matching, tolerance range adjuster buttons (`[-]` and `[+]`), and custom orientation preset saving to NVS.
-- **Panel 3 (8-Step Calibration Wizard)**: Step-by-step guided calibration through 8 distinct physical poses: (1) Wall Upright (buttons up), (2) Wall Tilted Up (stand angle), (3) Inverted Upright (buttons down), (4) Inverted Tilted Down (stand angle), (5) Left Edge Rest (USB port on top), (6) Right Edge Rest (USB port at bottom), (7) Desk Face-Up (flat level), (8) Desk Face-Down. Calibration bias offsets are saved to NVS and directly applied to display auto-rotation!
+- **Panel 1 (`[01] RAW DATA`)**: Live calibrated 6-axis accelerometer ($m/s^2$), sparkline waveform chart, named orientations matching matrix (Normal Landscape, Tilted Stand, Inverted Landscape, Flat Desk Screen Up, and Portrait Lock), and interactive tolerance adjuster steppers (`[-]` and `[+]`).
+- **Panel 2 (`[02] SPIRIT LEVEL`)**: High-precision 2D bullseye reticle with liquid bubble physics (bubble rises uphill to highest elevation point), dual inclinometer sliders (Depth declination leaning backward/forward and Horizontal declination tilted left/right), real-time degree readouts, and `[LOCKED] LEVEL` status indicator.
+- **Panel 3 (`[03] CALIBRATION`)**: 8-step guided calibration wizard with 0.5s stabilization delay through distinct physical poses: (1) Wall Upright (buttons up, USB right), (2) Wall Tilted Up (stand angle), (3) Inverted Upright (buttons down, USB left), (4) Inverted Tilted Down, (5) Left Edge Rest (USB port on top), (6) Right Edge Rest (USB port at bottom), (7) Desk Face-Up (flat level), (8) Desk Face-Down. Calibration bias offsets are saved to NVS and directly applied across the system and display auto-rotation!
 
 ---
 
@@ -314,6 +315,42 @@ TuneBar features a unified media player engine that seamlessly handles both **Lo
    - **Groq Whisper Large V3 Turbo** transcribes speech in <200ms.
    - **Llama 3.3 70B Versatile** generates concise, intelligent responses in <250ms.
    - **Microsoft Edge-TTS** streams natural neural speech back to the ESP32-S3 over Wi-Fi.
+
+---
+
+<a id="privacy-telemetry"></a>
+## 🔒 Privacy, Multi-Tenant Telemetry & Decoupled Secrets &nbsp;&nbsp;[ [🔝 Index](#index) ]
+
+### 1. Zero-Leak Architecture & Decoupled Endpoints
+TuneBar is engineered with a strict **Privacy-by-Design** and **Decoupled Architecture**:
+- **Turnkey Community Cloud Defaults**: To provide an effortless out-of-the-box maker experience, public release binaries include pre-configured baked community defaults for the AI Voice Assistant (`autobots.my.to/ask.php`) and diagnostics telemetry (`autobots.my.to/myapi.php`).
+- **First-Boot Consent Modal**: On initial startup, TuneBar presents an explicit Community Cloud Notice dialog. Telemetry upload only proceeds after affirmative user consent.
+- **Overriding via `/secrets.ini`**: Users are strongly encouraged to self-host their own backend servers. By uploading a standard `/secrets.ini` file to LittleFS via the on-device Web Remote or USB Serial CLI, the firmware immediately overrides baked endpoints with user-defined self-hosted servers.
+
+```ini
+# /secrets.ini - Upload via Web Remote to override defaults
+[cloud]
+consent=1
+
+[ai]
+endpoint=https://your-server.com/ask.php
+
+[telemetry]
+endpoint=https://your-server.com/myapi.php
+table=TB_CUSTOM_TABLE
+interval_sec=300
+
+[weather]
+api_key=your_weatherapi_com_key
+
+[security]
+master_pin=1234
+```
+
+### 2. Multi-Tenant Private Telemetry Isolation
+- **Hardware-Derived Table Hash**: Default telemetry is logged to an isolated database table: `TB_<device_hash>`. The 16-character hash is computed using $\text{SHA256}(\text{eFuse MAC} + \text{Master PIN})$, ensuring no user can deduce another user's table name or intercept diagnostics.
+- **Isolated Per-Device Web Portal**: Telemetry is viewed via `https://autobots.my.to/telemetry.php?table=TB_<device_hash>`. The portal strictly requires a valid, matching device table parameter and never enumerates or displays other database tables.
+- **5-Minute Telemetry Cadence**: System metrics (battery voltage, Wi-Fi RSSI, DRAM/PSRAM usage, uptime) are captured at a gentle 5-minute (300s) cadence to respect server bandwidth and device battery life.
 
 ---
 

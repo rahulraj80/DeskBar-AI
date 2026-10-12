@@ -7,6 +7,7 @@
 #include "battery/battery.h"
 #include "lcd_bl_bsp/lcd_bl_pwm_bsp.h"
 #include "user_config.h"
+#include "../secrets/secrets_manager.h"
 #include "ESP32-audioI2S-master/Audio.h"
 #include "pcf85063/pcf85063.h"
 #include <time.h>
@@ -112,6 +113,16 @@ static void telemetry_worker_task(void *pvParameters) {
         return;
     }
 
+    if (!secrets_has_cloud_consent() && !secrets_has_custom_ini()) {
+        log_i("[TELEMETRY] Cloud consent not granted, retaining %d buffered records", telemetry_count);
+        is_flushing = false;
+        vTaskDelete(NULL);
+        return;
+    }
+
+    const char *endpoint = secrets_get_telemetry_endpoint();
+    const char *table_name = secrets_get_telemetry_table();
+
     // Allocate JSON construction buffer in PSRAM (16KB)
     const size_t json_capacity = 16384;
     char *json_buf = (char *)heap_caps_malloc(json_capacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -122,7 +133,7 @@ static void telemetry_worker_task(void *pvParameters) {
         return;
     }
 
-    int offset = snprintf(json_buf, json_capacity, "{\"table\":\"" TELEMETRY_TABLE "\",\"rows\":[");
+    int offset = snprintf(json_buf, json_capacity, "{\"table\":\"%s\",\"rows\":[", table_name);
     for (uint16_t i = 0; i < telemetry_count; i++) {
         const TelemetrySnapshot &s = telemetry_ring_buf[i];
         int written = snprintf(
@@ -143,13 +154,13 @@ static void telemetry_worker_task(void *pvParameters) {
     offset += snprintf(json_buf + offset, json_capacity - offset, "]}");
 
     log_i("[TELEMETRY] Flushing %d rows (%d bytes) to %s (Table %s)...",
-          telemetry_count, offset, s_telemetry_endpoint, TELEMETRY_TABLE);
+          telemetry_count, offset, endpoint, table_name);
 
     {
         WiFiClientSecure client;
         client.setInsecure(); // Public server with Let's Encrypt TLS
         HTTPClient http;
-        http.begin(client, s_telemetry_endpoint);
+        http.begin(client, endpoint);
         http.addHeader("Content-Type", "application/json");
         http.setTimeout(8000);
 

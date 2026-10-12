@@ -8,12 +8,17 @@
 # Private credentials & local endpoints
 sketch/include/secrets.h
 secrets.h
+secrets.ini
+*.ini
+!secrets_example.ini
 
 # Build artifacts & binary payloads
 build/
 build_phase1/
+sketch/build/
 *.bin
 !releases/**/*.bin
+releases/bin/firmware-v1.2.6.bin
 *.elf
 *.tar.gz
 sync_payload.tar.gz

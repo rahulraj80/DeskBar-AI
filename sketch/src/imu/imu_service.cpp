@@ -102,20 +102,22 @@ bool imu_sensor_poll(void) {
     float abs_y = fabsf(ay_g);
     float abs_z = fabsf(az_g);
 
-    if (abs_z > 0.85f && abs_y < 0.40f && abs_x < 0.40f) {
-        // Flat on desk or table
-        state_label = s_current_inverted ? "Flat (Inverted Landscape)" : "Flat (Normal Landscape)";
-    } else if (abs_x > 0.75f && abs_y < 0.45f) {
-        // Portrait orientation - strictly ignored per requirements
-        state_label = s_current_inverted ? "Portrait (Inverted Lock)" : "Portrait (Normal Lock)";
+    if (abs_z > 0.85f && abs_y < 0.35f && abs_x < 0.35f) {
+        // Flat on desk or table (face up or face down)
+        state_label = (az_g > 0) ? "Flat Desk (Screen Up)" : "Flat Desk (Screen Down)";
+    } else if (abs_x > 0.70f && abs_y < 0.45f) {
+        // Portrait orientation - locked/ignored
+        state_label = (ax_g > 0) ? "Portrait (Left Rest - Locked)" : "Portrait (Right Rest - Locked)";
     } else {
         // Evaluate vertical axis (ay_g):
-        // Standard normal landscape (buttons up): ay_g < -0.50g
-        // Upside-down inverted landscape (buttons down): ay_g > +0.50g
-        if (ay_g < -0.50f) {
+        // Normal landscape (buttons facing ceiling): ay_g is negative (-1.0g upright, -0.7g..-0.9g tilted stand)
+        // Inverted landscape (buttons facing floor): ay_g is positive (+1.0g upright, +0.7g..+0.9g tilted)
+        if (ay_g < -0.35f && abs_x < 0.55f) {
             candidate_inverted = false;
-        } else if (ay_g > 0.50f) {
+            state_label = (az_g > 0.30f) ? "Tilted Landscape (Stand)" : "Normal Landscape (Upright)";
+        } else if (ay_g > 0.35f && abs_x < 0.55f) {
             candidate_inverted = true;
+            state_label = (fabsf(az_g) > 0.30f) ? "Inverted Tilted Landscape" : "Inverted Landscape (Upright)";
         }
     }
 
