@@ -18,6 +18,7 @@
 #include "ui/ui.h"
 #include "ui/ui_events.h"
 #include "user_config.h"
+#include "secrets/secrets_manager.h"
 #include "imu/imu_service.h"
 #include "updater/updater.h"
 #include "version.h"
@@ -130,6 +131,7 @@ static const char HTML_PAGE[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     <div class="btn-group" style="margin-top:2px">
       <button class="btn" onclick="callApi('/api/telemetry?action=snap')">📸 Snap Telemetry</button>
       <button class="btn" onclick="callApi('/api/telemetry?action=flush')">☁ Flush Telemetry</button>
+      <a id="telem-cloud-btn" class="btn" target="_blank" href="#" style="text-decoration:none;display:inline-block;text-align:center;background:#0d233a;border-color:#00d2ff;color:#00d2ff">📊 View Cloud Portal</a>
     </div>
   </div>
 
@@ -530,6 +532,11 @@ function refreshData(data) {
   document.getElementById('stat-boot').innerText = (data.boot_count || 1) + ' boots';
   document.getElementById('stat-uptime').innerText = 'Uptime: ' + Math.floor(data.uptime_s / 60) + 'm ' + (data.uptime_s % 60) + 's';
 
+  const telemBtn = document.getElementById('telem-cloud-btn');
+  if (telemBtn && data.telem_url) {
+    telemBtn.href = data.telem_url;
+  }
+
   document.getElementById('stat-site').innerText = data.catalog_name;
   document.getElementById('stat-track').innerText = data.station_name || (data.audio_running ? (data.media_type === 2 ? 'AI Speech Active' : 'Streaming') : 'Idle');
 
@@ -883,7 +890,8 @@ static void handle_status() {
         "\"alarm_time\":\"%s\",\"alarm_active\":%d,\"catalog\":%d,"
         "\"catalog_name\":\"%s\",\"radio_lang\":%d,\"radio_lang_code\":\"%s\",\"radio_lang_name\":\"%s\","
         "\"station_idx\":%d,\"station_name\":\"%s\","
-        "\"media_type\":%d,\"lan_server\":\"%s\",\"lan_count\":%d,\"lan_track_idx\":%d,\"stations\":[",
+        "\"media_type\":%d,\"lan_server\":\"%s\",\"lan_count\":%d,\"lan_track_idx\":%d,"
+        "\"telem_table\":\"%s\",\"telem_url\":\"https://autobots.my.to/telemetry.php?table=%s\",\"stations\":[",
         lvgl_port_get_active_screen_name(),
         (int)clock_face_active, (int)BL_OFF, (int)backlight_state,
         (int)audio.getVolume(), volt, pct,
@@ -904,7 +912,9 @@ static void handle_status() {
         (int)mediaType,
         lan_get_server(),
         lan_get_file_count(),
-        lan_track_idx
+        lan_track_idx,
+        secrets_get_telemetry_table(),
+        secrets_get_telemetry_table()
     );
 
     for (uint8_t i = 0; i < stationListLength; i++) {
@@ -1147,7 +1157,7 @@ static void handle_ask() {
         q.trim();
         q.replace(" ", "+");
         mediaType = 2; // AI Assistant mode
-        String bridgeUrl = String(AI_ASSISTANT_URL) + "?q=" + q;
+        String bridgeUrl = String(secrets_get_ai_url()) + "?q=" + q;
         audioPlayHOST(bridgeUrl.c_str(), "AI Assistant");
     }
     handle_status();
@@ -1411,10 +1421,21 @@ static void handle_update_done(void) {
     }
 }
 
+static size_t s_ota_total_expected = 0;
+
 static void handle_update_upload(void) {
     HTTPUpload& upload = server.upload();
     if (upload.status == UPLOAD_FILE_START) {
         log_i("[OTA] Starting firmware upload: %s", upload.filename.c_str());
+
+        int clen = server.header("Content-Length").toInt();
+        if (clen > 100000) {
+            s_ota_total_expected = (size_t)clen;
+            log_i("[OTA] Dynamic Content-Length parsed: %u bytes", (unsigned)s_ota_total_expected);
+        } else {
+            s_ota_total_expected = 6350000ULL;
+            log_w("[OTA] Content-Length missing/small (%d), using fallback %u bytes", clen, (unsigned)s_ota_total_expected);
+        }
 
         uint8_t batt_pct = 0; float batt_v = 0.0f;
         if (!ota_check_battery_allowed(&batt_pct, &batt_v)) {
@@ -1451,9 +1472,10 @@ static void handle_update_upload(void) {
                 s_ota_ms_last = now;
                 s_ota_bytes_last = upload.totalSize;
 
-                uint8_t pct = (uint8_t)((upload.totalSize * 100ULL) / 6350000ULL);
+                size_t total_exp = (s_ota_total_expected > 0) ? s_ota_total_expected : 6350000ULL;
+                uint8_t pct = (uint8_t)((upload.totalSize * 100ULL) / total_exp);
                 if (pct > 99) pct = 99;
-                ota_ui_update_progress(pct, upload.totalSize, 6350000, speed_kb);
+                ota_ui_update_progress(pct, upload.totalSize, total_exp, speed_kb);
             }
         }
     } else if (upload.status == UPLOAD_FILE_END) {
@@ -1477,6 +1499,9 @@ static void handle_update_upload(void) {
 
 void web_remote_init(void) {
     if (server_running) return;
+
+    const char *headerkeys[] = {"Content-Length", "User-Agent"};
+    server.collectHeaders(headerkeys, 2);
 
     server.on("/", HTTP_GET, handle_root);
     server.on("/api/status", HTTP_GET, handle_status);

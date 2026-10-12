@@ -1,5 +1,7 @@
 #include "battery/battery.h"
 #include "updater/updater.h"
+#include "secrets/secrets_manager.h"
+#include "ui/screens/ui_Screen_Consent.h"
 /**
  * @details
  *  - **Application Name:** TuneBar
@@ -155,6 +157,7 @@ void setup() {
 
   i2c_master_Init(); // init i2c
   initLittleFS(); // Mount LittleFS early so /rec.wav and /wifi.json are always accessible
+  secrets_manager_init(); // Initialize decoupled secrets & unique hardware table
 
    // audio library
   Audio::audio_info_callback = my_audio_info;
@@ -179,6 +182,11 @@ void setup() {
   // init lvgl
   lvgl_port_init();
   initLittleFS(); // Register LVGL LittleFS driver ('L:') now that LVGL is initialized
+  if (lvgl_port_lock(200)) {
+    ui_consent_modal_init(lv_layer_top());
+    ui_consent_modal_show_if_needed();
+    lvgl_port_unlock();
+  }
   bsp_set_backlight_power(true); // Enable AP3032 boost rail
   lcd_bl_pwm_bsp_init(LCD_PWM_MODE_255); // max out the brightness
 
@@ -255,8 +263,9 @@ void serial_debug_beacon_task(void *param) {
           audio.isRunning() ? "PLAYING" : "IDLE",
           (WiFi.status() == WL_CONNECTED) ? "CONNECTED" : "OFFLINE");
 
-    // Collect snapshot every 60s
-    if (millis() - last_telemetry_snap >= 60000) {
+    // Collect snapshot according to configured interval (default 300s = 5m)
+    uint32_t snap_interval_ms = secrets_get_telemetry_interval() * 1000ULL;
+    if (millis() - last_telemetry_snap >= snap_interval_ms) {
       last_telemetry_snap = millis();
       telemetry_collect_snapshot();
     }
@@ -501,9 +510,13 @@ void serial_cli_task(void *param) {
             int raw = analogReadMilliVolts(ADC_BATT);
             Serial.printf("[CLI BATT] ADC: %d mV | Vbat: %.2fV | Percent: %d%%\n", raw, volt, pct);
           } else if (cmd.equalsIgnoreCase("telemetry")) {
-            Serial.printf("[CLI TELEMETRY] Buffered snapshots: %d / %d | Flushing: %s\n",
+            Serial.printf("[CLI TELEMETRY] Buffered: %d / %d | Table: %s | Cadence: %us | Consent: %s\n",
                           (int)telemetry_get_buffered_count(), TELEMETRY_MAX_BUFFER,
-                          telemetry_is_flushing() ? "YES" : "NO");
+                          secrets_get_telemetry_table(),
+                          (unsigned)secrets_get_telemetry_interval(),
+                          secrets_has_cloud_consent() ? "YES" : "NO");
+            Serial.printf("[CLI TELEMETRY] Portal: https://autobots.my.to/telemetry.php?table=%s\n",
+                          secrets_get_telemetry_table());
           } else if (cmd.equalsIgnoreCase("telemetry snap")) {
             telemetry_collect_snapshot();
             Serial.printf("[CLI TELEMETRY] Snapshot recorded. Total buffered: %d / %d\n",
@@ -993,7 +1006,7 @@ void serial_cli_task(void *param) {
             xQueueSend(ui_status_queue, &p, 100);
             String enc = q;
             enc.replace(" ", "+");
-            String url = String(AI_ASSISTANT_URL) + "?q=" + enc;
+            String url = String(secrets_get_ai_url()) + "?q=" + enc;
             audioPlayHOST(url.c_str(), "AI Assistant");
             Serial.printf("[CLI ASSISTANT] Query: '%s' -> Streaming AI speech audio response (HTTPS)...\n", q.c_str());
           } else if (cmd.equalsIgnoreCase("heap") || cmd.equalsIgnoreCase("ram")) {
