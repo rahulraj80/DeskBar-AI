@@ -18,6 +18,10 @@ void lvgl_port_inject_swipe(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint
 const uint16_t* lvgl_port_get_framebuffer(void);
 bool lvgl_port_take_screenshot(void);
 const char* lvgl_port_get_active_screen_name(void);
+void lvgl_port_set_inverted_landscape(bool inverted);
+bool lvgl_port_is_inverted_landscape(void);
+void lvgl_port_set_autorotate_enabled(bool enabled);
+bool lvgl_port_is_autorotate_enabled(void);
 
 #ifdef __cplusplus
 }

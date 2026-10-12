@@ -62,22 +62,28 @@ const lv_img_dsc_t *wallpaper_list[MAX_WALLPAPER] = {
 };
 
 // --- Clock Face Breathing Backlight & Power State ---
-enum BreathState { BREATH_DARK, BREATH_FADE_IN, BREATH_HOLD_HIGH, BREATH_FADE_OUT };
+enum BreathState { BREATH_FULL_BLACK, BREATH_FADE_IN, BREATH_HOLD_HIGH, BREATH_FADE_OUT };
 static BreathState breath_state   = BREATH_HOLD_HIGH;
 static uint32_t   breath_timer_ms = 0;
-static uint32_t   breath_hold_limit = 3000;
 extern lv_obj_t  *last_active_screen;
 extern "C" void bsp_set_backlight_power(bool enable);
+static uint32_t s_clock_interaction_ms = 0;
+extern uint8_t infoPageIndex;
+
+extern "C" bool is_on_nixie_clock(void) {
+  return (lv_scr_act() == ui_Screen_Info && infoPageIndex == 0);
+}
 
 void enter_clock_breathing(void) {
   if (clock_face_active) return;
   clock_face_active = 1;
+  s_clock_interaction_ms = 0;
   BL_OFF = false;
   bsp_set_backlight_power(true);
   breath_state = BREATH_HOLD_HIGH;
-  breath_hold_limit = 3000;
   breath_timer_ms = millis();
-  log_i("[BREATH] Clock breathing active: HOLD state entered (3s bright, 2s fade, 5s dark)");
+  uint8_t max_bl = (backlight_state == 0) ? 120 : ((backlight_state == 1) ? 180 : 250);
+  log_i("[BREATH] Clock breathing active: 10s cycle (FadeIn: 1.5s, HoldHigh: 2.0s, FadeOut: 1.5s, FullBlack: 5.0s, Floor: 90, Max: %u)", (unsigned)max_bl);
 
   // Wi-Fi off in clock mode if no audio stream is active over the network
   if (!audio.isRunning() || mediaType >= 2) {
@@ -90,6 +96,7 @@ void enter_clock_breathing(void) {
 }
 
 void exit_clock_breathing(void) {
+  s_clock_interaction_ms = millis();
   if (!clock_face_active) return;
   clock_face_active = 0;
   bsp_set_backlight_power(true);
@@ -105,17 +112,36 @@ void exit_clock_breathing(void) {
   }
 }
 
-void on_clock_touch_or_button(void) {
+extern "C" void on_clock_interaction_wake(void) {
+  s_clock_interaction_ms = millis();
+  SCREEN_OFF_TIMER = millis();
+  BL_OFF = false;
+  bsp_set_backlight_power(true);
+  screenPowerOn();
+
+  // Re-enable WiFi upon user interaction/rotation wake
+  if (wifiEnable && WiFi.getMode() == WIFI_OFF) {
+    WiFi.mode(WIFI_STA);
+    wifi_need_connect = true;
+    if (wifi_check_timer) lv_timer_resume(wifi_check_timer);
+    wifiConnect();
+    log_i("[BREATH] Wi-Fi restored upon user interaction wake");
+  }
+
   if (clock_face_active) {
-    exit_clock_breathing();
-    screenPowerOn();
-    SCREEN_OFF_TIMER = millis();
-    log_i("[BREATH] Touch/Action -> Breathing stopped, active brightness restored");
+    clock_face_active = 0;
+    log_i("[BREATH] User interaction/rotation -> breathing paused, steady brightness restored");
+  } else {
+    log_i("[BREATH] User interaction -> idle timeout reset (15s)");
   }
 }
 
+void on_clock_touch_or_button(void) {
+  on_clock_interaction_wake();
+}
+
 extern "C" void on_clock_boot_button_pressed(void) {
-  if (!clock_face_active) return;
+  if (!clock_face_active && (millis() - s_clock_interaction_ms < 10000)) return;
   exit_clock_breathing(); // Restores backlight to settings brightness, turns boost rail on, restores WiFi
   SCREEN_OFF_TIMER = millis(); // Reset idle timeout
   BL_OFF = false;
@@ -130,61 +156,79 @@ extern "C" void on_clock_boot_button_pressed(void) {
 }
 
 void update_clock_breathing(void) {
-  if (!clock_face_active) return;
+  uint32_t now = millis();
 
+  // If we are on the Clock face (infoPageIndex == 0 on ui_Screen_Info) and breathing was paused due to interaction:
+  if (!clock_face_active) {
+    if (lv_scr_act() == ui_Screen_Info && infoPageIndex == 0) {
+      if (s_clock_interaction_ms == 0) {
+        s_clock_interaction_ms = now;
+      }
+      uint32_t idle_limit = (SCREEN_OFF_DELAY > 0) ? SCREEN_OFF_DELAY : 15000;
+      if (now - s_clock_interaction_ms >= idle_limit) {
+        log_i("[BREATH] Clock idle timeout reached (%u ms) -> re-engaging breathing cycle", (unsigned)idle_limit);
+        enter_clock_breathing();
+      }
+    }
+    return;
+  }
+
+  const uint8_t min_bl = 90; // Hardware floor: soft vacuum tube glow
   uint8_t max_bl;
   switch (backlight_state) {
     case 0:  max_bl = 120; break;  // LOW
-    case 1:  max_bl = 170; break;  // MED
-    default: max_bl = 255; break;  // HIGH
+    case 1:  max_bl = 180; break;  // MED
+    default: max_bl = 250; break;  // HIGH
   }
 
   uint32_t elapsed = millis() - breath_timer_ms;
 
   switch (breath_state) {
-    case BREATH_DARK:
-      setUpduty(255); // 0% PWM duty
-      bsp_set_backlight_power(false); // Cut boost rail for full blackout & power saving
-      if (elapsed >= 5000) { // 5s full dark
-        bsp_set_backlight_power(true);
+    case BREATH_FULL_BLACK:
+      bsp_set_backlight_power(true);
+      setUpduty(255); // 0% PWM duty -> 100% full black
+      if (elapsed >= 5000) { // 5.0s full black
         breath_state    = BREATH_FADE_IN;
         breath_timer_ms = millis();
+        log_i("[BREATH] State -> FADE_IN | From: %u -> To: %u (1.5s)", min_bl, max_bl);
       }
       break;
 
     case BREATH_FADE_IN:
       bsp_set_backlight_power(true);
-      if (elapsed < 2000) { // 2.0s smooth ramp up
-        float progress = (float)elapsed / 2000.0f;
-        uint8_t current_val = (uint8_t)(progress * (float)max_bl);
+      if (elapsed < 1500) { // 1.5s smooth ramp up from min_bl to max_bl
+        float progress = (float)elapsed / 1500.0f;
+        uint8_t current_val = min_bl + (uint8_t)(progress * (float)(max_bl - min_bl));
         setUpduty(255 - current_val);
       } else {
         setUpduty(255 - max_bl);
         breath_state    = BREATH_HOLD_HIGH;
         breath_timer_ms = millis();
+        log_i("[BREATH] State -> HOLD_HIGH | At: %u PWM (2.0s)", max_bl);
       }
       break;
 
     case BREATH_HOLD_HIGH:
       bsp_set_backlight_power(true);
       setUpduty(255 - max_bl);
-      if (elapsed >= breath_hold_limit) {
-        breath_hold_limit = 3000; // Reset back to default 3.0s bright hold
+      if (elapsed >= 2000) { // 2.0s hold high at ceiling
         breath_state    = BREATH_FADE_OUT;
         breath_timer_ms = millis();
+        log_i("[BREATH] State -> FADE_OUT | From: %u -> To: %u (1.5s)", max_bl, min_bl);
       }
       break;
 
     case BREATH_FADE_OUT:
-      if (elapsed < 2000) { // 2.0s smooth ramp down
-        float progress = (float)elapsed / 2000.0f;
-        uint8_t current_val = (uint8_t)((1.0f - progress) * (float)max_bl);
+      bsp_set_backlight_power(true);
+      if (elapsed < 1500) { // 1.5s smooth ramp down from max_bl to min_bl
+        float progress = (float)elapsed / 1500.0f;
+        uint8_t current_val = max_bl - (uint8_t)(progress * (float)(max_bl - min_bl));
         setUpduty(255 - current_val);
       } else {
-        setUpduty(255);
-        bsp_set_backlight_power(false); // Full blackout
-        breath_state    = BREATH_DARK;
+        setUpduty(255); // 0% PWM duty -> drop to full black
+        breath_state    = BREATH_FULL_BLACK;
         breath_timer_ms = millis();
+        log_i("[BREATH] State -> FULL_BLACK | 0 PWM (5.0s dark)");
       }
       break;
   }
@@ -1144,24 +1188,23 @@ static void set_player_ai_chat_mode(bool is_ai) {
 
 static void menu_audio_anim_cb(lv_timer_t *t) {
   if (!ui_MainMenu_Panel_Menu || lv_scr_act() != ui_Screen_MainMenu) return;
-  static uint8_t anim_step = 0;
-  anim_step = (anim_step + 1) % 6;
 
   bool playing = audio.isRunning();
-  if (!playing) {
-    if (ui_MainMenu_Image_LiveStreaming) lv_obj_set_style_img_recolor_opa(ui_MainMenu_Image_LiveStreaming, 0, LV_PART_MAIN);
-    if (ui_MainMenu_Image_MusicPlayer) lv_obj_set_style_img_recolor_opa(ui_MainMenu_Image_MusicPlayer, 0, LV_PART_MAIN);
-    if (ui_MainMenu_Image_ChatBot) lv_obj_set_style_img_recolor_opa(ui_MainMenu_Image_ChatBot, 0, LV_PART_MAIN);
-    return;
-  }
+  lv_obj_t *targets[3] = {ui_MainMenu_Image_LiveStreaming, ui_MainMenu_Image_MusicPlayer, ui_MainMenu_Image_ChatBot};
+  uint32_t colors[3]   = {0xFF2A85, 0xBD00FF, 0x00E676}; // Coral Pink (Radio), Purple (Music), Green (Voice)
 
-  lv_obj_t *target = (mediaType == 0) ? ui_MainMenu_Image_LiveStreaming :
-                     (mediaType == 1) ? ui_MainMenu_Image_MusicPlayer : ui_MainMenu_Image_ChatBot;
-
-  if (target) {
-    const uint32_t glow_colors[6] = {0x00FF99, 0x00E5FF, 0x0088FF, 0x7B1FA2, 0x00E5FF, 0x00FF99};
-    lv_obj_set_style_img_recolor(target, lv_color_hex(glow_colors[anim_step]), LV_PART_MAIN);
-    lv_obj_set_style_img_recolor_opa(target, 140, LV_PART_MAIN);
+  for (int i = 0; i < 3; i++) {
+    if (!targets[i]) continue;
+    lv_obj_set_style_img_recolor_opa(targets[i], 0, LV_PART_MAIN);
+    if (playing && mediaType == i) {
+      lv_obj_set_style_outline_color(targets[i], lv_color_hex(colors[i]), LV_PART_MAIN);
+      lv_obj_set_style_outline_width(targets[i], 2, LV_PART_MAIN);
+      lv_obj_set_style_outline_pad(targets[i], 2, LV_PART_MAIN);
+      lv_obj_set_style_opa(targets[i], 255, 0);
+    } else {
+      lv_obj_set_style_outline_width(targets[i], 0, LV_PART_MAIN);
+      lv_obj_set_style_opa(targets[i], 255, 0);
+    }
   }
 }
 
@@ -1203,10 +1246,7 @@ void livestreamMode(lv_event_t *e) {
   lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_opacity);
   if (ui_MainMenu_Image_MusicPlayer) lv_obj_set_style_opa(ui_MainMenu_Image_MusicPlayer, 255, 0);
   if (ui_MainMenu_Image_ChatBot) lv_obj_set_style_opa(ui_MainMenu_Image_ChatBot, 255, 0);
-  if (ui_MainMenu_Image_LiveStreaming) {
-    if (lv_scr_act() == ui_Screen_MainMenu) bounce_Animation(ui_MainMenu_Image_LiveStreaming, 0);
-    else lv_obj_set_style_opa(ui_MainMenu_Image_LiveStreaming, 255, 0);
-  }
+  if (ui_MainMenu_Image_LiveStreaming) lv_obj_set_style_opa(ui_MainMenu_Image_LiveStreaming, 255, 0);
   if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_livestreaming_png, LV_PART_MAIN);
   updateAlbumCoverStyle();
   SCREEN_OFF_TIMER = millis(); // reset timer
@@ -1237,10 +1277,7 @@ void musicPlayerMode(lv_event_t *e) {
   lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_opacity);
   if (ui_MainMenu_Image_LiveStreaming) lv_obj_set_style_opa(ui_MainMenu_Image_LiveStreaming, 255, 0);
   if (ui_MainMenu_Image_ChatBot) lv_obj_set_style_opa(ui_MainMenu_Image_ChatBot, 255, 0);
-  if (ui_MainMenu_Image_MusicPlayer) {
-    if (lv_scr_act() == ui_Screen_MainMenu) bounce_Animation(ui_MainMenu_Image_MusicPlayer, 0);
-    else lv_obj_set_style_opa(ui_MainMenu_Image_MusicPlayer, 255, 0);
-  }
+  if (ui_MainMenu_Image_MusicPlayer) lv_obj_set_style_opa(ui_MainMenu_Image_MusicPlayer, 255, 0);
   if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_music_png, LV_PART_MAIN);
   updateAlbumCoverStyle();
   SCREEN_OFF_TIMER = millis(); // reset timer
@@ -1261,10 +1298,7 @@ void chatBotMode(lv_event_t *e) {
   lv_anim_del(NULL, (lv_anim_exec_xcb_t)_ui_anim_callback_set_opacity);
   if (ui_MainMenu_Image_MusicPlayer) lv_obj_set_style_opa(ui_MainMenu_Image_MusicPlayer, 255, 0);
   if (ui_MainMenu_Image_LiveStreaming) lv_obj_set_style_opa(ui_MainMenu_Image_LiveStreaming, 255, 0);
-  if (ui_MainMenu_Image_ChatBot) {
-    if (lv_scr_act() == ui_Screen_MainMenu) bounce_Animation(ui_MainMenu_Image_ChatBot, 0);
-    else lv_obj_set_style_opa(ui_MainMenu_Image_ChatBot, 255, 0);
-  }
+  if (ui_MainMenu_Image_ChatBot) lv_obj_set_style_opa(ui_MainMenu_Image_ChatBot, 255, 0);
   if (ui_Player_Container_albumCover) lv_obj_set_style_bg_img_src(ui_Player_Container_albumCover, &ui_img_images_assistant_png, LV_PART_MAIN);
   updateAlbumCoverStyle();
   SCREEN_OFF_TIMER = millis(); // reset timer

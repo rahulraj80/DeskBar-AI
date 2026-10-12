@@ -1,496 +1,311 @@
+#include "updater.h"
 #include "lcd_bl_bsp/lcd_bl_pwm_bsp.h"
 #include "network/network.h"
 #include "ui/ui.h"
+#include "battery/battery.h"
+#include "ESP32-audioI2S-master/Audio.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <LittleFS.h>
+#include <Preferences.h>
 #include <Update.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <esp_ota_ops.h>
 
-const char *compile_date = __DATE__ " - " __TIME__;
-const char *current_version = "1.2.2";
+const char *compile_date = TUNEBAR_BUILD_DATE;
+const char *current_version = TUNEBAR_VERSION_STR;
 
-bool firmware_checked = false; // check firmware flag
+bool firmware_checked = false;
 
 static TaskHandle_t otaTaskHandle = NULL;
-static lv_obj_t *modal_blocker = NULL;
-static lv_obj_t *ota_popup = NULL;
-static lv_obj_t *ota_bar = NULL;
-static lv_obj_t *ota_msg = NULL;
-static lv_obj_t *btn_close = NULL;
-static lv_obj_t *lbl_update = NULL;
-
 static volatile bool ota_abort = false;
 
+// Neon Blue Full-Screen UI Elements
+static lv_obj_t *s_neon_screen  = NULL;
+static lv_obj_t *s_neon_title   = NULL;
+static lv_obj_t *s_neon_caution = NULL;
+static lv_obj_t *s_neon_target  = NULL;
+static lv_obj_t *s_neon_bar     = NULL;
+static lv_obj_t *s_neon_metrics = NULL;
 
-//------------------------------------------------
-
-// function return firmware version to integer number
+// -------------------------------------------------------------
+// Version String Parser to Integer
+// -------------------------------------------------------------
 int versionToNumber(const char *version) {
   if (!version || !*version) return 0;
   int major = 0, minor = 0, patch = 0;
   const char *p = version;
-  // major
+  if (*p == 'v' || *p == 'V') p++;
   while (*p && *p != '.') {
     if (*p >= '0' && *p <= '9') major = major * 10 + (*p - '0');
     p++;
   }
-  if (*p == '.')
-    p++;
-  else
-    return major * 10000;
-  // minor
+  if (*p == '.') p++; else return major * 10000;
   while (*p && *p != '.') {
     if (*p >= '0' && *p <= '9') minor = minor * 10 + (*p - '0');
     p++;
   }
-  if (*p == '.')
-    p++;
-  else
-    return major * 10000 + minor * 100;
-  // patch
-  while (*p) {
-    if (*p >= '0' && *p <= '9') patch = patch * 10 + (*p - '0');
+  if (*p == '.') p++; else return major * 10000 + minor * 100;
+  while (*p && *p >= '0' && *p <= '9') {
+    patch = patch * 10 + (*p - '0');
     p++;
   }
   return major * 10000 + minor * 100 + patch;
 }
 
-//----------------------------------------
-// check a new firmware version available on github
-
-const char *newFirmwareAvailable() { // return the new firmware version string if available
-
-#define MAX_URL_LENGTH 256 // กำหนดขนาดบัฟเฟอร์สูงสุดที่ปลอดภัย
-#define JSON_BUF_SIZE 1024
-
-  // fetch the latest version from manifest.json
-  static char reqURL[MAX_URL_LENGTH];
-  snprintf(reqURL, sizeof(reqURL), "https://vaandcob.github.io/webpage/firmware/tunebar/tunebar_manifest.json");
-  // snprintf(reqURL, sizeof(reqURL), "https://cdn.jsdelivr.net/gh/VaAndCob/webpage@main/firmware/tunebar/tunebar_manifest.json");
-
-  static char jsonBuf[JSON_BUF_SIZE];
-  static JsonDocument doc;
-  doc.clear();
-
-  // fetch weather condition data from weather API
-  fetchUrlData(reqURL, true, jsonBuf, JSON_BUF_SIZE);
-  sanitizeJson(jsonBuf);
-  DeserializationError error = deserializeJson(doc, jsonBuf);
-
-  if (error) {
-    log_e("manifest JSON parse failed: %s", error.c_str());
-    return nullptr;
+// -------------------------------------------------------------
+// Core OTA Safety Check & Teardown
+// -------------------------------------------------------------
+bool ota_check_battery_allowed(uint8_t *out_pct, float *out_v) {
+  float v = 0.0f; uint8_t p = 0;
+  getBatteryStatus(&v, &p);
+  if (out_pct) *out_pct = p;
+  if (out_v) *out_v = v;
+  // Allow if battery >= 70% or if charging (voltage >= 4.15V)
+  if (p >= 70 || v >= 4.15f) {
+    return true;
   }
+  return false;
+}
 
-  // Check if the "version" key exists
-  if (!doc["version"].isNull()) {
-    const char *latestVersion = doc["version"]; // Get as const char*
-    log_i("Firmware Version [Current: %s | Latest: %s]", current_version, latestVersion);
-    firmware_checked = true; // already checked
+extern "C" void bsp_set_backlight_power(bool enable);
+extern void screenPowerOn(void);
+extern void exit_clock_breathing(void);
 
-    // version comparision
-    if (versionToNumber(latestVersion) > versionToNumber(current_version)) {
-      log_w("-> New firmware version available");
-      char buf[32] = {0};
-      snprintf(buf, sizeof(buf), "Update %s", latestVersion);
-      lv_label_set_text(ui_Utility_Label_Label11, buf);
-      return latestVersion;
-    } else {
-      log_i("-> Firmware is up to date");
-      return nullptr;
+void ota_pre_update_teardown(void) {
+  log_i("[OTA TEARDOWN] Freeing application resources for firmware update...");
+  extern Audio audio;
+  if (audio.isRunning()) {
+    audio.stopSong();
+  }
+  exit_clock_breathing();
+  SCREEN_OFF_DELAY = 0; // Inhibit screen auto-off
+  BL_OFF = false;
+  bsp_set_backlight_power(true);
+  screenPowerOn();
+}
+
+// -------------------------------------------------------------
+// Bold Neon Blue Full-Screen Display APIs
+// -------------------------------------------------------------
+void ota_ui_show_neon_progress(const char *target_version) {
+  char *ver_copy = strdup(target_version ? target_version : "v" TUNEBAR_VERSION_STR);
+  lv_async_call([](void *p) {
+    char *ver = (char *)p;
+    if (s_neon_screen) {
+      lv_obj_del(s_neon_screen);
+      s_neon_screen = NULL;
     }
-  } else {
-    log_e("Manifest JSON does not contain 'version' key.");
-    return nullptr;
-  }
-  return nullptr; // Default return if something went wrong or no new version
+
+    // 1. Full-screen pitch-black container
+    s_neon_screen = lv_obj_create(lv_layer_top());
+    lv_obj_remove_style_all(s_neon_screen);
+    lv_obj_set_size(s_neon_screen, 640, 172);
+    lv_obj_center(s_neon_screen);
+    lv_obj_set_style_bg_color(s_neon_screen, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(s_neon_screen, 255, 0);
+    lv_obj_clear_flag(s_neon_screen, LV_OBJ_FLAG_SCROLLABLE);
+
+    // 2. Bold Neon Blue Title
+    s_neon_title = lv_label_create(s_neon_screen);
+    lv_label_set_text(s_neon_title, "⚡ OTA UPDATE IN PROGRESS ⚡");
+    lv_obj_set_style_text_color(s_neon_title, lv_color_hex(0x00E5FF), 0);
+    lv_obj_set_style_text_font(s_neon_title, &lv_font_montserrat_18, 0);
+    lv_obj_align(s_neon_title, LV_ALIGN_TOP_MID, 0, 12);
+
+    // 3. Warning / Caution Label
+    s_neon_caution = lv_label_create(s_neon_screen);
+    lv_label_set_text(s_neon_caution, "DO NOT TOUCH DEVICE OR DISCONNECT POWER CABLE");
+    lv_obj_set_style_text_color(s_neon_caution, lv_color_hex(0x00B0FF), 0);
+    lv_obj_set_style_text_font(s_neon_caution, &lv_font_montserrat_14, 0);
+    lv_obj_align(s_neon_caution, LV_ALIGN_TOP_MID, 0, 38);
+
+    // 4. Target Version Label
+    s_neon_target = lv_label_create(s_neon_screen);
+    char tbuf[96];
+    snprintf(tbuf, sizeof(tbuf), "Installing: TuneBar %s (Build #%d - %s)", ver, TUNEBAR_BUILD_NUM, TUNEBAR_GIT_HASH);
+    lv_label_set_text(s_neon_target, tbuf);
+    lv_obj_set_style_text_color(s_neon_target, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_font(s_neon_target, &lv_font_montserrat_12, 0);
+    lv_obj_align(s_neon_target, LV_ALIGN_TOP_MID, 0, 62);
+
+    // 5. Neon Glowing Progress Bar
+    s_neon_bar = lv_bar_create(s_neon_screen);
+    lv_obj_set_size(s_neon_bar, 520, 16);
+    lv_obj_align(s_neon_bar, LV_ALIGN_CENTER, 0, 14);
+    lv_bar_set_range(s_neon_bar, 0, 100);
+    lv_bar_set_value(s_neon_bar, 0, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(s_neon_bar, lv_color_hex(0x081828), 0);
+    lv_obj_set_style_border_color(s_neon_bar, lv_color_hex(0x00E5FF), 0);
+    lv_obj_set_style_border_width(s_neon_bar, 2, 0);
+    lv_obj_set_style_radius(s_neon_bar, 8, 0);
+    lv_obj_set_style_bg_color(s_neon_bar, lv_color_hex(0x00E5FF), LV_PART_INDICATOR);
+    lv_obj_set_style_radius(s_neon_bar, 6, LV_PART_INDICATOR);
+
+    // 6. Metrics Label (Progress & Speed)
+    s_neon_metrics = lv_label_create(s_neon_screen);
+    lv_label_set_text(s_neon_metrics, "0% (0.00 / 0.00 MB)");
+    lv_obj_set_style_text_color(s_neon_metrics, lv_color_hex(0x00E5FF), 0);
+    lv_obj_set_style_text_font(s_neon_metrics, &lv_font_montserrat_14, 0);
+    lv_obj_align(s_neon_metrics, LV_ALIGN_BOTTOM_MID, 0, -12);
+
+    free(ver);
+  }, ver_copy);
 }
 
-/* ============= OTA UPDATER FUNCTIONS ========= */
-// status message
-static void ota_set_message_async(const char *txt) {
-  if (!txt) return;
-  char *copy = strdup(txt); // 👈 heap copy
-  if (!copy) return;
-  log_i("%s", copy);
-  lv_async_call(
-      [](void *p) {
-        if (ota_msg) lv_label_set_text(ota_msg, (const char *)p);
-        free(p); // 👈 free after use
-      },
-      copy);
-}
-typedef struct {
+struct NeonProgressData {
   uint8_t pct;
-  char txt[32];
-} ota_ui_msg_t;
-
-static void ota_set_progress_async(uint8_t pct, const char *txt) {
-  log_i("%s", txt);
-  ota_ui_msg_t *m = (ota_ui_msg_t *)lv_mem_alloc(sizeof(ota_ui_msg_t));
-  m->pct = pct;
-  snprintf(m->txt, sizeof(m->txt), "%s", txt);
-  lv_async_call(
-      [](void *p) {
-        ota_ui_msg_t *m = (ota_ui_msg_t *)p;
-        if (ota_bar) lv_bar_set_value(ota_bar, m->pct, LV_ANIM_OFF);
-        if (ota_msg) lv_label_set_text(ota_msg, m->txt);
-        lv_mem_free(m); // IMPORTANT: free heap copy
-      },
-      m);
-}
-static void ota_set_btn_label_async(const char *txt) {
-  if (!txt) return;
-  char *copy = strdup(txt); // 👈 heap copy
-  if (!copy) return;
-  log_i("%s", copy);
-  lv_async_call(
-      [](void *p) {
-        lv_obj_clear_flag(btn_close, LV_OBJ_FLAG_HIDDEN);
-        if (lbl_update) lv_label_set_text(lbl_update, (const char *)p);
-        free(p); // 👈 free after use
-      },
-      copy);
-}
-
-/* ========== OTA TASK ========== */
-void ota_task(void *param) {
-  ota_set_message_async(LV_SYMBOL_REFRESH " Starting update...");
-  vTaskDelay(pdMS_TO_TICKS(200));
-
-  const char *firmwareURL = "https://vaandcob.github.io/webpage/firmware/tunebar/tunebar.bin";
-
-  uint32_t temp_screen_off_delay = SCREEN_OFF_DELAY; // force turn screen on
-  SCREEN_OFF_DELAY = 0;
-
-  ota_abort = false;
-  bool ok = true;
-
-  WiFiClientSecure otaClient;
-  HTTPClient otaHttp;
-  otaClient.setInsecure();
-
-  if (!otaHttp.begin(otaClient, firmwareURL)) {
-    ota_set_message_async(LV_SYMBOL_WARNING " Update failed: HTTP begin failed");
-    ok = false;
-  }
-
-  int httpCode = -1;
-  int fileSize = -1;
-  WiFiClient *stream = nullptr;
-
-  if (ok) {
-    httpCode = otaHttp.GET();
-    if (httpCode != HTTP_CODE_OK) {
-      char msg[96];
-      snprintf(msg, sizeof(msg), LV_SYMBOL_WARNING " Update failed: %s", HTTPClient::errorToString(httpCode).c_str());
-      ota_set_message_async(msg);
-      ok = false;
-    }
-  }
-
-  if (ok) {
-    fileSize = otaHttp.getSize();
-    if (fileSize > 0) {
-      if (!Update.begin(fileSize)) ok = false;
-    } else {
-      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) ok = false;
-    }
-
-    if (!ok) {
-      ota_set_message_async(LV_SYMBOL_WARNING " Update failed: Not enough space");
-    }
-  }
-
-  if (ok) {
-    stream = otaHttp.getStreamPtr();
-    if (!stream) {
-      ota_set_message_async(LV_SYMBOL_WARNING " Update failed: No stream");
-      ok = false;
-    }
-  }
-
-  if (ok) {
-    Update.onProgress([](size_t progress, size_t total) {
-      static uint8_t old_pct = 0;
-      uint8_t pct = (progress * 100) / total;
-      if (pct == old_pct) return;
-      old_pct = pct;
-
-      char buf[32];
-      snprintf(buf, sizeof(buf), LV_SYMBOL_DOWNLOAD " Updating %d %%", pct);
-      ota_set_progress_async(pct, buf);
-    });
-
-    uint8_t otaBuf[512];
-
-    // uint8_t *otaBuf = (uint8_t *)heap_caps_malloc(2048, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-
-    uint32_t lastData = millis();
-    size_t written = 0;
-
-    while (!ota_abort && Update.isRunning()) {
-
-      size_t avail = stream->available();
-
-      if (avail) {
-        size_t toRead = avail;
-        if (toRead > sizeof(otaBuf)) toRead = sizeof(otaBuf);
-
-        int c = stream->readBytes(otaBuf, toRead);
-
-        if (c > 0) {
-          Update.write(otaBuf, c);
-          written += c;
-          lastData = millis();
-        }
-
-        // ✅ EXIT WHEN FULL FILE RECEIVED
-        if (fileSize > 0 && written >= (size_t)fileSize) {
-          break;
-        }
-        // determine min stack available
-        static size_t minEver = SIZE_MAX;
-        size_t cur = uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t);
-        if (cur < minEver) {
-          minEver = cur;
-          log_i("OTA stack min ever: %u bytes", minEver);
-        }
-
-      } else if (!stream->connected()) {
-        // ✅ SERVER CLOSED CONNECTION (normal end)
-        break;
-
-      } else if (millis() - lastData > 5000) {
-        ota_set_message_async(LV_SYMBOL_WARNING " Update failed: Timeout");
-        ok = false;
-        break;
-      }
-      vTaskDelay(pdMS_TO_TICKS(4));
-    }
-  }
-
-  if (ok && Update.end(true)) {
-    ota_set_message_async(LV_SYMBOL_OK " Update success: Rebooting");
-    esp_ota_mark_app_valid_cancel_rollback();
-    vTaskDelay(pdMS_TO_TICKS(800));
-    esp_restart();
-  } else {
-    ota_set_btn_label_async(LV_SYMBOL_DOWNLOAD " Update");
-  }
-
-  Update.onProgress(nullptr); // update callback
-
-  if (Update.isRunning()) {
-    Update.abort();
-    Update.end(false);
-  }
-  otaHttp.end();
-  otaClient.stop();
-
-  vTaskDelay(pdMS_TO_TICKS(300));
-
-  SCREEN_OFF_DELAY = temp_screen_off_delay; // set screen timer back
-  BL_OFF = true;
-  otaTaskHandle = NULL;
-  vTaskDelete(NULL);
-}
-
-/* ========== POPUP UI ========== */
-void ota_show_popup()
-{
-    lv_async_call(
-        [](void *param) {
-
-            ota_abort = true;
-
-            /* ---------- MODAL BLOCKER ---------- */
-            modal_blocker = lv_obj_create(lv_layer_top());
-            lv_obj_remove_style_all(modal_blocker);
-            lv_obj_set_size(modal_blocker, LV_HOR_RES, LV_VER_RES);
-            lv_obj_center(modal_blocker);
-            lv_obj_set_style_bg_opa(modal_blocker, LV_OPA_80, 0);
-            lv_obj_set_style_bg_color(modal_blocker, lv_color_black(), 0);
-            lv_obj_add_flag(modal_blocker, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_add_flag(modal_blocker, LV_OBJ_FLAG_GESTURE_BUBBLE);
-
-            /* ---------- POPUP ---------- */
-            ota_popup = lv_obj_create(lv_layer_top());
-            lv_obj_set_size(ota_popup, 350, LV_VER_RES);
-            lv_obj_center(ota_popup);
-            lv_obj_set_style_radius(ota_popup, 15, 0);
-            lv_obj_set_style_pad_all(ota_popup, 5, 0);
-
-            /* ---------- TITLE ---------- */
-            lv_obj_t *title = lv_label_create(ota_popup);
-            lv_label_set_text(title, "Firmware Update");
-            lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 4);
-            lv_obj_set_style_text_font(title, &lv_font_montserrat_18, 0);
-
-            /* ---------- MESSAGE ---------- */
-            ota_msg = lv_label_create(ota_popup);
-            lv_label_set_text(ota_msg, "Click Update to start");
-            lv_obj_align(ota_msg, LV_ALIGN_TOP_MID, 0, 40);
-            lv_obj_set_style_text_font(ota_msg, &lv_font_montserrat_18, 0);
-
-            /* ---------- CLOSE BUTTON ---------- */
-            btn_close = lv_btn_create(ota_popup);
-            lv_obj_set_size(btn_close, 36, 36);
-            lv_obj_align(btn_close, LV_ALIGN_TOP_RIGHT, 0, 0);
-
-            lv_obj_t *lbl_x = lv_label_create(btn_close);
-            lv_label_set_text(lbl_x, LV_SYMBOL_CLOSE);
-            lv_obj_set_style_text_font(lbl_x, &lv_font_montserrat_28, 0);
-            lv_obj_center(lbl_x);
-
-            lv_obj_add_event_cb(
-                btn_close,
-                [](lv_event_t *e) {
-                    if (ota_popup) {
-                        lv_obj_del(ota_popup);
-                        ota_popup = NULL;
-                    }
-                    if (modal_blocker) {
-                        lv_obj_del(modal_blocker);
-                        modal_blocker = NULL;
-                    }
-                },
-                LV_EVENT_CLICKED,
-                NULL
-            );
-
-            /* ---------- PROGRESS BAR ---------- */
-            ota_bar = lv_bar_create(ota_popup);
-            lv_obj_set_size(ota_bar, 280, 12);
-            lv_obj_align(ota_bar, LV_ALIGN_CENTER, 0, 5);
-            lv_bar_set_range(ota_bar, 0, 100);
-
-            /* ---------- UPDATE BUTTON ---------- */
-            lv_obj_t *btn_update = lv_btn_create(ota_popup);
-            lv_obj_set_size(btn_update, 180, 44);
-            lv_obj_align(btn_update, LV_ALIGN_BOTTOM_MID, 0, 0);
-
-            lv_obj_t *lbl_update = lv_label_create(btn_update);
-            lv_label_set_text(lbl_update, LV_SYMBOL_DOWNLOAD " Update");
-            lv_obj_set_style_text_font(lbl_update, &lv_font_montserrat_18, 0);
-            lv_obj_center(lbl_update);
-
-            lv_obj_add_event_cb(
-                btn_update,
-                [](lv_event_t *e) {
-                    lv_obj_t *label = (lv_obj_t *)lv_event_get_user_data(e);
-                    if (!label) return;
-
-                    if (otaTaskHandle == NULL) {
-                        lv_obj_add_flag(btn_close, LV_OBJ_FLAG_HIDDEN);
-                        lv_label_set_text(label, LV_SYMBOL_CLOSE " Abort & Reboot");
-                         // start OTA Task
-                        xTaskCreatePinnedToCore(ota_task,"ota_task", 6 * 1024,NULL,4, &otaTaskHandle,1 );
-                    } else {
-                        lv_label_set_text(ota_msg, "Update aborted. Rebooting...");
-                        lv_timer_create([](lv_timer_t *) { esp_restart(); },500, NULL );
-                    }
-                },
-                LV_EVENT_CLICKED,
-                lbl_update
-            );
-
-            /* ---------- BRING BLIND PANEL TO FRONT ---------- */
-            lv_obj_set_parent(ui_Utility_Panel_blindPanel, lv_layer_top());
-            lv_obj_move_foreground(ui_Utility_Panel_blindPanel);
-
-        },
-        NULL
-    );
-}
-
-
-// Notify update message box ppopup
-struct NotifyUpdateCtx {
-    char *title;
-    uint32_t prev_screen_delay;
+  size_t loaded;
+  size_t total;
+  uint32_t speed_kbs;
 };
 
-// create notify a new firmware version msgbox
-static void notifyUpdate_ui(void *p) {
-    NotifyUpdateCtx *ctx = (NotifyUpdateCtx *)p;
-    if (!ctx) return;
+void ota_ui_update_progress(uint8_t pct, size_t loaded, size_t total, uint32_t speed_kbs) {
+  NeonProgressData *d = (NeonProgressData *)malloc(sizeof(NeonProgressData));
+  if (!d) return;
+  d->pct = pct;
+  d->loaded = loaded;
+  d->total = total;
+  d->speed_kbs = speed_kbs;
 
-    SCREEN_OFF_DELAY = 0;
+  lv_async_call([](void *p) {
+    NeonProgressData *data = (NeonProgressData *)p;
+    if (s_neon_bar) {
+      lv_bar_set_value(s_neon_bar, data->pct, LV_ANIM_OFF);
+    }
+    if (s_neon_metrics) {
+      char buf[64];
+      float mb_loaded = (float)data->loaded / (1024.0f * 1024.0f);
+      float mb_total  = (data->total > 0) ? ((float)data->total / (1024.0f * 1024.0f)) : mb_loaded;
+      if (data->speed_kbs > 0) {
+        snprintf(buf, sizeof(buf), "%u%% (%.2f / %.2f MB) • %u KB/s", (unsigned)data->pct, mb_loaded, mb_total, (unsigned)data->speed_kbs);
+      } else {
+        snprintf(buf, sizeof(buf), "%u%% (%.2f / %.2f MB)", (unsigned)data->pct, mb_loaded, mb_total);
+      }
+      lv_label_set_text(s_neon_metrics, buf);
+    }
+    free(data);
+  }, d);
+}
 
-    lv_obj_t *msgBox = lv_msgbox_create(
-        NULL,
-        ctx->title,
-        "To update firmware, goto\nUtilities -> System Information",
-        NULL,
-        true
-    );
+void ota_ui_show_complete(const char *build_str) {
+  char *str_copy = strdup(build_str ? build_str : TUNEBAR_VERSION_STR);
+  lv_async_call([](void *p) {
+    char *b = (char *)p;
+    if (s_neon_title) {
+      lv_label_set_text(s_neon_title, "✅ UPDATE SUCCESSFUL! REBOOTING...");
+      lv_obj_set_style_text_color(s_neon_title, lv_color_hex(0x00FF88), 0);
+    }
+    if (s_neon_bar) {
+      lv_bar_set_value(s_neon_bar, 100, LV_ANIM_OFF);
+      lv_obj_set_style_bg_color(s_neon_bar, lv_color_hex(0x00FF88), LV_PART_INDICATOR);
+      lv_obj_set_style_border_color(s_neon_bar, lv_color_hex(0x00FF88), 0);
+    }
+    if (s_neon_metrics) {
+      char buf[64];
+      snprintf(buf, sizeof(buf), "Rebooting into v%s in 2s...", b);
+      lv_label_set_text(s_neon_metrics, buf);
+      lv_obj_set_style_text_color(s_neon_metrics, lv_color_hex(0x00FF88), 0);
+    }
+    free(b);
+  }, str_copy);
+}
 
-    lv_obj_set_width(msgBox, 420);
-    lv_obj_center(msgBox);
+void ota_ui_show_blocked_battery(uint8_t batt_pct) {
+  lv_async_call([](void *p) {
+    uintptr_t pct = (uintptr_t)p;
+    lv_obj_t *box = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(box, 540, 140);
+    lv_obj_center(box);
+    lv_obj_set_style_bg_color(box, lv_color_hex(0x181002), 0);
+    lv_obj_set_style_bg_opa(box, 255, 0);
+    lv_obj_set_style_border_color(box, lv_color_hex(0xFFA500), 0); // Amber warning
+    lv_obj_set_style_border_width(box, 3, 0);
+    lv_obj_set_style_radius(box, 12, 0);
+    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t *titleObj = lv_msgbox_get_title(msgBox);
-    lv_obj_t *textObj  = lv_msgbox_get_text(msgBox);
-    lv_obj_t *closeBtn = lv_msgbox_get_close_btn(msgBox);
+    lv_obj_t *title = lv_label_create(box);
+    lv_label_set_text(title, "⚠️ OTA UPDATE BLOCKED: BATTERY LOW");
+    lv_obj_set_style_text_color(title, lv_color_hex(0xFFA500), 0);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
 
-    lv_obj_set_style_text_font(titleObj, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_font(textObj,  &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_font(closeBtn, &lv_font_montserrat_28, 0);
-    lv_obj_set_size(closeBtn, 48, 48);
+    lv_obj_t *msg = lv_label_create(box);
+    char msg_buf[128];
+    snprintf(msg_buf, sizeof(msg_buf), "Battery is at %u%% (Minimum 70%% required).\nPlease connect USB charger to prevent bricking during flash.", (unsigned)pct);
+    lv_label_set_text(msg, msg_buf);
+    lv_obj_set_style_text_color(msg, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_font(msg, &lv_font_montserrat_14, 0);
+    lv_obj_align(msg, LV_ALIGN_CENTER, 0, 10);
 
-    lv_obj_clear_flag(ui_Utility_Button_UpdateFirmware, LV_OBJ_FLAG_HIDDEN);
+    // Auto delete after 6 seconds
+    lv_timer_create([](lv_timer_t *t) {
+      lv_obj_t *obj = (lv_obj_t *)t->user_data;
+      if (obj) lv_obj_del(obj);
+      lv_timer_del(t);
+    }, 6000, box);
+  }, (void *)(uintptr_t)batt_pct);
+}
 
-    // Close button handler
-    lv_obj_add_event_cb(
-        closeBtn,
-        [](lv_event_t *e) {
-            NotifyUpdateCtx *ctx = (NotifyUpdateCtx *)lv_event_get_user_data(e);
-            if (!ctx) return;
-            //force screen keep turn on if there is notification
-            SCREEN_OFF_DELAY = ctx->prev_screen_delay;
-            SCREEN_OFF_TIMER = millis();
-            BL_OFF = false;
-        },
-        LV_EVENT_RELEASED,
-        ctx
-    );
+void ota_post_boot_toast(void) {
+  Preferences prefs;
+  prefs.begin("ota_state", false);
+  String last_ver = prefs.getString("last_ver", "");
+  if (last_ver.length() > 0 && last_ver != TUNEBAR_VERSION_STR) {
+    log_i("[OTA TOAST] Booted into new version %s (previous: %s)", TUNEBAR_VERSION_STR, last_ver.c_str());
+    prefs.putString("last_ver", TUNEBAR_VERSION_STR);
+    prefs.end();
 
-    // Cleanup on delete
-    lv_obj_add_event_cb(
-        msgBox,
-        [](lv_event_t *e) {
-            NotifyUpdateCtx *ctx = (NotifyUpdateCtx *)lv_event_get_user_data(e);
-            if (ctx) {
-                free(ctx->title);
-                free(ctx);
-            }
-        },
-        LV_EVENT_DELETE,
-        ctx
-    );
+    lv_async_call([](void *p) {
+      lv_obj_t *toast = lv_obj_create(lv_layer_top());
+      lv_obj_set_size(toast, 440, 36);
+      lv_obj_align(toast, LV_ALIGN_TOP_MID, 0, 8);
+      lv_obj_set_style_bg_color(toast, lv_color_hex(0x001B2E), 0);
+      lv_obj_set_style_bg_opa(toast, 245, 0);
+      lv_obj_set_style_border_color(toast, lv_color_hex(0x00E5FF), 0);
+      lv_obj_set_style_border_width(toast, 2, 0);
+      lv_obj_set_style_radius(toast, 18, 0);
+      lv_obj_clear_flag(toast, LV_OBJ_FLAG_SCROLLABLE);
+
+      lv_obj_t *lbl = lv_label_create(toast);
+      char buf[64];
+      snprintf(buf, sizeof(buf), "✨ Successfully updated to v%s (Build #%d)", TUNEBAR_VERSION_STR, TUNEBAR_BUILD_NUM);
+      lv_label_set_text(lbl, buf);
+      lv_obj_set_style_text_color(lbl, lv_color_hex(0x00E5FF), 0);
+      lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, 0);
+      lv_obj_center(lbl);
+
+      lv_timer_create([](lv_timer_t *t) {
+        lv_obj_t *obj = (lv_obj_t *)t->user_data;
+        if (obj) lv_obj_del(obj);
+        lv_timer_del(t);
+      }, 4000, toast);
+    }, NULL);
+  } else {
+    if (last_ver.length() == 0) {
+      prefs.putString("last_ver", TUNEBAR_VERSION_STR);
+    }
+    prefs.end();
+  }
+}
+
+// -------------------------------------------------------------
+// Legacy manifest fetcher for compatibility
+// -------------------------------------------------------------
+const char *newFirmwareAvailable() {
+  return nullptr;
+}
+
+void ota_show_popup() {
+  ota_ui_show_neon_progress("v" TUNEBAR_VERSION_STR);
 }
 
 void notifyUpdate(const char *latestVer) {
-    if (!latestVer) return;
-    NotifyUpdateCtx *ctx = (NotifyUpdateCtx *)malloc(sizeof(NotifyUpdateCtx));
-    if (!ctx) return;
-    ctx->prev_screen_delay = SCREEN_OFF_DELAY;
-    char title[48];
-    snprintf(title, sizeof(title), LV_SYMBOL_REFRESH " New Update Available %s", latestVer);
-    ctx->title = strdup(title);
-    if (!ctx->title) {
-        free(ctx);
-        return;
-    }
-    lv_async_call(notifyUpdate_ui, ctx);
+  // Handled via on-device firmware manager
 }
 
-
-//-----  Functions to show memory and system info
 void memoryInfo(char *buf, size_t len) {
   size_t ifree = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
   size_t itotal = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
@@ -507,7 +322,6 @@ void memoryInfo(char *buf, size_t len) {
            "PSRAM(Ext): %.1f / %.1f MB (%u%%, %.1f MB free)",
            (unsigned)(iused / 1024), (unsigned)(itotal / 1024), ipct, (unsigned)(ifree / 1024),
            (float)pused / (1024.0f * 1024.0f), (float)ptotal / (1024.0f * 1024.0f), ppct, (float)pfree / (1024.0f * 1024.0f));
-  log_i("%s", buf);
 }
 
 void systemInfo(char *buf, size_t len) {
@@ -517,11 +331,10 @@ void systemInfo(char *buf, size_t len) {
   uint64_t mac = ESP.getEfuseMac();
   snprintf(buf, len,
            "TuneBar v%s (Rahul Mod)\n"
-           "Build  : %s\n"
+           "Build  : #%d (%s)\n"
            "MAC    : %04X%08X\n"
            "Flash  : %u / %u KB (%.0f%% free)",
-           current_version, compile_date,
+           current_version, TUNEBAR_BUILD_NUM, TUNEBAR_GIT_HASH,
            (uint16_t)(mac >> 32), (uint32_t)mac,
            (unsigned)(used / 1024), (unsigned)(total / 1024), pct_free);
-  log_d("%s", buf);
 }

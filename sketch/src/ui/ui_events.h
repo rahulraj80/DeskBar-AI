@@ -58,6 +58,11 @@ void openLanUrlPanel(lv_event_t * e);
 void saveLanUrlAndClose(lv_event_t * e);
 void togglePlayerSource(lv_event_t * e);
 void on_radio_language_changed(lv_event_t * e);
+void enter_clock_breathing(void);
+void exit_clock_breathing(void);
+void on_clock_touch_or_button(void);
+void on_clock_interaction_wake(void);
+bool is_on_nixie_clock(void);
 
 #ifdef __cplusplus
 } /*extern "C"*/

@@ -82,7 +82,6 @@ void ui_event_MainMenu_Image_LiveStreaming(lv_event_t * e)
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        bounce_Animation(ui_MainMenu_Image_LiveStreaming, 0);
         _ui_screen_change(&ui_Screen_Player, LV_SCR_LOAD_ANIM_OVER_TOP, 500, 0, &ui_Screen_Player_screen_init);
         livestreamMode(e);
     }
@@ -96,7 +95,6 @@ void ui_event_MainMenu_Image_MusicPlayer(lv_event_t * e)
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        bounce_Animation(ui_MainMenu_Image_MusicPlayer, 0);
         musicPlayerMode(e);
         _ui_screen_change(&ui_Screen_Player, LV_SCR_LOAD_ANIM_OVER_TOP, 500, 0, &ui_Screen_Player_screen_init);
     }
@@ -110,7 +108,6 @@ void ui_event_MainMenu_Image_ChatBot(lv_event_t * e)
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        bounce_Animation(ui_MainMenu_Image_ChatBot, 0);
         chatBotMode(e);
         _ui_screen_change(&ui_Screen_Player, LV_SCR_LOAD_ANIM_OVER_TOP, 500, 0, &ui_Screen_Player_screen_init);
     }
@@ -1024,38 +1021,34 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_y(ui_MainMenu_Textarea_UserGuide, -17);
     lv_obj_set_align(ui_MainMenu_Textarea_UserGuide, LV_ALIGN_TOP_MID);
     lv_textarea_set_text(ui_MainMenu_Textarea_UserGuide,
-                         "[Wi-Fi] - Automatic Network Setup\n"
-                         "Connects to saved networks (up to 10 SSIDs). Use Settings > Network to scan and connect.\n\n"
-                         "[Alarm] - Retro Alarm (Swipe Left on Clock)\n"
-                         "Tap [^] and [v] buttons on each of the 4 digits to set HH:MM without scrolling. Toggle Armed/Off switch.\n\n"
-                         "[Radio] - Dual Online Radio Catalog\n"
-                         "Tap the catalog badge ([FM] / [IN]) next to station count to switch between Indian FM and International streams.\n\n"
-                         "[Music & LAN] - Streaming Media\n"
-                         "Streams audio directly over Wi-Fi from local HTTP / LocalShare servers (e.g. 192.168.x.x:8080/path) or plays from SD card.\n\n"
-                         "[AI Voice] - AI Voice Assistant\n"
-                         "Dedicated voice interface with push-to-talk Mic button. Tap [MIC] or send voice commands via Web Remote.\n\n"
-                         "[Web Remote] - Browser Control & Screen Mirror\n"
-                         "Open device IP in any browser on your network for real-time controls and live display mirroring.\n\n"
-                         "[Buttons]\n"
-                         "[ RESET ] - Reboot TuneBar\n"
-                         "[ POWER ] - Hold 1s to wake / 3s to power off\n"
-                         "[ BOOT  ] - Toggle screen ON/OFF (Dismisses ringing alarm)");
+                         "[Wi-Fi & Network]\n"
+                         "• Auto-reconnects to saved networks (up to 10 SSIDs). Scan & connect in Settings > Network.\n"
+                         "• Browser Web Remote portal available at device IP (http://<ip>/).\n\n"
+                         "[Clock & Power Management]\n"
+                         "• 10-second rhythm breathing cycle (5s black / 1.5s fade-in / 2s hold / 1.5s fade-out).\n"
+                         "• Wi-Fi powers down during clock mode to conserve ~50 mA quiescent current.\n"
+                         "• Wake instantly via screen touch, BOOT button, or QMI8658 orientation flip.\n\n"
+                         "[Radio & Catalogs]\n"
+                         "• 6-language Internet Radio directory: German, Thai, English, Japanese, Chinese, Indian.\n"
+                         "• Tap language badge to switch catalogs. Tap heart icon to favorite stations.\n\n"
+                         "[Music & LAN Player]\n"
+                         "• Play audio from onboard SD Card (/music) or stream high-bitrate audio over LAN.\n"
+                         "• Set custom HTTP / LocalShare server URL in Settings > Music.\n\n"
+                         "[System Apps (Utility)]\n"
+                         "• Torch: Full 100% white backlight flashlight. Tap anywhere to dismiss.\n"
+                         "• System Info: Live DRAM/PSRAM metrics, uptime, IP, and RSSI telemetry.\n"
+                         "• Spirit Level: 6-axis QMI8658 bullseye inclinometer and leveling bubble.\n"
+                         "• Firmware OTA: Browse official & community releases and flash over Wi-Fi.\n\n"
+                         "[Hardware Controls]\n"
+                         "• [ RESET ]  Reboot TuneBar.\n"
+                         "• [ POWER ]  Hold 1s to wake / 3s to enter deep sleep.\n"
+                         "• [ BOOT  ]  Toggle display power / Dismiss ringing alarm.");
     lv_obj_add_flag(ui_MainMenu_Textarea_UserGuide, LV_OBJ_FLAG_SCROLL_ONE);     /// Flags
     lv_obj_set_scroll_dir(ui_MainMenu_Textarea_UserGuide, LV_DIR_VER);
     lv_obj_set_style_text_color(ui_MainMenu_Textarea_UserGuide, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_MainMenu_Textarea_UserGuide, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_color(ui_MainMenu_Textarea_UserGuide, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_MainMenu_Textarea_UserGuide, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    ui_MainMenu_Image_buttons = lv_img_create(ui_MainMenu_Textarea_UserGuide);
-    lv_img_set_src(ui_MainMenu_Image_buttons, &ui_img_images_button_png);
-    lv_obj_set_width(ui_MainMenu_Image_buttons, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_MainMenu_Image_buttons, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_MainMenu_Image_buttons, 0);
-    lv_obj_set_y(ui_MainMenu_Image_buttons, 10);
-    lv_obj_set_align(ui_MainMenu_Image_buttons, LV_ALIGN_BOTTOM_LEFT);
-    lv_obj_add_flag(ui_MainMenu_Image_buttons, LV_OBJ_FLAG_ADV_HITTEST);     /// Flags
-    lv_obj_clear_flag(ui_MainMenu_Image_buttons, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
     ui_MainMenu_Button_closeConfig = lv_btn_create(ui_Screen_MainMenu);
     lv_obj_set_width(ui_MainMenu_Button_closeConfig, 50);
