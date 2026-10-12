@@ -19,6 +19,9 @@ void ota_ui_show_complete(const char *build_str);
 void ota_ui_show_blocked_battery(uint8_t batt_pct);
 void ota_post_boot_toast(void);
 
+// Real HTTP Background OTA Flasher
+bool ota_start_http_flash(const char *version_str, const char *bin_url);
+
 // Legacy and helper functions
 const char *newFirmwareAvailable();
 void ota_show_popup();

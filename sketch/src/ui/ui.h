@@ -70,7 +70,6 @@ LV_IMG_DECLARE(ui_img_utility_torch_png);
 LV_IMG_DECLARE(ui_img_utility_systeminfo_png);
 LV_IMG_DECLARE(ui_img_utility_spirit_level_png);
 LV_IMG_DECLARE(ui_img_utility_firmware_ota_png);
-LV_IMG_DECLARE(ui_img_images_vaandcobbanner_png);    // assets/images/vaandcobBanner.png
 LV_IMG_DECLARE(ui_img_images_qr_png);    // assets/images/qr.png
 LV_IMG_DECLARE(ui_img_aqi_good_png);    // assets/aqi/good.png
 LV_IMG_DECLARE(ui_img_aqi_hazardous_png);    // assets/aqi/hazardous.png
@@ -80,10 +79,13 @@ LV_IMG_DECLARE(ui_img_aqi_unhealthy_png);    // assets/aqi/unhealthy.png
 LV_IMG_DECLARE(ui_img_aqi_very_unhealthy_png);    // assets/aqi/very_unhealthy.png
 LV_IMG_DECLARE(ui_img_custom_cat_left1_png);    // assets/custom/cat_left1.png
 LV_IMG_DECLARE(ui_img_custom_cat_left2_png);    // assets/custom/cat_left2.png
-LV_IMG_DECLARE(ui_img_custom_cat_right2_png);    // assets/custom/cat_right2.png
+LV_IMG_DECLARE(ui_img_custom_cat_right1_png);   // assets/custom/cat_right1.png
+LV_IMG_DECLARE(ui_img_custom_cat_right2_png);   // assets/custom/cat_right2.png
+LV_IMG_DECLARE(ui_img_custom_dog_left1_png);    // assets/custom/dog_left1.png
 LV_IMG_DECLARE(ui_img_custom_dog_left2_png);    // assets/custom/dog_left2.png
-LV_IMG_DECLARE(ui_img_custom_dog_right1_png);    // assets/custom/dog_right1.png
-LV_IMG_DECLARE(ui_img_custom_dog_right2_png);    // assets/custom/dog_right2.png
+LV_IMG_DECLARE(ui_img_custom_dog_right1_png);   // assets/custom/dog_right1.png
+LV_IMG_DECLARE(ui_img_custom_dog_right2_png);   // assets/custom/dog_right2.png
+LV_IMG_DECLARE(ui_img_numbers_0_png);    // assets/numbers/0.png
 LV_IMG_DECLARE(ui_img_numbers_1_png);    // assets/numbers/1.png
 LV_IMG_DECLARE(ui_img_numbers_2_png);    // assets/numbers/2.png
 LV_IMG_DECLARE(ui_img_numbers_3_png);    // assets/numbers/3.png
@@ -93,15 +95,11 @@ LV_IMG_DECLARE(ui_img_numbers_6_png);    // assets/numbers/6.png
 LV_IMG_DECLARE(ui_img_numbers_7_png);    // assets/numbers/7.png
 LV_IMG_DECLARE(ui_img_numbers_8_png);    // assets/numbers/8.png
 LV_IMG_DECLARE(ui_img_numbers_9_png);    // assets/numbers/9.png
+LV_IMG_DECLARE(ui_img_numbers_colon_png); // assets/numbers/colon.png
 LV_IMG_DECLARE(ui_img_numbers_minus_png);    // assets/numbers/minus.png
 LV_IMG_DECLARE(ui_img_numbers_plus_png);    // assets/numbers/plus.png
 LV_IMG_DECLARE(ui_img_numbers_slash_png);    // assets/numbers/slash.png
-LV_IMG_DECLARE(ui_img_wallpaper_beach_png);    // assets/wallpaper/beach.png
-LV_IMG_DECLARE(ui_img_wallpaper_christmas1_png);    // assets/wallpaper/christmas1.png
-LV_IMG_DECLARE(ui_img_wallpaper_christmas2_png);    // assets/wallpaper/christmas2.png
-LV_IMG_DECLARE(ui_img_wallpaper_future_png);    // assets/wallpaper/future.png
-LV_IMG_DECLARE(ui_img_wallpaper_nature_png);    // assets/wallpaper/nature.png
-LV_IMG_DECLARE(ui_img_wallpaper_thailand_png);    // assets/wallpaper/thailand.png
+// Procedural vector themes replace heavy wallpaper bitmaps
 LV_IMG_DECLARE(ui_img_weather_clearnight_png);    // assets/weather/clearnight.png
 LV_IMG_DECLARE(ui_img_weather_cloudy_png);    // assets/weather/cloudy.png
 LV_IMG_DECLARE(ui_img_weather_cloudynight_png);    // assets/weather/cloudynight.png

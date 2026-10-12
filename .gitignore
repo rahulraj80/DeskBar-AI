@@ -13,9 +13,15 @@ secrets.h
 build/
 build_phase1/
 *.bin
+!releases/**/*.bin
 *.elf
 *.tar.gz
 sync_payload.tar.gz
+screen_temp.bmp
+sketch/src/ui/images_backup/
+sketch/*.py
+__pycache__/
+
 
 # Audio captures & test media
 *.wav

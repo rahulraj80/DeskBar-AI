@@ -21,11 +21,41 @@ void ui_event_Screen_Boot(lv_event_t * e)
 void ui_Screen_Boot_screen_init(void)
 {
     ui_Screen_Boot = lv_obj_create(NULL);
-    lv_obj_clear_flag(ui_Screen_Boot, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_img_src(ui_Screen_Boot, &ui_img_images_tunebar_banner_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_clear_flag(ui_Screen_Boot, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Sleek obsidian gradient background
+    lv_obj_set_style_bg_color(ui_Screen_Boot, lv_color_hex(0x0A0F1D), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_grad_color(ui_Screen_Boot, lv_color_hex(0x020408), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_grad_dir(ui_Screen_Boot, LV_GRAD_DIR_VER, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    // Elegant neon branding card
+    lv_obj_t * card = lv_obj_create(ui_Screen_Boot);
+    lv_obj_set_size(card, 520, 110);
+    lv_obj_set_align(card, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(card, lv_color_hex(0x131B2E), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(card, 220, LV_PART_MAIN);
+    lv_obj_set_style_border_color(card, lv_color_hex(0x00D2FF), LV_PART_MAIN);
+    lv_obj_set_style_border_width(card, 2, LV_PART_MAIN);
+    lv_obj_set_style_radius(card, 16, LV_PART_MAIN);
+
+    // Title label
+    lv_obj_t * title = lv_label_create(card);
+    lv_obj_set_align(title, LV_ALIGN_TOP_MID);
+    lv_obj_set_y(title, 8);
+    lv_label_set_text(title, "T U N E B A R");
+    lv_obj_set_style_text_color(title, lv_color_hex(0x00F0FF), LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_28, LV_PART_MAIN);
+
+    // Subtitle label
+    lv_obj_t * sub = lv_label_create(card);
+    lv_obj_set_align(sub, LV_ALIGN_BOTTOM_MID);
+    lv_obj_set_y(sub, -12);
+    lv_label_set_text(sub, "Advanced Hi-Fi Audio & Sensor Station");
+    lv_obj_set_style_text_color(sub, lv_color_hex(0x8EA5C8), LV_PART_MAIN);
+    lv_obj_set_style_text_font(sub, &lv_font_montserrat_14, LV_PART_MAIN);
 
     lv_obj_add_event_cb(ui_Screen_Boot, ui_event_Screen_Boot, LV_EVENT_ALL, NULL);
-
 }
 
 void ui_Screen_Boot_screen_destroy(void)

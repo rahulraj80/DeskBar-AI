@@ -5,6 +5,7 @@
 
 #include "../ui.h"
 #include "ui_Screen_OTA.h"
+#include "ui_Screen_SpiritLevel.h"
 
 lv_obj_t * ui_Screen_Utility = NULL;
 lv_obj_t * ui_Utility_Image_TorchButton = NULL;
@@ -75,8 +76,7 @@ void ui_event_Utility_Image_SystemInfoButton(lv_event_t * e)
 void ui_event_Utility_Button_SpiritLevel(lv_event_t * e)
 {
     if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        _ui_flag_modify(ui_Utility_Panel_SpiritLevel, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
-        _ui_flag_modify(ui_Utility_Button_returnMenu, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
+        ui_spirit_level_open();
     }
 }
 
@@ -378,22 +378,7 @@ void ui_Screen_Utility_screen_init(void)
     lv_obj_set_style_text_opa(ui_Utility_Label_Label28, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_Utility_Label_Label28, &lv_font_montserrat_20, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_Utility_Button_UpdateFirmware = lv_btn_create(ui_Utility_Panel_SystemInfo);
-    lv_obj_set_width(ui_Utility_Button_UpdateFirmware, 140);
-    lv_obj_set_height(ui_Utility_Button_UpdateFirmware, 36);
-    lv_obj_set_x(ui_Utility_Button_UpdateFirmware, 24);
-    lv_obj_set_y(ui_Utility_Button_UpdateFirmware, -14);
-    lv_obj_set_align(ui_Utility_Button_UpdateFirmware, LV_ALIGN_BOTTOM_LEFT);
-    lv_obj_add_flag(ui_Utility_Button_UpdateFirmware, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-    lv_obj_clear_flag(ui_Utility_Button_UpdateFirmware, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(ui_Utility_Button_UpdateFirmware, lv_color_hex(0x005588), LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    ui_Utility_Label_Label11 = lv_label_create(ui_Utility_Button_UpdateFirmware);
-    lv_obj_set_width(ui_Utility_Label_Label11, LV_SIZE_CONTENT);
-    lv_obj_set_height(ui_Utility_Label_Label11, LV_SIZE_CONTENT);
-    lv_obj_set_align(ui_Utility_Label_Label11, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_Utility_Label_Label11, "⚡ Firmware OTA");
-    lv_obj_set_style_text_font(ui_Utility_Label_Label11, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+    // Firmware OTA is launched directly from the 4-app Utility screen launcher
 
     ui_Utility_Button_returnMenu = lv_btn_create(ui_Screen_Utility);
     lv_obj_set_width(ui_Utility_Button_returnMenu, 60);
@@ -427,7 +412,6 @@ void ui_Screen_Utility_screen_init(void)
     lv_obj_add_event_cb(ui_Utility_Image_SystemInfoButton, ui_event_Utility_Image_SystemInfoButton, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Utility_Panel_Torch, ui_event_Utility_Panel_Torch, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Utility_Button_closeConfig2, ui_event_Utility_Button_closeConfig2, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_Utility_Button_UpdateFirmware, ui_event_Utility_Button_UpdateFirmware, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Utility_Label_Label27, ui_event_Utility_Label_Label27, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Utility_Button_returnMenu, ui_event_Utility_Button_returnMenu, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Utility_Panel_blindPanel, ui_event_Utility_Panel_blindPanel, LV_EVENT_ALL, NULL);
@@ -435,6 +419,9 @@ void ui_Screen_Utility_screen_init(void)
 
     // Initialize On-Device Firmware Manager
     ui_ota_manager_init(ui_Screen_Utility);
+
+    // Initialize 3-Panel Spirit Level App
+    ui_spirit_level_init(ui_Screen_Utility);
 }
 
 void ui_Screen_Utility_screen_destroy(void)
