@@ -45,12 +45,11 @@ struct NamedOrientationRow {
     lv_obj_t *status_label;
 };
 
-static NamedOrientationRow s_named_orientations[5] = {
-    {"[01] NORMAL LANDSCAPE",   "Y[<-0.6]",   0.0f, -1.0f,  0.0f, NULL, NULL},
-    {"[02] TILTED LANDSCAPE",   "Y<-.3 Z>.3", 0.0f, -0.86f, 0.5f, NULL, NULL},
-    {"[03] INVERTED LANDSCAPE", "Y[>0.4]",    0.0f,  1.0f,  0.0f, NULL, NULL},
-    {"[04] FLAT DESK (FACE UP)","Z[>0.8]",    0.0f,  0.0f,  1.0f, NULL, NULL},
-    {"[05] PORTRAIT (LOCKED)",  "X[>0.7]",    1.0f,  0.0f,  0.0f, NULL, NULL}
+static NamedOrientationRow s_named_orientations[4] = {
+    {"[01] NORMAL LANDSCAPE",   "Y[-1.0g]",      0.0f, -1.0f,  0.0f, NULL, NULL},
+    {"[02] TILTED LANDSCAPE",   "Y[-.8] Z[+.5]", 0.0f, -0.86f, 0.5f, NULL, NULL},
+    {"[03] PORTRAIT",           "X[+/-1.0g]",    1.0f,  0.0f,  0.0f, NULL, NULL},
+    {"[04] FLAT",               "Z[+/-1.0g]",    0.0f,  0.0f,  1.0f, NULL, NULL}
 };
 
 static float s_tolerance_deg = 2.0f;
@@ -89,7 +88,10 @@ static lv_obj_t * s_btn_save_cal = NULL;
 static lv_obj_t * s_lbl_save_cal = NULL;
 
 static lv_obj_t * s_wireframe_diagram = NULL;
-static lv_obj_t * s_wireframe_arrow = NULL;
+static lv_obj_t * s_wf_chassis = NULL;
+static lv_obj_t * s_wf_screen = NULL;
+static lv_obj_t * s_wf_btns = NULL;
+static lv_obj_t * s_wf_note = NULL;
 static lv_obj_t * s_wireframe_usb = NULL;
 static lv_obj_t * s_wireframe_usb_lbl = NULL;
 
@@ -221,19 +223,22 @@ static void close_click_cb(lv_event_t * e) {
 // -------------------------------------------------------------
 static void tol_minus_cb(lv_event_t * e) {
     SCREEN_OFF_TIMER = millis();
-    if (s_tol_x > 0.01f) s_tol_x -= 0.01f;
-    if (s_tol_y > 0.01f) s_tol_y -= 0.01f;
-    if (s_tol_z > 0.01f) s_tol_z -= 0.01f;
-    if (s_tolerance_deg > 0.5f) s_tolerance_deg -= 0.25f;
+    if (s_tolerance_deg > 0.25f) s_tolerance_deg -= 0.25f;
     save_calibration_to_nvs();
 }
 
 static void tol_plus_cb(lv_event_t * e) {
     SCREEN_OFF_TIMER = millis();
-    s_tol_x += 0.01f;
-    s_tol_y += 0.01f;
-    s_tol_z += 0.01f;
-    s_tolerance_deg += 0.25f;
+    if (s_tolerance_deg < 15.0f) s_tolerance_deg += 0.25f;
+    save_calibration_to_nvs();
+}
+
+static void tol_reset_cb(lv_event_t * e) {
+    SCREEN_OFF_TIMER = millis();
+    s_tolerance_deg = 2.00f;
+    s_tol_x = 0.05f;
+    s_tol_y = 0.10f;
+    s_tol_z = 0.08f;
     save_calibration_to_nvs();
 }
 
@@ -279,9 +284,89 @@ static void update_cal_ui_step(void) {
         } else if (s_cal_step == 5) { // STEP 6: Right edge -> USB BOTTOM
             lv_label_set_text(s_wireframe_usb_lbl, "USB: BOT");
             lv_obj_set_style_text_color(s_wireframe_usb_lbl, lv_color_hex(0xFFB800), LV_PART_MAIN);
+        } else if (s_cal_step == 2 || s_cal_step == 3) { // Inverted upright/tilted -> USB LEFT
+            lv_label_set_text(s_wireframe_usb_lbl, "USB: LEFT");
+            lv_obj_set_style_text_color(s_wireframe_usb_lbl, lv_color_hex(0xFFB800), LV_PART_MAIN);
         } else {
             lv_label_set_text(s_wireframe_usb_lbl, "USB: RIGHT");
             lv_obj_set_style_text_color(s_wireframe_usb_lbl, lv_color_hex(0x70A0C0), LV_PART_MAIN);
+        }
+    }
+    // Dynamic isometric device wireframe updating per step
+    if (s_wireframe_diagram && s_wf_chassis && s_wf_screen && s_wf_btns && s_wf_note) {
+        switch (s_cal_step) {
+            case 0: // Step 1: WALL UPRIGHT (Landscape horizontal, buttons on top, USB right)
+                lv_obj_set_size(s_wf_chassis, 86, 32);
+                lv_obj_set_pos(s_wf_chassis, 7, 6);
+                lv_obj_set_size(s_wf_screen, 74, 18);
+                lv_obj_set_pos(s_wf_screen, 5, 8);
+                lv_label_set_text(s_wf_btns, "BTNS: UP");
+                lv_obj_set_pos(s_wf_btns, 20, 0);
+                lv_label_set_text(s_wf_note, "FRONT (BTNS UP)");
+                break;
+            case 1: // Step 2: WALL TILTED UP (Leaning back ~30 deg)
+                lv_obj_set_size(s_wf_chassis, 86, 32);
+                lv_obj_set_pos(s_wf_chassis, 7, 6);
+                lv_obj_set_size(s_wf_screen, 74, 18);
+                lv_obj_set_pos(s_wf_screen, 5, 8);
+                lv_label_set_text(s_wf_btns, "BTNS: UP");
+                lv_obj_set_pos(s_wf_btns, 20, 0);
+                lv_label_set_text(s_wf_note, "TILT 30d UP");
+                break;
+            case 2: // Step 3: INVERTED UPRIGHT (Buttons on bottom, USB left)
+                lv_obj_set_size(s_wf_chassis, 86, 32);
+                lv_obj_set_pos(s_wf_chassis, 7, 6);
+                lv_obj_set_size(s_wf_screen, 74, 18);
+                lv_obj_set_pos(s_wf_screen, 5, 4);
+                lv_label_set_text(s_wf_btns, "BTNS: DN");
+                lv_obj_set_pos(s_wf_btns, 20, 20);
+                lv_label_set_text(s_wf_note, "INV (BTNS DOWN)");
+                break;
+            case 3: // Step 4: INVERTED TILTED (Leaning forward)
+                lv_obj_set_size(s_wf_chassis, 86, 32);
+                lv_obj_set_pos(s_wf_chassis, 7, 6);
+                lv_obj_set_size(s_wf_screen, 74, 18);
+                lv_obj_set_pos(s_wf_screen, 5, 4);
+                lv_label_set_text(s_wf_btns, "BTNS: DN");
+                lv_obj_set_pos(s_wf_btns, 20, 20);
+                lv_label_set_text(s_wf_note, "INV TILT DOWN");
+                break;
+            case 4: // Step 5: LEFT EDGE REST (Portrait, USB on TOP)
+                lv_obj_set_size(s_wf_chassis, 32, 40);
+                lv_obj_set_pos(s_wf_chassis, 34, 3);
+                lv_obj_set_size(s_wf_screen, 18, 30);
+                lv_obj_set_pos(s_wf_screen, 7, 6);
+                lv_label_set_text(s_wf_btns, "USB: TOP");
+                lv_obj_set_pos(s_wf_btns, 2, 0);
+                lv_label_set_text(s_wf_note, "VERT (USB TOP)");
+                break;
+            case 5: // Step 6: RIGHT EDGE REST (Portrait, USB on BOTTOM)
+                lv_obj_set_size(s_wf_chassis, 32, 40);
+                lv_obj_set_pos(s_wf_chassis, 34, 3);
+                lv_obj_set_size(s_wf_screen, 18, 30);
+                lv_obj_set_pos(s_wf_screen, 7, 4);
+                lv_label_set_text(s_wf_btns, "USB: BOT");
+                lv_obj_set_pos(s_wf_btns, 2, 28);
+                lv_label_set_text(s_wf_note, "VERT (USB BOT)");
+                break;
+            case 6: // Step 7: DESK FACE-UP (Flat on desk, screen facing ceiling)
+                lv_obj_set_size(s_wf_chassis, 88, 22);
+                lv_obj_set_pos(s_wf_chassis, 6, 11);
+                lv_obj_set_size(s_wf_screen, 76, 14);
+                lv_obj_set_pos(s_wf_screen, 6, 4);
+                lv_label_set_text(s_wf_btns, "SCREEN: UP");
+                lv_obj_set_pos(s_wf_btns, 14, 2);
+                lv_label_set_text(s_wf_note, "FLAT: SCREEN UP");
+                break;
+            case 7: // Step 8: DESK FACE-DOWN (Flat on desk, screen facing desk)
+                lv_obj_set_size(s_wf_chassis, 88, 22);
+                lv_obj_set_pos(s_wf_chassis, 6, 11);
+                lv_obj_set_size(s_wf_screen, 76, 14);
+                lv_obj_set_pos(s_wf_screen, 6, 4);
+                lv_label_set_text(s_wf_btns, "SCREEN: DN");
+                lv_obj_set_pos(s_wf_btns, 14, 2);
+                lv_label_set_text(s_wf_note, "FLAT: FACE DOWN");
+                break;
         }
     }
     if (s_lbl_save_cal) {
@@ -389,32 +474,56 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
             lv_chart_set_next_value(s_raw_sparkline_chart, s_raw_sparkline_series, val);
         }
         if (s_lbl_tolerances_val) {
-            char buf[48];
-            snprintf(buf, sizeof(buf), "%0.2f / %0.2f / %0.2f", s_tol_x, s_tol_y, s_tol_z);
+            char buf[32];
+            snprintf(buf, sizeof(buf), "+/-%0.2f deg", s_tolerance_deg);
             lv_label_set_text(s_lbl_tolerances_val, buf);
         }
 
-        // Update Named Orientations Rows (5 rows)
-        for (int i = 0; i < 5; i++) {
-            bool matches = false;
-            if (i == 0 && fabsf(imu.ax) < 0.40f && imu.ay < -0.60f) matches = true; // Normal Landscape Upright
-            else if (i == 1 && imu.ay < -0.30f && imu.az > 0.30f && fabsf(imu.ax) < 0.50f) matches = true; // Tilted Landscape Stand
-            else if (i == 2 && imu.ay > 0.35f && fabsf(imu.ax) < 0.50f) matches = true; // Inverted Landscape
-            else if (i == 3 && imu.az > 0.80f && fabsf(imu.ay) < 0.35f && fabsf(imu.ax) < 0.35f) matches = true; // Flat Desk Screen Up
-            else if (i == 4 && fabsf(imu.ax) > 0.70f && fabsf(imu.ay) < 0.45f) matches = true; // Portrait Locked
+        // Update Named Orientations Rows (4 rows)
+        for (int i = 0; i < 4; i++) {
+            enum OriState { ST_IDLE, ST_ACTIVE, ST_INVERTED };
+            OriState st = ST_IDLE;
+
+            if (i == 0) { // Normal Landscape: Power buttons UP, USB RIGHT
+                if (imu.ay < -0.55f && fabsf(imu.ax) < 0.45f && imu.az < 0.55f) st = ST_ACTIVE;
+                else if (imu.ay > 0.55f && fabsf(imu.ax) < 0.45f) st = ST_INVERTED;
+            }
+            else if (i == 1) { // Tilted Landscape
+                if (imu.ay < -0.30f && imu.az > 0.30f && fabsf(imu.ax) < 0.45f) st = ST_ACTIVE;
+                else if ((imu.ay > 0.30f && imu.az > 0.30f) || (imu.ay < -0.30f && imu.az < -0.30f)) st = ST_INVERTED;
+            }
+            else if (i == 2) { // Portrait
+                if (imu.ax > 0.60f && fabsf(imu.ay) < 0.45f) st = ST_ACTIVE; // USB Top
+                else if (imu.ax < -0.60f && fabsf(imu.ay) < 0.45f) st = ST_INVERTED; // USB Bottom
+            }
+            else if (i == 3) { // Flat
+                if (imu.az > 0.70f && fabsf(imu.ax) < 0.40f && fabsf(imu.ay) < 0.40f) st = ST_ACTIVE; // Screen Up
+                else if (imu.az < -0.70f && fabsf(imu.ax) < 0.40f && fabsf(imu.ay) < 0.40f) st = ST_INVERTED; // Screen Down
+            }
 
             if (s_named_orientations[i].row_container) {
-                if (matches) {
+                if (st == ST_ACTIVE) {
                     lv_obj_set_style_border_color(s_named_orientations[i].row_container, lv_color_hex(0x00FF88), LV_PART_MAIN);
                     lv_obj_set_style_bg_color(s_named_orientations[i].row_container, lv_color_hex(0x0A2B18), LV_PART_MAIN);
+                } else if (st == ST_INVERTED) {
+                    lv_obj_set_style_border_color(s_named_orientations[i].row_container, lv_color_hex(0xFFA500), LV_PART_MAIN);
+                    lv_obj_set_style_bg_color(s_named_orientations[i].row_container, lv_color_hex(0x2B1A0A), LV_PART_MAIN);
                 } else {
                     lv_obj_set_style_border_color(s_named_orientations[i].row_container, lv_color_hex(0x182838), LV_PART_MAIN);
                     lv_obj_set_style_bg_color(s_named_orientations[i].row_container, lv_color_hex(0x0A1220), LV_PART_MAIN);
                 }
             }
             if (s_named_orientations[i].status_label) {
-                lv_label_set_text(s_named_orientations[i].status_label, matches ? "[ACTIVE]" : "[IDLE]");
-                lv_obj_set_style_text_color(s_named_orientations[i].status_label, matches ? lv_color_hex(0x00FF88) : lv_color_hex(0x607890), LV_PART_MAIN);
+                if (st == ST_ACTIVE) {
+                    lv_label_set_text(s_named_orientations[i].status_label, "[ACTIVE]");
+                    lv_obj_set_style_text_color(s_named_orientations[i].status_label, lv_color_hex(0x00FF88), LV_PART_MAIN);
+                } else if (st == ST_INVERTED) {
+                    lv_label_set_text(s_named_orientations[i].status_label, "[INVERTED]");
+                    lv_obj_set_style_text_color(s_named_orientations[i].status_label, lv_color_hex(0xFFA500), LV_PART_MAIN);
+                } else {
+                    lv_label_set_text(s_named_orientations[i].status_label, "[IDLE]");
+                    lv_obj_set_style_text_color(s_named_orientations[i].status_label, lv_color_hex(0x607890), LV_PART_MAIN);
+                }
             }
         }
     }
@@ -459,7 +568,7 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
             float max_disp = 44.0f;
             // Air bubble rises uphill to highest elevation point
             float dx = -(roll_deg / 15.0f) * max_disp;
-            float dy = is_upright ? -(pitch_deg / 15.0f) * max_disp : (pitch_deg / 15.0f) * max_disp;
+            float dy = -(pitch_deg / 15.0f) * max_disp;
             float dist = sqrtf(dx * dx + dy * dy);
             if (dist > max_disp) {
                 dx = (dx / dist) * max_disp;
@@ -476,20 +585,27 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
         }
 
         // Right Dual Horizontal Inclinometer Sliders
-        // Center (0 deg) is at x = 92. Sensitivity range: -45 deg to +45 deg
+        // Center (0 deg) is at x = 89 on a 178px usable track (192 track - 14 knob)
+        // Wall Plumb (Depth): sensitivity -15.0 deg to +15.0 deg
         if (s_pitch_bubble_knob) {
-            float norm_p = (pitch_deg + 45.0f) / 90.0f;
-            if (norm_p < 0.0f) norm_p = 0.0f;
-            if (norm_p > 1.0f) norm_p = 1.0f;
-            int kx = (int)(norm_p * 184.0f);
-            lv_obj_set_pos(s_pitch_bubble_knob, kx, 1);
+            float clamped_p = pitch_deg;
+            if (clamped_p < -15.0f) clamped_p = -15.0f;
+            if (clamped_p > 15.0f) clamped_p = 15.0f;
+            float norm_p = (clamped_p + 15.0f) / 30.0f;
+            int kx = (int)(norm_p * 178.0f);
+            lv_obj_set_pos(s_pitch_bubble_knob, kx, 2);
+            lv_obj_set_style_bg_color(s_pitch_bubble_knob, pitch_level ? lv_color_hex(0x00FF88) : lv_color_hex(0xFF1493), LV_PART_MAIN);
         }
+        // Shelf Level (Horiz): sensitivity -10.0 deg to +10.0 deg (High Precision Carpenter Level)
         if (s_roll_bubble_knob) {
-            float norm_r = (roll_deg + 45.0f) / 90.0f;
-            if (norm_r < 0.0f) norm_r = 0.0f;
-            if (norm_r > 1.0f) norm_r = 1.0f;
-            int kx = (int)(norm_r * 184.0f);
-            lv_obj_set_pos(s_roll_bubble_knob, kx, 1);
+            float clamped_r = roll_deg;
+            if (clamped_r < -10.0f) clamped_r = -10.0f;
+            if (clamped_r > 10.0f) clamped_r = 10.0f;
+            // Air bubble floats to high side: if left edge is lifted (roll_deg > 0), bubble floats left (lower x)
+            float norm_r = ((-clamped_r) + 10.0f) / 20.0f;
+            int kx = (int)(norm_r * 178.0f);
+            lv_obj_set_pos(s_roll_bubble_knob, kx, 2);
+            lv_obj_set_style_bg_color(s_roll_bubble_knob, roll_level ? lv_color_hex(0x00FF88) : lv_color_hex(0xFF1493), LV_PART_MAIN);
         }
     }
 
@@ -741,16 +857,16 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
     lv_obj_set_style_size(s_raw_sparkline_chart, 0, LV_PART_INDICATOR); // no point dots
     s_raw_sparkline_series = lv_chart_add_series(s_raw_sparkline_chart, lv_color_hex(0xFFE600), LV_CHART_AXIS_PRIMARY_Y);
 
-    // Tolerances row
+    // Level Tolerance row
     lv_obj_t * tol_hdr = lv_label_create(c1);
     lv_obj_set_pos(tol_hdr, 4, 82);
-    lv_label_set_text(tol_hdr, "TOLERANCES (X/Y/Z):");
+    lv_label_set_text(tol_hdr, "LEVEL TOLERANCE:");
     lv_obj_set_style_text_color(tol_hdr, lv_color_hex(0x70A0C0), LV_PART_MAIN);
     lv_obj_set_style_text_font(tol_hdr, &lv_font_montserrat_10, LV_PART_MAIN);
 
     s_lbl_tolerances_val = lv_label_create(c1);
     lv_obj_set_pos(s_lbl_tolerances_val, 4, 102);
-    lv_label_set_text(s_lbl_tolerances_val, "0.05 / 0.10 / 0.08");
+    lv_label_set_text(s_lbl_tolerances_val, "+/-2.00 deg");
     lv_obj_set_style_text_color(s_lbl_tolerances_val, lv_color_hex(0xFFCC00), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_lbl_tolerances_val, &lv_font_montserrat_12, LV_PART_MAIN);
 
@@ -764,8 +880,8 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
     lv_obj_set_align(lm, LV_ALIGN_CENTER);
 
     lv_obj_t * b_step = lv_label_create(c1);
-    lv_obj_set_pos(b_step, 172, 102);
-    lv_label_set_text(b_step, "0.01");
+    lv_obj_set_pos(b_step, 170, 102);
+    lv_label_set_text(b_step, "0.25d");
     lv_obj_set_style_text_color(b_step, lv_color_hex(0x8EA5C8), LV_PART_MAIN);
     lv_obj_set_style_text_font(b_step, &lv_font_montserrat_10, LV_PART_MAIN);
 
@@ -782,8 +898,9 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
     lv_obj_set_size(b_gear, 28, 22);
     lv_obj_set_pos(b_gear, 246, 98);
     lv_obj_set_style_bg_color(b_gear, lv_color_hex(0x005A7A), LV_PART_MAIN);
+    lv_obj_add_event_cb(b_gear, tol_reset_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_t * lg = lv_label_create(b_gear);
-    lv_label_set_text(lg, LV_SYMBOL_SETTINGS);
+    lv_label_set_text(lg, LV_SYMBOL_REFRESH);
     lv_obj_set_align(lg, LV_ALIGN_CENTER);
 
     // Card 2: Right Named Orientations Card
@@ -803,10 +920,10 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
     lv_obj_set_style_text_color(c2_hdr, lv_color_hex(0x00F0FF), LV_PART_MAIN);
     lv_obj_set_style_text_font(c2_hdr, &lv_font_montserrat_10, LV_PART_MAIN);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         lv_obj_t * r = lv_obj_create(c2);
-        lv_obj_set_size(r, 316, 21);
-        lv_obj_set_pos(r, 2, 18 + (i * 22));
+        lv_obj_set_size(r, 316, 23);
+        lv_obj_set_pos(r, 2, 20 + (i * 26));
         lv_obj_clear_flag(r, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_style_bg_color(r, lv_color_hex(0x0B1220), LV_PART_MAIN);
         lv_obj_set_style_border_color(r, lv_color_hex(0x203548), LV_PART_MAIN);
@@ -816,19 +933,19 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
         s_named_orientations[i].row_container = r;
 
         lv_obj_t * nm = lv_label_create(r);
-        lv_obj_set_pos(nm, 4, 1);
+        lv_obj_set_pos(nm, 4, 2);
         lv_label_set_text(nm, s_named_orientations[i].name);
         lv_obj_set_style_text_color(nm, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
         lv_obj_set_style_text_font(nm, &lv_font_montserrat_10, LV_PART_MAIN);
 
         s_named_orientations[i].status_label = lv_label_create(r);
-        lv_obj_set_pos(s_named_orientations[i].status_label, 172, 1);
+        lv_obj_set_pos(s_named_orientations[i].status_label, 156, 2);
         lv_label_set_text(s_named_orientations[i].status_label, "[IDLE]");
         lv_obj_set_style_text_color(s_named_orientations[i].status_label, lv_color_hex(0x607890), LV_PART_MAIN);
         lv_obj_set_style_text_font(s_named_orientations[i].status_label, &lv_font_montserrat_10, LV_PART_MAIN);
 
         lv_obj_t * th = lv_label_create(r);
-        lv_obj_set_pos(th, 242, 1);
+        lv_obj_set_pos(th, 236, 2);
         lv_label_set_text(th, s_named_orientations[i].threshold_str);
         lv_obj_set_style_text_color(th, lv_color_hex(0x00D2FF), LV_PART_MAIN);
         lv_obj_set_style_text_font(th, &lv_font_montserrat_10, LV_PART_MAIN);
@@ -974,28 +1091,28 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
     lv_obj_set_style_radius(p2_right, 6, LV_PART_MAIN);
     lv_obj_set_style_pad_all(p2_right, 4, LV_PART_MAIN);
 
-    // PITCH Slider Row
+    // PITCH / Wall Plumb Slider Row
     lv_obj_t * lbl_pitch_hdr = lv_label_create(p2_right);
     lv_obj_set_pos(lbl_pitch_hdr, 4, 18);
-    lv_label_set_text(lbl_pitch_hdr, "PITCH  >");
+    lv_label_set_text(lbl_pitch_hdr, "PLUMB >");
     lv_obj_set_style_text_color(lbl_pitch_hdr, lv_color_hex(0x00F0FF), LV_PART_MAIN);
-    lv_obj_set_style_text_font(lbl_pitch_hdr, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl_pitch_hdr, &lv_font_montserrat_10, LV_PART_MAIN);
 
     lv_obj_t * p_lim_l = lv_label_create(p2_right);
-    lv_obj_set_pos(p_lim_l, 68, 2);
-    lv_label_set_text(p_lim_l, "LIMIT -180");
+    lv_obj_set_pos(p_lim_l, 90, 2);
+    lv_label_set_text(p_lim_l, "-15d FWD");
     lv_obj_set_style_text_color(p_lim_l, lv_color_hex(0x70A0C0), LV_PART_MAIN);
     lv_obj_set_style_text_font(p_lim_l, &lv_font_montserrat_10, LV_PART_MAIN);
 
     lv_obj_t * p_lim_r = lv_label_create(p2_right);
-    lv_obj_set_pos(p_lim_r, 206, 2);
-    lv_label_set_text(p_lim_r, "LIMIT +180");
+    lv_obj_set_pos(p_lim_r, 214, 2);
+    lv_label_set_text(p_lim_r, "+15d BACK");
     lv_obj_set_style_text_color(p_lim_r, lv_color_hex(0x70A0C0), LV_PART_MAIN);
     lv_obj_set_style_text_font(p_lim_r, &lv_font_montserrat_10, LV_PART_MAIN);
 
     s_pitch_slider_track = lv_obj_create(p2_right);
-    lv_obj_set_size(s_pitch_slider_track, 200, 18);
-    lv_obj_set_pos(s_pitch_slider_track, 68, 16);
+    lv_obj_set_size(s_pitch_slider_track, 192, 18);
+    lv_obj_set_pos(s_pitch_slider_track, 78, 16);
     lv_obj_clear_flag(s_pitch_slider_track, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(s_pitch_slider_track, lv_color_hex(0x061828), LV_PART_MAIN);
     lv_obj_set_style_border_color(s_pitch_slider_track, lv_color_hex(0x00A0C0), LV_PART_MAIN);
@@ -1005,41 +1122,41 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
 
     lv_obj_t * tri_p = lv_label_create(s_pitch_slider_track);
     lv_label_set_text(tri_p, LV_SYMBOL_UP);
-    lv_obj_set_pos(tri_p, 92, 1);
+    lv_obj_set_pos(tri_p, 89, 1);
     lv_obj_set_style_text_color(tri_p, lv_color_hex(0xFFCC00), LV_PART_MAIN);
     lv_obj_set_style_text_font(tri_p, &lv_font_montserrat_10, LV_PART_MAIN);
 
     s_pitch_bubble_knob = lv_obj_create(s_pitch_slider_track);
     lv_obj_set_size(s_pitch_bubble_knob, 14, 14);
-    lv_obj_set_pos(s_pitch_bubble_knob, 92, 2);
+    lv_obj_set_pos(s_pitch_bubble_knob, 89, 2);
     lv_obj_clear_flag(s_pitch_bubble_knob, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(s_pitch_bubble_knob, lv_color_hex(0xFF1493), LV_PART_MAIN);
     lv_obj_set_style_border_color(s_pitch_bubble_knob, lv_color_hex(0xFFA0D0), LV_PART_MAIN);
     lv_obj_set_style_border_width(s_pitch_bubble_knob, 1, LV_PART_MAIN);
     lv_obj_set_style_radius(s_pitch_bubble_knob, LV_RADIUS_CIRCLE, LV_PART_MAIN);
 
-    // ROLL Slider Row
+    // ROLL / Shelf Level Slider Row
     lv_obj_t * lr = lv_label_create(p2_right);
     lv_obj_set_pos(lr, 4, 80);
-    lv_label_set_text(lr, "ROLL   >");
+    lv_label_set_text(lr, "SHELF >");
     lv_obj_set_style_text_color(lr, lv_color_hex(0x00F0FF), LV_PART_MAIN);
-    lv_obj_set_style_text_font(lr, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lr, &lv_font_montserrat_10, LV_PART_MAIN);
 
     lv_obj_t * r_lim_l = lv_label_create(p2_right);
-    lv_obj_set_pos(r_lim_l, 68, 64);
-    lv_label_set_text(r_lim_l, "LIMIT -90");
+    lv_obj_set_pos(r_lim_l, 90, 64);
+    lv_label_set_text(r_lim_l, "-10d L-HI");
     lv_obj_set_style_text_color(r_lim_l, lv_color_hex(0x70A0C0), LV_PART_MAIN);
     lv_obj_set_style_text_font(r_lim_l, &lv_font_montserrat_10, LV_PART_MAIN);
 
     lv_obj_t * r_lim_r = lv_label_create(p2_right);
-    lv_obj_set_pos(r_lim_r, 206, 64);
-    lv_label_set_text(r_lim_r, "LIMIT +90");
+    lv_obj_set_pos(r_lim_r, 214, 64);
+    lv_label_set_text(r_lim_r, "+10d R-HI");
     lv_obj_set_style_text_color(r_lim_r, lv_color_hex(0x70A0C0), LV_PART_MAIN);
     lv_obj_set_style_text_font(r_lim_r, &lv_font_montserrat_10, LV_PART_MAIN);
 
     s_roll_slider_track = lv_obj_create(p2_right);
-    lv_obj_set_size(s_roll_slider_track, 200, 18);
-    lv_obj_set_pos(s_roll_slider_track, 68, 78);
+    lv_obj_set_size(s_roll_slider_track, 192, 18);
+    lv_obj_set_pos(s_roll_slider_track, 78, 78);
     lv_obj_clear_flag(s_roll_slider_track, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(s_roll_slider_track, lv_color_hex(0x061828), LV_PART_MAIN);
     lv_obj_set_style_border_color(s_roll_slider_track, lv_color_hex(0x00A0C0), LV_PART_MAIN);
@@ -1049,13 +1166,13 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
 
     lv_obj_t * tri_r = lv_label_create(s_roll_slider_track);
     lv_label_set_text(tri_r, LV_SYMBOL_UP);
-    lv_obj_set_pos(tri_r, 92, 1);
+    lv_obj_set_pos(tri_r, 89, 1);
     lv_obj_set_style_text_color(tri_r, lv_color_hex(0xFFCC00), LV_PART_MAIN);
     lv_obj_set_style_text_font(tri_r, &lv_font_montserrat_10, LV_PART_MAIN);
 
     s_roll_bubble_knob = lv_obj_create(s_roll_slider_track);
     lv_obj_set_size(s_roll_bubble_knob, 14, 14);
-    lv_obj_set_pos(s_roll_bubble_knob, 92, 2);
+    lv_obj_set_pos(s_roll_bubble_knob, 89, 2);
     lv_obj_clear_flag(s_roll_bubble_knob, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(s_roll_bubble_knob, lv_color_hex(0xFF1493), LV_PART_MAIN);
     lv_obj_set_style_border_color(s_roll_bubble_knob, lv_color_hex(0xFFA0D0), LV_PART_MAIN);
@@ -1159,33 +1276,57 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
     lv_obj_set_style_radius(p3_right, 6, LV_PART_MAIN);
     lv_obj_set_style_pad_all(p3_right, 4, LV_PART_MAIN);
 
-    // Isometric Device Wireframe
+    // Dynamic Isometric Device Wireframe
     s_wireframe_diagram = lv_obj_create(p3_right);
-    lv_obj_set_size(s_wireframe_diagram, 100, 44);
-    lv_obj_set_pos(s_wireframe_diagram, 6, 26);
+    lv_obj_set_size(s_wireframe_diagram, 100, 46);
+    lv_obj_set_pos(s_wireframe_diagram, 6, 24);
     lv_obj_clear_flag(s_wireframe_diagram, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(s_wireframe_diagram, lv_color_hex(0x081525), LV_PART_MAIN);
-    lv_obj_set_style_border_color(s_wireframe_diagram, lv_color_hex(0x00D2FF), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_wireframe_diagram, lv_color_hex(0x060E1A), LV_PART_MAIN);
+    lv_obj_set_style_border_color(s_wireframe_diagram, lv_color_hex(0x0078A0), LV_PART_MAIN);
     lv_obj_set_style_border_width(s_wireframe_diagram, 1, LV_PART_MAIN);
     lv_obj_set_style_radius(s_wireframe_diagram, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(s_wireframe_diagram, 0, LV_PART_MAIN);
 
-    // Top screen representation inside chassis
-    lv_obj_t * wf_screen = lv_obj_create(s_wireframe_diagram);
-    lv_obj_set_size(wf_screen, 84, 18);
-    lv_obj_set_pos(wf_screen, 6, 4);
-    lv_obj_set_style_bg_color(wf_screen, lv_color_hex(0x00334D), LV_PART_MAIN);
-    lv_obj_set_style_border_width(wf_screen, 0, LV_PART_MAIN);
+    // Chassis body box
+    s_wf_chassis = lv_obj_create(s_wireframe_diagram);
+    lv_obj_set_size(s_wf_chassis, 86, 32);
+    lv_obj_set_pos(s_wf_chassis, 7, 6);
+    lv_obj_clear_flag(s_wf_chassis, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(s_wf_chassis, lv_color_hex(0x102030), LV_PART_MAIN);
+    lv_obj_set_style_border_color(s_wf_chassis, lv_color_hex(0x00E5FF), LV_PART_MAIN);
+    lv_obj_set_style_border_width(s_wf_chassis, 1, LV_PART_MAIN);
+    lv_obj_set_style_radius(s_wf_chassis, 3, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(s_wf_chassis, 0, LV_PART_MAIN);
 
-    s_wireframe_arrow = lv_label_create(s_wireframe_diagram);
-    lv_obj_set_pos(s_wireframe_arrow, 38, 22);
-    lv_label_set_text(s_wireframe_arrow, LV_SYMBOL_DOWN);
-    lv_obj_set_style_text_color(s_wireframe_arrow, lv_color_hex(0xFFA500), LV_PART_MAIN);
-    lv_obj_set_style_text_font(s_wireframe_arrow, &lv_font_montserrat_12, LV_PART_MAIN);
+    // Front/top glass display
+    s_wf_screen = lv_obj_create(s_wf_chassis);
+    lv_obj_set_size(s_wf_screen, 74, 18);
+    lv_obj_set_pos(s_wf_screen, 5, 8);
+    lv_obj_clear_flag(s_wf_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(s_wf_screen, lv_color_hex(0x003A5C), LV_PART_MAIN);
+    lv_obj_set_style_border_color(s_wf_screen, lv_color_hex(0x00FFAA), LV_PART_MAIN);
+    lv_obj_set_style_border_width(s_wf_screen, 1, LV_PART_MAIN);
+    lv_obj_set_style_radius(s_wf_screen, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(s_wf_screen, 0, LV_PART_MAIN);
+
+    // Physical power buttons indicator
+    s_wf_btns = lv_label_create(s_wf_chassis);
+    lv_obj_set_pos(s_wf_btns, 20, 0);
+    lv_label_set_text(s_wf_btns, "BTNS: UP");
+    lv_obj_set_style_text_color(s_wf_btns, lv_color_hex(0xFFCC00), LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_wf_btns, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    // Orientation note label below wireframe
+    s_wf_note = lv_label_create(p3_right);
+    lv_obj_set_pos(s_wf_note, 6, 76);
+    lv_label_set_text(s_wf_note, "FRONT (BTNS UP)");
+    lv_obj_set_style_text_color(s_wf_note, lv_color_hex(0x00FF88), LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_wf_note, &lv_font_montserrat_10, LV_PART_MAIN);
 
     // USB Port orientation indicator badge
     s_wireframe_usb = lv_obj_create(p3_right);
-    lv_obj_set_size(s_wireframe_usb, 64, 18);
-    lv_obj_set_pos(s_wireframe_usb, 24, 76);
+    lv_obj_set_size(s_wireframe_usb, 80, 20);
+    lv_obj_set_pos(s_wireframe_usb, 114, 74);
     lv_obj_clear_flag(s_wireframe_usb, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(s_wireframe_usb, lv_color_hex(0x081525), LV_PART_MAIN);
     lv_obj_set_style_border_color(s_wireframe_usb, lv_color_hex(0x00A0C0), LV_PART_MAIN);

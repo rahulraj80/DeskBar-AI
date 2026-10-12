@@ -43,11 +43,14 @@ void ui_consent_modal_init(lv_obj_t *parent) {
     lv_obj_t *body = lv_label_create(s_consent_modal);
     lv_obj_set_pos(body, 10, 24);
     lv_obj_set_width(body, 560);
-    lv_label_set_text(body,
-        "TuneBar includes turnkey community endpoints for AI voice assistant and telemetry.\n"
-        "Diagnostics are segregated into a private hardware table (TB_<hash>) with no personal data.\n"
-        "You can self-host and override endpoints at any time by uploading /secrets.ini via Web Remote."
+    char n_buf[320];
+    snprintf(n_buf, sizeof(n_buf),
+        "TuneBar includes turnkey community cloud endpoints for AI assistant & diagnostics.\n"
+        "Diagnostics are segregated into a private hardware table (%s) with no personal data.\n"
+        "You can self-host and override endpoints at any time by uploading /secrets.ini via Web Remote.",
+        secrets_get_telemetry_table()
     );
+    lv_label_set_text(body, n_buf);
     lv_obj_set_style_text_color(body, lv_color_hex(0xE2E8F0), LV_PART_MAIN);
     lv_obj_set_style_text_font(body, &lv_font_montserrat_10, LV_PART_MAIN);
 

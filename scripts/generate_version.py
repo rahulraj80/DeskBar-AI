@@ -24,7 +24,7 @@ def get_git_output(args):
 
 def main():
     # Base version: major.minor.patch
-    base_ver = "1.2.6"
+    base_ver = "1.2.8"
     
     # Try reading from latest git tag if present
     tag = get_git_output(["describe", "--tags", "--abbrev=0"])
@@ -32,7 +32,10 @@ def main():
         tag_clean = tag.lstrip("v")
         parts = tag_clean.split(".")
         if len(parts) >= 3 and all(p.isdigit() for p in parts[:3]):
-            base_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
+            # If current tag is already >= 1.2.8, use it, else 1.2.8
+            t_tuple = tuple(int(p) for p in parts[:3])
+            if t_tuple >= (1, 2, 8):
+                base_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
 
     major, minor, patch = base_ver.split(".")[:3]
     

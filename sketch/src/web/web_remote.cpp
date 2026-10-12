@@ -22,6 +22,7 @@
 #include "imu/imu_service.h"
 #include "updater/updater.h"
 #include "version.h"
+#include "generated_catalog.h"
 
 extern Audio audio;
 extern Preferences pref;
@@ -1376,26 +1377,7 @@ static void handle_ota_repos(void) {
 }
 
 static void handle_ota_catalog(void) {
-    const char *json = "{\"repo_id\":\"official\",\"releases\":["
-      "{\"version\":\"1.2.6\",\"type\":\"patch\",\"build\":17,\"date\":\"2026-10-12\",\"size\":\"4.04 MB\",\"size_bytes\":4237632,"
-      "\"changelog\":\"LVGL vector themes (2.21MB flash freed). 3-Panel Spirit Level App with 8-pose calibration. 10s breathing cycle. Wi-Fi power down in clock mode.\","
-      "\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin\"},"
-      "{\"version\":\"1.2.5\",\"type\":\"patch\",\"build\":16,\"date\":\"2026-10-10\",\"size\":\"6.02 MB\",\"size_bytes\":6318400,"
-      "\"changelog\":\"Fixed AP3032 boost rail. IMU orientation calibration. 15s timeout clock face fix.\","
-      "\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin\"},"
-      "{\"version\":\"1.2.0\",\"type\":\"minor\",\"build\":14,\"date\":\"2026-10-05\",\"size\":\"5.98 MB\",\"size_bytes\":6280000,"
-      "\"changelog\":\"Web Remote controller with D-pad. 10Hz IMU live stream. LAN MP3 indexer. Telemetry API.\","
-      "\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin\"},"
-      "{\"version\":\"1.1.0\",\"type\":\"minor\",\"build\":10,\"date\":\"2026-09-28\",\"size\":\"5.85 MB\",\"size_bytes\":6150000,"
-      "\"changelog\":\"ES7210 dual I2S mic driver. Groq Whisper audio pipeline with voice activity detection.\","
-      "\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin\"},"
-      "{\"version\":\"2.0.0\",\"type\":\"major\",\"build\":20,\"date\":\"2026-11-01\",\"size\":\"4.15 MB\",\"size_bytes\":4350000,"
-      "\"changelog\":\"Next-Gen OS: FreeRTOS SMP, LittleFS vector loader, multi-repo rollback guard, spirit level app.\","
-      "\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin\"},"
-      "{\"version\":\"1.0.0\",\"type\":\"major\",\"build\":1,\"date\":\"2026-09-01\",\"size\":\"5.70 MB\",\"size_bytes\":5700000,"
-      "\"changelog\":\"Initial commercial release. Internet Radio, Clock, Alarm, Weather apps on ST7701.\","
-      "\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.0.0.bin\"}"
-      "]}";
+    String json = get_generated_catalog_json();
     server.send(200, "application/json", json);
 }
 

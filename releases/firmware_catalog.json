@@ -2,12 +2,42 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.0.0",
+      "type": "major",
+      "build": 20,
+      "date": "2026-11-01",
+      "title": "Next-Gen TuneBar OS (Preview)",
+      "changelog": "\u2022 FreeRTOS symmetric multiprocessing architecture.\n\u2022 LittleFS asset filesystem with dynamic vector styling.\n\u2022 Integrated multi-repo firmware updater with rollback guard.\n\u2022 Low-latency ES8311 HiFi audio pipeline.\n\u2022 Full 6-axis motion tracking and gesture controls.",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin",
+      "size": 4350000
+    },
+    {
+      "version": "1.2.8",
+      "type": "patch",
+      "build": 21,
+      "date": "Oct 12, 2026",
+      "title": "TuneBar v1.2.8 Firmware Release",
+      "changelog": "\u2022 Automated multi-tenant telemetry and device registration guard.\n\u2022 4-Row 3-State IMU posture panel with active/inverted tracking.\n\u2022 High-precision shelf inclinometer and uphill air bubble physics.\n\u2022 Dynamic isometric chassis diagram in calibration wizard.\n\u2022 Clock breathing interaction wake fix.",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.8.bin",
+      "size": 4283408
+    },
+    {
+      "version": "1.2.7",
+      "type": "patch",
+      "build": 21,
+      "date": "Oct 12, 2026",
+      "title": "TuneBar v1.2.7 Firmware Release",
+      "changelog": "\u2022 Automated multi-tenant telemetry and device registration guard.\n\u2022 4-Row 3-State IMU posture panel with active/inverted tracking.\n\u2022 High-precision shelf inclinometer and uphill air bubble physics.\n\u2022 Dynamic isometric chassis diagram in calibration wizard.\n\u2022 Clock breathing interaction wake fix.",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.7.bin",
+      "size": 4283408
+    },
+    {
       "version": "1.2.6",
       "type": "patch",
       "build": 17,
       "date": "2026-10-12",
       "title": "LVGL Vector Themes, Spirit Level & Memory Optimization",
-      "changelog": "• Procedural LVGL vector styles replace 8 heavy bitmaps: binary dropped from 6.44MB to 4.04MB (2.21MB flash freed).\n• 3-Panel Spirit Level App with 2D bullseye dial, live IMU telemetry, and 8-step guided calibration wizard.\n• Calibration saves sensor bias and custom tolerance to NVS flash.\n• Enlarged 46x38px Close button matching Settings on OTA and Spirit Level.\n• 10-second breathing cycle (5s black, 1.5s fade in, 2s hold high, 1.5s fade out).\n• Wi-Fi power down in clock mode saving ~50mA quiescent current.",
+      "changelog": "\u2022 Procedural LVGL vector styles replace 8 heavy bitmaps: binary dropped from 6.44MB to 4.04MB (2.21MB flash freed).\n\u2022 3-Panel Spirit Level App with 2D bullseye dial, live IMU telemetry, and 8-step guided calibration wizard.\n\u2022 Calibration saves sensor bias and custom tolerance to NVS flash.\n\u2022 Enlarged 46x38px Close button matching Settings on OTA and Spirit Level.\n\u2022 10-second breathing cycle (5s black, 1.5s fade in, 2s hold high, 1.5s fade out).\n\u2022 Wi-Fi power down in clock mode saving ~50mA quiescent current.",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin",
       "size": 4259536
     },
@@ -17,7 +47,7 @@
       "build": 16,
       "date": "2026-10-10",
       "title": "IMU Calibration & Backlight AP3032 Boost Fix",
-      "changelog": "• Fixed AP3032 boost converter enable rail on EXIO1.\n• Calibrated QMI8658 6-axis IMU orientation detection.\n• Resolved 15-second screen timeout conflict on Nixie clock face.\n• Improved touch responsiveness on 640x172 landscape display.",
+      "changelog": "\u2022 Fixed AP3032 boost converter enable rail on EXIO1.\n\u2022 Calibrated QMI8658 6-axis IMU orientation detection.\n\u2022 Resolved 15-second screen timeout conflict on Nixie clock face.\n\u2022 Improved touch responsiveness on 640x172 landscape display.",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin",
       "size": 6318400
     },
@@ -27,7 +57,7 @@
       "build": 14,
       "date": "2026-10-05",
       "title": "Web Remote Controller & LAN Streaming",
-      "changelog": "• Web Remote controller with virtual touch canvas and D-pad.\n• Real-time IMU SSE live sensor streaming at 10Hz.\n• LAN MP3 / FLAC file indexer and high-throughput streaming.\n• Multi-catalog Internet Radio station directory.\n• System telemetry and DRAM/PSRAM diagnostics API.",
+      "changelog": "\u2022 Web Remote controller with virtual touch canvas and D-pad.\n\u2022 Real-time IMU SSE live sensor streaming at 10Hz.\n\u2022 LAN MP3 / FLAC file indexer and high-throughput streaming.\n\u2022 Multi-catalog Internet Radio station directory.\n\u2022 System telemetry and DRAM/PSRAM diagnostics API.",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin",
       "size": 6280000
     },
@@ -37,19 +67,9 @@
       "build": 10,
       "date": "2026-09-28",
       "title": "Voice Assistant & Groq STT Engine",
-      "changelog": "• ES7210 dual I2S microphone array driver integration.\n• Groq Whisper audio pipeline with voice activity detection.\n• Hardware acoustic echo cancellation calibration.\n• Weather forecast voice responses with multi-day forecasts.",
+      "changelog": "\u2022 ES7210 dual I2S microphone array driver integration.\n\u2022 Groq Whisper audio pipeline with voice activity detection.\n\u2022 Hardware acoustic echo cancellation calibration.\n\u2022 Weather forecast voice responses with multi-day forecasts.",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin",
       "size": 6150000
-    },
-    {
-      "version": "2.0.0",
-      "type": "major",
-      "build": 20,
-      "date": "2026-11-01",
-      "title": "Next-Gen TuneBar OS (Preview)",
-      "changelog": "• FreeRTOS symmetric multiprocessing architecture.\n• LittleFS asset filesystem with dynamic vector styling.\n• Integrated multi-repo firmware updater with rollback guard.\n• Low-latency ES8311 HiFi audio pipeline.\n• Full 6-axis motion tracking and gesture controls.",
-      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin",
-      "size": 4350000
     },
     {
       "version": "1.0.0",
@@ -57,7 +77,7 @@
       "build": 1,
       "date": "2026-09-01",
       "title": "Initial TuneBar Release",
-      "changelog": "• Initial commercial firmware release for TuneBar ESP32-S3.\n• LVGL 8.3 graphics engine on ST7701 640x172 display.\n• Internet Radio player, Clock, Alarm, and Weather apps.",
+      "changelog": "\u2022 Initial commercial firmware release for TuneBar ESP32-S3.\n\u2022 LVGL 8.3 graphics engine on ST7701 640x172 display.\n\u2022 Internet Radio player, Clock, Alarm, and Weather apps.",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.0.0.bin",
       "size": 5700000
     }

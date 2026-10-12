@@ -120,6 +120,8 @@ void ui_init(void)
     ui_Screen_Info_screen_init();
     ui_Screen_Player_screen_init();
     ui_Screen_Utility_screen_init();
+    extern void ui_consent_modal_init(lv_obj_t *parent);
+    ui_consent_modal_init(lv_layer_top());
     ui_Startevents____initial_actions0 = lv_obj_create(NULL);
     lv_disp_load_scr(ui_Screen_Boot);
     
