@@ -14,9 +14,9 @@ struct CatalogItem {
   uint32_t size_bytes;
 };
 
-#define GENERATED_CATALOG_COUNT 8
+#define GENERATED_CATALOG_COUNT 9
 
-static const CatalogItem s_generated_catalog[8] = {
+static const CatalogItem s_generated_catalog[9] = {
   // [0] v2.0.0
   {
     "v2.0.0", "MAJOR", 0xB388FF, "2026-11-01", "4.15 MB",
@@ -28,7 +28,19 @@ static const CatalogItem s_generated_catalog[8] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin",
     4350000
   },
-  // [1] v1.2.8
+  // [1] v1.2.9
+  {
+    "v1.2.9", "PATCH", 0x00FF88, "Oct 12, 2026", "4.11 MB",
+    "• Enforced First-Boot Registration & Cloud Notice modal on screen.\n"
+    "• Immediate boot telemetry ping-home unblocked across Wi-Fi reconnects.\n"
+    "• Removed audio-player starvation of telemetry upload batches.\n"
+    "• Per-device table isolation (TB_<hash>) with dedicated telemetry.php dashboard.\n"
+    "• Full Web Remote Secrets Manager card for /secrets.ini editing and endpoint override.\n"
+    "• Server-side hardware authentication guard on AI Voice Assistant (ask.php).",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.9.bin",
+    4310000
+  },
+  // [2] v1.2.8
   {
     "v1.2.8", "PATCH", 0x00FF88, "Oct 12, 2026", "4.08 MB",
     "• Automated multi-tenant telemetry and device registration guard.\n"
@@ -39,7 +51,7 @@ static const CatalogItem s_generated_catalog[8] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.8.bin",
     4283408
   },
-  // [2] v1.2.7
+  // [3] v1.2.7
   {
     "v1.2.7", "PATCH", 0x00FF88, "Oct 12, 2026", "4.08 MB",
     "• Automated multi-tenant telemetry and device registration guard.\n"
@@ -50,7 +62,7 @@ static const CatalogItem s_generated_catalog[8] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.7.bin",
     4283408
   },
-  // [3] v1.2.6
+  // [4] v1.2.6
   {
     "v1.2.6", "PATCH", 0x00FF88, "2026-10-12", "4.06 MB",
     "• Procedural LVGL vector styles replace 8 heavy bitmaps: binary dropped from 6.44MB to 4.04MB (2.21MB flash freed).\n"
@@ -62,7 +74,7 @@ static const CatalogItem s_generated_catalog[8] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin",
     4259536
   },
-  // [4] v1.2.5
+  // [5] v1.2.5
   {
     "v1.2.5", "PATCH", 0x00FF88, "2026-10-10", "6.03 MB",
     "• Fixed AP3032 boost converter enable rail on EXIO1.\n"
@@ -72,7 +84,7 @@ static const CatalogItem s_generated_catalog[8] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin",
     6318400
   },
-  // [5] v1.2.0
+  // [6] v1.2.0
   {
     "v1.2.0", "MINOR", 0x00B0FF, "2026-10-05", "5.99 MB",
     "• Web Remote controller with virtual touch canvas and D-pad.\n"
@@ -83,7 +95,7 @@ static const CatalogItem s_generated_catalog[8] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin",
     6280000
   },
-  // [6] v1.1.0
+  // [7] v1.1.0
   {
     "v1.1.0", "MINOR", 0x00B0FF, "2026-09-28", "5.87 MB",
     "• ES7210 dual I2S microphone array driver integration.\n"
@@ -93,7 +105,7 @@ static const CatalogItem s_generated_catalog[8] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin",
     6150000
   },
-  // [7] v1.0.0
+  // [8] v1.0.0
   {
     "v1.0.0", "MAJOR", 0xB388FF, "2026-09-01", "5.44 MB",
     "• Initial commercial firmware release for TuneBar ESP32-S3.\n"
@@ -107,7 +119,8 @@ static const CatalogItem s_generated_catalog[8] = {
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
   j += "{\"version\":\"2.0.0\",\"type\":\"major\",\"build\":20,\"date\":\"2026-11-01\",\"size\":\"4.15 MB\",\"size_bytes\":4350000,\"changelog\":\"• FreeRTOS symmetric multiprocessing architecture. • LittleFS asset filesystem with dynamic vector styling. • Integrated multi-repo firmware updater with rollback guard. • Low-latency ES8311 HiFi audio pipeline. • Full 6-axis motion tracking and gesture controls.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin\"},";
-  j += "{\"version\":\"1.2.8\",\"type\":\"patch\",\"build\":21,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.8.bin\"},";
+  j += "{\"version\":\"1.2.9\",\"type\":\"patch\",\"build\":23,\"date\":\"Oct 12, 2026\",\"size\":\"4.11 MB\",\"size_bytes\":4310000,\"changelog\":\"• Enforced First-Boot Registration & Cloud Notice modal on screen. • Immediate boot telemetry ping-home unblocked across Wi-Fi reconnects. • Removed audio-player starvation of telemetry upload batches. • Per-device table isolation (TB_<hash>) with dedicated telemetry.php dashboard. • Full Web Remote Secrets Manager card for /secrets.ini editing and endpoint override. • Server-side hardware authentication guard on AI Voice Assistant (ask.php).\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.9.bin\"},";
+  j += "{\"version\":\"1.2.8\",\"type\":\"patch\",\"build\":22,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.8.bin\"},";
   j += "{\"version\":\"1.2.7\",\"type\":\"patch\",\"build\":21,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.7.bin\"},";
   j += "{\"version\":\"1.2.6\",\"type\":\"patch\",\"build\":17,\"date\":\"2026-10-12\",\"size\":\"4.06 MB\",\"size_bytes\":4259536,\"changelog\":\"• Procedural LVGL vector styles replace 8 heavy bitmaps: binary dropped from 6.44MB to 4.04MB (2.21MB flash freed). • 3-Panel Spirit Level App with 2D bullseye dial, live IMU telemetry, and 8-step guided calibration wizard. • Calibration saves sensor bias and custom tolerance to NVS flash. • Enlarged 46x38px Close button matching Settings on OTA and Spirit Level. • 10-second breathing cycle (5s black, 1.5s fade in, 2s hold high, 1.5s fade out). • Wi-Fi power down in clock mode saving ~50mA quiescent current.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin\"},";
   j += "{\"version\":\"1.2.5\",\"type\":\"patch\",\"build\":16,\"date\":\"2026-10-10\",\"size\":\"6.03 MB\",\"size_bytes\":6318400,\"changelog\":\"• Fixed AP3032 boost converter enable rail on EXIO1. • Calibrated QMI8658 6-axis IMU orientation detection. • Resolved 15-second screen timeout conflict on Nixie clock face. • Improved touch responsiveness on 640x172 landscape display.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin\"},";

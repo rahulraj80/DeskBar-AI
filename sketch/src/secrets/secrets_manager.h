@@ -31,8 +31,15 @@ const char* secrets_get_master_pin(void);
 
 // Community cloud consent management
 bool secrets_has_cloud_consent(void);
+bool secrets_has_decided_consent(void);
 void secrets_set_cloud_consent(bool consent);
+void secrets_reset_consent(void);
+void secrets_set_master_pin(const char *pin);
 bool secrets_has_custom_ini(void);
+
+// Web Remote INI editor helpers
+bool secrets_write_ini_file(const char *ai_url, const char *telem_url, const char *table, uint32_t interval, const char *pin, bool consent);
+bool secrets_delete_ini_file(void);
 
 #ifdef __cplusplus
 }

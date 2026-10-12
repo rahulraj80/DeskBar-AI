@@ -248,6 +248,7 @@ void serial_debug_beacon_task(void *param) {
   telemetry_init();
   uint32_t last_telemetry_snap = millis();
   uint32_t last_telemetry_flush = millis();
+  static bool s_initial_ping_done = false;
 
   for (;;) {
     rtc_last_uptime_s = (uint32_t)(esp_timer_get_time() / 1000000ULL);
@@ -263,6 +264,15 @@ void serial_debug_beacon_task(void *param) {
           audio.isRunning() ? "PLAYING" : "IDLE",
           (WiFi.status() == WL_CONNECTED) ? "CONNECTED" : "OFFLINE");
 
+    // Immediate ping-home on fresh boot once connected to Wi-Fi
+    if (!s_initial_ping_done && (WiFi.status() == WL_CONNECTED) && (secrets_has_cloud_consent() || secrets_has_custom_ini())) {
+      s_initial_ping_done = true;
+      log_i("[TELEMETRY] Triggering initial ping-home telemetry snapshot & flush...");
+      telemetry_collect_snapshot();
+      telemetry_flush_batch();
+      last_telemetry_flush = millis();
+    }
+
     // Collect snapshot according to configured interval (default 300s = 5m)
     uint32_t snap_interval_ms = secrets_get_telemetry_interval() * 1000ULL;
     if (millis() - last_telemetry_snap >= snap_interval_ms) {
@@ -270,10 +280,11 @@ void serial_debug_beacon_task(void *param) {
       telemetry_collect_snapshot();
     }
 
-    // Flush batch every 5 minutes or when >= 5 records are buffered (only when idle)
+    // Flush batch every 5 minutes or when >= 5 records are buffered
+    // Note: Audio playback does NOT starve telemetry anymore
     if ((millis() - last_telemetry_flush >= 300000 || telemetry_get_buffered_count() >= 5) &&
         (WiFi.status() == WL_CONNECTED) &&
-        !ai_recording_active && !ai_upload_in_progress && !audio.isRunning()) {
+        !ai_recording_active && !ai_upload_in_progress) {
       last_telemetry_flush = millis();
       telemetry_flush_batch();
     }
@@ -1062,6 +1073,35 @@ void serial_cli_task(void *param) {
           } else if (cmd.equalsIgnoreCase("autorotate off")) {
             imu_sensor_set_autorotate_enabled(false);
             Serial.println("[CLI IMU] Landscape Auto-rotation DISABLED");
+          } else if (cmd.equalsIgnoreCase("consent") || cmd.equalsIgnoreCase("consent status")) {
+            Serial.println("\n========== CLOUD CONSENT & REGISTRATION ==========");
+            Serial.printf("  Consent Decided : %s\n", secrets_has_decided_consent() ? "YES" : "NO (Pending First-Boot Modal)");
+            Serial.printf("  Consent Granted : %s\n", secrets_has_cloud_consent() ? "GRANTED" : "DECLINED / OFFLINE");
+            Serial.printf("  Custom INI File : %s\n", secrets_has_custom_ini() ? "ACTIVE (/secrets.ini)" : "NONE (Using Firmware Defaults)");
+            Serial.printf("  Telemetry Table : %s\n", secrets_get_telemetry_table());
+            Serial.printf("  Telemetry URL   : https://autobots.my.to/telemetry.php?table=%s\n", secrets_get_telemetry_table());
+            Serial.printf("  AI Assistant URL: %s\n", secrets_get_ai_url());
+            Serial.println("===================================================\n");
+          } else if (cmd.equalsIgnoreCase("consent accept")) {
+            secrets_set_cloud_consent(true);
+            telemetry_collect_snapshot();
+            telemetry_flush_batch();
+            Serial.println("[CLI CONSENT] OK: Cloud consent ACCEPTED. Telemetry ping-home sent.");
+          } else if (cmd.equalsIgnoreCase("consent decline")) {
+            secrets_set_cloud_consent(false);
+            Serial.println("[CLI CONSENT] OK: Cloud consent DECLINED. Device operating in offline mode.");
+          } else if (cmd.equalsIgnoreCase("consent reset")) {
+            secrets_reset_consent();
+            Serial.println("[CLI CONSENT] OK: Consent flag reset. First-boot modal will show on next boot or call 'consent modal'.");
+          } else if (cmd.equalsIgnoreCase("consent modal")) {
+            extern void ui_consent_modal_force_show(void);
+            ui_consent_modal_force_show();
+            Serial.println("[CLI CONSENT] OK: First-Boot Consent Modal displayed on screen.");
+          } else if (cmd.equalsIgnoreCase("telemetry flush")) {
+            Serial.println("[CLI TELEMETRY] Manually triggering telemetry batch flush...");
+            telemetry_collect_snapshot();
+            telemetry_flush_batch();
+            Serial.println("[CLI TELEMETRY] OK: Flush batch invoked.");
           } else {
             Serial.printf("[CLI] Unknown command: '%s' (type 'help')\n", cmd.c_str());
           }

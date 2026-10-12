@@ -12,9 +12,19 @@
       "size": 4350000
     },
     {
+      "version": "1.2.9",
+      "type": "patch",
+      "build": 23,
+      "date": "Oct 12, 2026",
+      "title": "TuneBar v1.2.9: First-Boot Registration & Telemetry Fixes",
+      "changelog": "\u2022 Enforced First-Boot Registration & Cloud Notice modal on screen.\n\u2022 Immediate boot telemetry ping-home unblocked across Wi-Fi reconnects.\n\u2022 Removed audio-player starvation of telemetry upload batches.\n\u2022 Per-device table isolation (TB_<hash>) with dedicated telemetry.php dashboard.\n\u2022 Full Web Remote Secrets Manager card for /secrets.ini editing and endpoint override.\n\u2022 Server-side hardware authentication guard on AI Voice Assistant (ask.php).",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.9.bin",
+      "size": 4310000
+    },
+    {
       "version": "1.2.8",
       "type": "patch",
-      "build": 21,
+      "build": 22,
       "date": "Oct 12, 2026",
       "title": "TuneBar v1.2.8 Firmware Release",
       "changelog": "\u2022 Automated multi-tenant telemetry and device registration guard.\n\u2022 4-Row 3-State IMU posture panel with active/inverted tracking.\n\u2022 High-precision shelf inclinometer and uphill air bubble physics.\n\u2022 Dynamic isometric chassis diagram in calibration wizard.\n\u2022 Clock breathing interaction wake fix.",

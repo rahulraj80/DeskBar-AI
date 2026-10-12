@@ -129,10 +129,25 @@ static const char HTML_PAGE[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       <div class="stat-chip"><span>Display</span><strong id="stat-screen">--</strong></div>
       <div class="stat-chip"><span>Boot Count</span><strong id="stat-boot">--</strong></div>
     </div>
+    <div style="background:#0c121e;padding:8px 10px;border-radius:8px;border:1px solid #1f2b3e;display:flex;flex-direction:column;gap:5px;font-size:0.78rem">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--sub)">Cloud Consent:</span>
+        <span id="telem-consent-badge" style="padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:bold;background:#1e293b;color:#94a3b8">CHECKING</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--sub)">Database Table:</span>
+        <code id="telem-table-name" style="background:#151d2a;color:#00d2ff;padding:2px 6px;border-radius:4px;font-family:monospace">TB_--------</code>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
+        <input type="text" id="telem-full-url" readonly style="flex:1;background:#151d2a;border:1px solid #263346;border-radius:6px;padding:4px 8px;font-size:0.72rem;color:#94a3b8;font-family:monospace" value="https://autobots.my.to/telemetry.php?table=...">
+        <button class="btn" style="flex:none;padding:4px 8px;font-size:0.72rem" onclick="copyTelemUrl()">📋 Copy URL</button>
+      </div>
+    </div>
     <div class="btn-group" style="margin-top:2px">
       <button class="btn" onclick="callApi('/api/telemetry?action=snap')">📸 Snap Telemetry</button>
-      <button class="btn" onclick="callApi('/api/telemetry?action=flush')">☁ Flush Telemetry</button>
-      <a id="telem-cloud-btn" class="btn" target="_blank" href="#" style="text-decoration:none;display:inline-block;text-align:center;background:#0d233a;border-color:#00d2ff;color:#00d2ff">📊 View Cloud Portal</a>
+      <button class="btn" onclick="callApi('/api/telemetry?action=flush')">☁ Flush Now</button>
+      <button class="btn success" id="telem-consent-btn" onclick="toggleCloudConsent()">Accept Consent</button>
+      <a id="telem-cloud-btn" class="btn primary" target="_blank" href="#" style="text-decoration:none;display:flex;align-items:center;justify-content:center">📊 Open Dashboard</a>
     </div>
   </div>
 
@@ -342,6 +357,42 @@ static const char HTML_PAGE[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       <div id="ota-status-text" style="font-size:0.78rem;color:#00E5FF;font-weight:bold">Ready</div>
     </div>
   </div>
+
+  <!-- CARD 11: CLOUD ENDPOINTS & SECRETS MANAGER (/secrets.ini) -->
+  <div class="card">
+    <div class="card-title">
+      <span>🔐 Cloud Endpoints & Secrets (/secrets.ini)</span>
+      <span id="secrets-ini-badge" style="font-size:0.75rem;padding:2px 8px;border-radius:10px;background:#1e293b;color:#94a3b8">DEFAULT</span>
+    </div>
+    <div style="font-size:0.75rem;color:var(--sub)">
+      Override built-in cloud endpoints with your own private servers for total privacy. Values are saved to flash as <code>/secrets.ini</code>.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div>
+        <label style="font-size:0.72rem;color:var(--sub);display:block;margin-bottom:2px">AI Assistant URL:</label>
+        <input type="text" id="sec-ai-url" style="width:100%;background:#0f1522;border:1px solid var(--border);border-radius:6px;padding:6px;color:#fff;font-size:0.78rem" placeholder="https://yourserver.com/ask.php">
+      </div>
+      <div>
+        <label style="font-size:0.72rem;color:var(--sub);display:block;margin-bottom:2px">Telemetry Ingestion Endpoint:</label>
+        <input type="text" id="sec-telem-url" style="width:100%;background:#0f1522;border:1px solid var(--border);border-radius:6px;padding:6px;color:#fff;font-size:0.78rem" placeholder="https://yourserver.com/myapi.php">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div>
+          <label style="font-size:0.72rem;color:var(--sub);display:block;margin-bottom:2px">Interval (seconds):</label>
+          <input type="number" id="sec-interval" min="60" max="86400" value="300" style="width:100%;background:#0f1522;border:1px solid var(--border);border-radius:6px;padding:6px;color:#fff;font-size:0.78rem">
+        </div>
+        <div>
+          <label style="font-size:0.72rem;color:var(--sub);display:block;margin-bottom:2px">Master PIN / Salt:</label>
+          <input type="password" id="sec-pin" style="width:100%;background:#0f1522;border:1px solid var(--border);border-radius:6px;padding:6px;color:#fff;font-size:0.78rem" placeholder="Optional PIN">
+        </div>
+      </div>
+    </div>
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn primary" onclick="saveSecretsIni()">💾 Save /secrets.ini</button>
+      <button class="btn warning" onclick="restoreSecretsDefault()">↺ Restore Defaults</button>
+    </div>
+    <div id="secrets-feedback" style="font-size:0.75rem;min-height:16px"></div>
+  </div>
 </div>
 
 <script>
@@ -356,6 +407,79 @@ function callApi(url, method='POST') {
     .then(r => r.json())
     .then(refreshData)
     .catch(console.error);
+}
+
+function copyTelemUrl() {
+  const inp = document.getElementById('telem-full-url');
+  if (inp && inp.value) {
+    navigator.clipboard.writeText(inp.value).then(() => {
+      alert("Telemetry Dashboard URL copied to clipboard!\n\n" + inp.value);
+    }).catch(() => {
+      inp.select();
+      document.execCommand('copy');
+      alert("Copied: " + inp.value);
+    });
+  }
+}
+
+function toggleCloudConsent() {
+  const btn = document.getElementById('telem-consent-btn');
+  const isCurrentlyGranted = (btn && btn.innerText.includes('Revoke'));
+  const action = isCurrentlyGranted ? 'decline' : 'accept';
+  callApi('/api/consent?action=' + action);
+}
+
+function saveSecretsIni() {
+  const ai = document.getElementById('sec-ai-url').value.trim();
+  const telem = document.getElementById('sec-telem-url').value.trim();
+  const interval = document.getElementById('sec-interval').value.trim();
+  const pin = document.getElementById('sec-pin').value.trim();
+  const fb = document.getElementById('secrets-feedback');
+
+  fb.innerHTML = '<span style="color:#00d2ff">⏳ Saving /secrets.ini to device flash...</span>';
+  const params = new URLSearchParams();
+  if (ai) params.append('ai_url', ai);
+  if (telem) params.append('telem_url', telem);
+  if (interval) params.append('interval', interval);
+  if (pin) params.append('pin', pin);
+  params.append('consent', '1');
+
+  fetch('/api/secrets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString()
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.status === 'ok') {
+      fb.innerHTML = '<span style="color:#10b981">✓ Saved! /secrets.ini is now active on device.</span>';
+      setTimeout(() => { fb.innerHTML = ''; }, 4000);
+      callApi('/api/status', 'GET');
+    } else {
+      fb.innerHTML = '<span style="color:#ef4444">⚠ Error: ' + res.message + '</span>';
+    }
+  })
+  .catch(err => {
+    fb.innerHTML = '<span style="color:#ef4444">⚠ Failed to save /secrets.ini</span>';
+    console.error(err);
+  });
+}
+
+function restoreSecretsDefault() {
+  if (!confirm("Are you sure you want to remove /secrets.ini and restore built-in firmware endpoints?")) return;
+  const fb = document.getElementById('secrets-feedback');
+  fb.innerHTML = '<span style="color:#00d2ff">⏳ Restoring firmware defaults...</span>';
+  fetch('/api/secrets?action=restore', { method: 'POST' })
+    .then(r => r.json())
+    .then(res => {
+      fb.innerHTML = '<span style="color:#10b981">✓ Restored firmware defaults.</span>';
+      setTimeout(() => { fb.innerHTML = ''; }, 4000);
+      callApi('/api/status', 'GET');
+    })
+    .catch(err => {
+      fb.innerHTML = '<span style="color:#ef4444">⚠ Failed to restore defaults.</span>';
+      console.error(err);
+    });
 }
 
 function handleCanvasClick(e) {
@@ -536,6 +660,58 @@ function refreshData(data) {
   const telemBtn = document.getElementById('telem-cloud-btn');
   if (telemBtn && data.telem_url) {
     telemBtn.href = data.telem_url;
+  }
+  const telemTbl = document.getElementById('telem-table-name');
+  if (telemTbl && data.telem_table) {
+    telemTbl.innerText = data.telem_table;
+  }
+  const telemFullUrl = document.getElementById('telem-full-url');
+  if (telemFullUrl && data.telem_url) {
+    telemFullUrl.value = data.telem_url;
+  }
+  const telemConsentBadge = document.getElementById('telem-consent-badge');
+  const telemConsentBtn = document.getElementById('telem-consent-btn');
+  if (telemConsentBadge) {
+    if (data.consent) {
+      telemConsentBadge.style.background = '#063025';
+      telemConsentBadge.style.color = '#00FF88';
+      telemConsentBadge.innerText = 'GRANTED';
+      if (telemConsentBtn) {
+        telemConsentBtn.innerText = 'Revoke Consent';
+        telemConsentBtn.className = 'btn warning';
+      }
+    } else {
+      telemConsentBadge.style.background = '#3A1E00';
+      telemConsentBadge.style.color = '#FFA500';
+      telemConsentBadge.innerText = data.consent_decided ? 'DECLINED (OFFLINE)' : 'PENDING NOTICE';
+      if (telemConsentBtn) {
+        telemConsentBtn.innerText = 'Accept Consent';
+        telemConsentBtn.className = 'btn success';
+      }
+    }
+  }
+
+  // Update Secrets Manager card fields if not actively editing
+  const secIniBadge = document.getElementById('secrets-ini-badge');
+  if (secIniBadge) {
+    if (data.custom_ini) {
+      secIniBadge.style.background = '#063025';
+      secIniBadge.style.color = '#00FF88';
+      secIniBadge.innerText = 'ACTIVE (/secrets.ini)';
+    } else {
+      secIniBadge.style.background = '#1e293b';
+      secIniBadge.style.color = '#94a3b8';
+      secIniBadge.innerText = 'FIRMWARE DEFAULT';
+    }
+  }
+  if (document.activeElement !== document.getElementById('sec-ai-url') && data.ai_url) {
+    document.getElementById('sec-ai-url').value = data.ai_url;
+  }
+  if (document.activeElement !== document.getElementById('sec-telem-url') && data.telem_endpoint) {
+    document.getElementById('sec-telem-url').value = data.telem_endpoint;
+  }
+  if (document.activeElement !== document.getElementById('sec-interval') && data.telem_interval) {
+    document.getElementById('sec-interval').value = data.telem_interval;
   }
 
   document.getElementById('stat-site').innerText = data.catalog_name;
@@ -892,7 +1068,9 @@ static void handle_status() {
         "\"catalog_name\":\"%s\",\"radio_lang\":%d,\"radio_lang_code\":\"%s\",\"radio_lang_name\":\"%s\","
         "\"station_idx\":%d,\"station_name\":\"%s\","
         "\"media_type\":%d,\"lan_server\":\"%s\",\"lan_count\":%d,\"lan_track_idx\":%d,"
-        "\"telem_table\":\"%s\",\"telem_url\":\"https://autobots.my.to/telemetry.php?table=%s\",\"stations\":[",
+        "\"telem_table\":\"%s\",\"telem_url\":\"https://autobots.my.to/telemetry.php?table=%s\","
+        "\"telem_endpoint\":\"%s\",\"telem_interval\":%u,\"ai_url\":\"%s\","
+        "\"consent\":%d,\"consent_decided\":%d,\"custom_ini\":%d,\"stations\":[",
         lvgl_port_get_active_screen_name(),
         (int)clock_face_active, (int)BL_OFF, (int)backlight_state,
         (int)audio.getVolume(), volt, pct,
@@ -915,7 +1093,13 @@ static void handle_status() {
         lan_get_file_count(),
         lan_track_idx,
         secrets_get_telemetry_table(),
-        secrets_get_telemetry_table()
+        secrets_get_telemetry_table(),
+        secrets_get_telemetry_endpoint(),
+        (unsigned)secrets_get_telemetry_interval(),
+        secrets_get_ai_url(),
+        secrets_has_cloud_consent() ? 1 : 0,
+        secrets_has_decided_consent() ? 1 : 0,
+        secrets_has_custom_ini() ? 1 : 0
     );
 
     for (uint8_t i = 0; i < stationListLength; i++) {
@@ -1149,6 +1333,71 @@ static void handle_telemetry() {
         }
     }
     handle_status();
+}
+
+static void handle_consent() {
+    if (server.hasArg("action")) {
+        String act = server.arg("action");
+        if (act == "accept") {
+            secrets_set_cloud_consent(true);
+            telemetry_collect_snapshot();
+            telemetry_flush_batch();
+        } else if (act == "decline") {
+            secrets_set_cloud_consent(false);
+        } else if (act == "reset") {
+            secrets_reset_consent();
+        }
+    }
+    handle_status();
+}
+
+static void handle_secrets() {
+    if (server.method() == HTTP_POST) {
+        String ai_url = server.hasArg("ai_url") ? server.arg("ai_url") : "";
+        String telem_url = server.hasArg("telem_url") ? server.arg("telem_url") : "";
+        String table = server.hasArg("table") ? server.arg("table") : "";
+        uint32_t interval = server.hasArg("interval") ? (uint32_t)server.arg("interval").toInt() : 300;
+        String pin = server.hasArg("pin") ? server.arg("pin") : "";
+        bool consent = server.hasArg("consent") ? (server.arg("consent") == "1" || server.arg("consent") == "true") : true;
+
+        if (server.hasArg("action") && server.arg("action") == "restore") {
+            secrets_delete_ini_file();
+            server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Restored firmware defaults\"}");
+            return;
+        }
+
+        bool ok = secrets_write_ini_file(
+            ai_url.length() ? ai_url.c_str() : secrets_get_ai_url(),
+            telem_url.length() ? telem_url.c_str() : secrets_get_telemetry_endpoint(),
+            table.length() ? table.c_str() : secrets_get_telemetry_table(),
+            interval > 0 ? interval : 300,
+            pin.length() ? pin.c_str() : secrets_get_master_pin(),
+            consent
+        );
+
+        if (ok) {
+            server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Secrets saved to /secrets.ini\"}");
+        } else {
+            server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to write /secrets.ini\"}");
+        }
+        return;
+    }
+
+    // GET: return current secrets configuration
+    char json_buf[1024];
+    snprintf(json_buf, sizeof(json_buf),
+        "{\"ai_url\":\"%s\",\"telem_endpoint\":\"%s\",\"telem_table\":\"%s\",\"interval\":%u,"
+        "\"custom_ini\":%d,\"consent\":%d,\"consent_decided\":%d,\"pin\":\"%s\"}",
+        secrets_get_ai_url(),
+        secrets_get_telemetry_endpoint(),
+        secrets_get_telemetry_table(),
+        (unsigned)secrets_get_telemetry_interval(),
+        secrets_has_custom_ini() ? 1 : 0,
+        secrets_has_cloud_consent() ? 1 : 0,
+        secrets_has_decided_consent() ? 1 : 0,
+        secrets_get_master_pin()
+    );
+    server.send(200, "application/json", json_buf);
 }
 
 static void handle_ask() {
@@ -1507,6 +1756,10 @@ void web_remote_init(void) {
     server.on("/api/alarm/stop", HTTP_POST, handle_alarm_stop);
     server.on("/api/alarm/test", HTTP_POST, handle_alarm_test);
     server.on("/api/telemetry", HTTP_POST, handle_telemetry);
+    server.on("/api/consent", HTTP_GET, handle_consent);
+    server.on("/api/consent", HTTP_POST, handle_consent);
+    server.on("/api/secrets", HTTP_GET, handle_secrets);
+    server.on("/api/secrets", HTTP_POST, handle_secrets);
     server.on("/api/ask", HTTP_GET, handle_ask);
     server.on("/api/ask", HTTP_POST, handle_ask);
     server.on("/api/lan/server", HTTP_GET, handle_lan_server);

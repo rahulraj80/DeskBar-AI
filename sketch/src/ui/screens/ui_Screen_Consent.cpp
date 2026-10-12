@@ -1,5 +1,6 @@
 #include "ui_Screen_Consent.h"
 #include "../../secrets/secrets_manager.h"
+#include "../../telemetry/telemetry.h"
 #include <Arduino.h>
 
 static lv_obj_t *s_consent_modal = NULL;
@@ -9,6 +10,8 @@ static void accept_click_cb(lv_event_t * e) {
     if (s_consent_modal) {
         lv_obj_add_flag(s_consent_modal, LV_OBJ_FLAG_HIDDEN);
     }
+    telemetry_collect_snapshot();
+    telemetry_flush_batch();
 }
 
 static void decline_click_cb(lv_event_t * e) {
@@ -91,7 +94,14 @@ void ui_consent_modal_init(lv_obj_t *parent) {
 }
 
 void ui_consent_modal_show_if_needed(void) {
-    if (!secrets_has_cloud_consent() && s_consent_modal) {
+    if (!secrets_has_decided_consent() && s_consent_modal) {
+        lv_obj_clear_flag(s_consent_modal, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(s_consent_modal);
+    }
+}
+
+void ui_consent_modal_force_show(void) {
+    if (s_consent_modal) {
         lv_obj_clear_flag(s_consent_modal, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(s_consent_modal);
     }
