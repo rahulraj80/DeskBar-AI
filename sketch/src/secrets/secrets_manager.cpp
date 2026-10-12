@@ -4,6 +4,7 @@
 #include <esp_mac.h>
 #include <mbedtls/sha256.h>
 #include "user_config.h"
+#include "version.h"
 
 static char s_device_hash[20] = {0};
 static char s_telemetry_table[32] = {0};
@@ -14,6 +15,7 @@ static char s_master_pin[32] = {0};
 static uint32_t s_telemetry_interval = 300; // default 5 minutes (300s)
 static bool s_has_custom_ini = false;
 static bool s_cloud_consent = false;
+static bool s_has_decided_consent = false;
 
 static Preferences s_sec_prefs;
 
@@ -77,9 +79,17 @@ void secrets_manager_reload(void) {
     s_telemetry_interval = 300;
     s_has_custom_ini = false;
 
-    // Load cloud consent from NVS
+    // Load cloud consent and registration version from NVS
     if (s_sec_prefs.begin("sys_sec", true)) {
+        String reg_ver = s_sec_prefs.getString("reg_ver", "");
+        s_has_decided_consent = s_sec_prefs.getBool("decided", false);
         s_cloud_consent = s_sec_prefs.getBool("consent", false);
+        if (reg_ver != TUNEBAR_VERSION_STR) {
+            log_i("[SECRETS] Firmware version %s != NVS reg_ver '%s' -> fresh registration & consent required",
+                  TUNEBAR_VERSION_STR, reg_ver.c_str());
+            s_has_decided_consent = false;
+            s_cloud_consent = false;
+        }
         s_sec_prefs.end();
     }
 
@@ -216,15 +226,81 @@ bool secrets_has_cloud_consent(void) {
     return s_cloud_consent;
 }
 
+bool secrets_has_decided_consent(void) {
+    return s_has_decided_consent;
+}
+
 void secrets_set_cloud_consent(bool consent) {
     s_cloud_consent = consent;
+    s_has_decided_consent = true;
     if (s_sec_prefs.begin("sys_sec", false)) {
         s_sec_prefs.putBool("consent", consent);
+        s_sec_prefs.putBool("decided", true);
+        s_sec_prefs.putString("reg_ver", TUNEBAR_VERSION_STR);
         s_sec_prefs.end();
-        log_i("[SECRETS] Cloud consent set to: %s", consent ? "ACCEPTED" : "DECLINED");
+        log_i("[SECRETS] Cloud consent set to: %s for %s", consent ? "ACCEPTED" : "DECLINED", TUNEBAR_VERSION_STR);
     }
+}
+
+void secrets_reset_consent(void) {
+    s_cloud_consent = false;
+    s_has_decided_consent = false;
+    if (s_sec_prefs.begin("sys_sec", false)) {
+        s_sec_prefs.remove("consent");
+        s_sec_prefs.remove("decided");
+        s_sec_prefs.remove("reg_ver");
+        s_sec_prefs.end();
+        log_i("[SECRETS] Cloud consent RESET in NVS.");
+    }
+}
+
+void secrets_set_master_pin(const char *pin) {
+    if (!pin || strlen(pin) == 0) return;
+    strncpy(s_master_pin, pin, sizeof(s_master_pin) - 1);
+    s_master_pin[sizeof(s_master_pin) - 1] = '\0';
+    if (s_sec_prefs.begin("sys_sec", false)) {
+        s_sec_prefs.putString("pin", s_master_pin);
+        s_sec_prefs.end();
+    }
+    compute_device_hash();
+    log_i("[SECRETS] Master PIN updated, table is now: %s", s_telemetry_table);
 }
 
 bool secrets_has_custom_ini(void) {
     return s_has_custom_ini;
+}
+
+bool secrets_write_ini_file(const char *ai_url, const char *telem_url, const char *table, uint32_t interval, const char *pin, bool consent) {
+    File f = LittleFS.open("/secrets.ini", "w");
+    if (!f) return false;
+    f.printf("# /secrets.ini - TuneBar User Overrides\n\n");
+    f.printf("[cloud]\nconsent=%d\n\n", consent ? 1 : 0);
+    if (ai_url && strlen(ai_url) > 0) {
+        f.printf("[ai]\nendpoint=%s\n\n", ai_url);
+    }
+    f.printf("[telemetry]\n");
+    if (telem_url && strlen(telem_url) > 0) {
+        f.printf("endpoint=%s\n", telem_url);
+    }
+    if (table && strlen(table) > 0) {
+        f.printf("table=%s\n", table);
+    }
+    if (interval >= 10) {
+        f.printf("interval_sec=%u\n", (unsigned)interval);
+    }
+    f.printf("\n");
+    if (pin && strlen(pin) > 0) {
+        f.printf("[security]\nmaster_pin=%s\n\n", pin);
+    }
+    f.close();
+    secrets_manager_reload();
+    return true;
+}
+
+bool secrets_delete_ini_file(void) {
+    if (LittleFS.exists("/secrets.ini")) {
+        LittleFS.remove("/secrets.ini");
+    }
+    secrets_manager_reload();
+    return true;
 }
