@@ -23,6 +23,7 @@ bool imu_sensor_poll(void);
 
 // Data Access
 bool imu_sensor_get_latest(imu_reading_t *out);
+bool imu_sensor_get_uncalibrated_raw(float *raw_ax, float *raw_ay, float *raw_az);
 bool imu_sensor_is_available(void);
 
 // Auto-rotation Control

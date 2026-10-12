@@ -22,6 +22,9 @@ static imu_reading_t s_latest_reading = {0};
 static float s_bias_ax = 0.0f;
 static float s_bias_ay = 0.0f;
 static float s_bias_az = 0.0f;
+static float s_raw_uncal_ax = 0.0f;
+static float s_raw_uncal_ay = 0.0f;
+static float s_raw_uncal_az = 0.0f;
 static bool s_cal_loaded = false;
 
 // Orientation state & hysteresis debounce filter
@@ -70,9 +73,16 @@ bool imu_sensor_poll(void) {
     }
 
     // Convert raw values (driver returns mg and dps) with calibrated bias compensation
-    float ax_g = (raw_data.accelX / 1000.0f) - s_bias_ax;
-    float ay_g = (raw_data.accelY / 1000.0f) - s_bias_ay;
-    float az_g = (raw_data.accelZ / 1000.0f) - s_bias_az;
+    float raw_ax_g = (raw_data.accelX / 1000.0f);
+    float raw_ay_g = (raw_data.accelY / 1000.0f);
+    float raw_az_g = (raw_data.accelZ / 1000.0f);
+    s_raw_uncal_ax = raw_ax_g;
+    s_raw_uncal_ay = raw_ay_g;
+    s_raw_uncal_az = raw_az_g;
+
+    float ax_g = raw_ax_g - s_bias_ax;
+    float ay_g = raw_ay_g - s_bias_ay;
+    float az_g = raw_az_g - s_bias_az;
     float gx_dps = raw_data.gyroX;
     float gy_dps = raw_data.gyroY;
     float gz_dps = raw_data.gyroZ;
@@ -153,6 +163,18 @@ bool imu_sensor_get_latest(imu_reading_t *out) {
     }
     return false;
 }
+
+bool imu_sensor_get_uncalibrated_raw(float *raw_ax, float *raw_ay, float *raw_az) {
+    if (s_imu_mux && xSemaphoreTake(s_imu_mux, pdMS_TO_TICKS(10)) == pdTRUE) {
+        if (raw_ax) *raw_ax = s_raw_uncal_ax;
+        if (raw_ay) *raw_ay = s_raw_uncal_ay;
+        if (raw_az) *raw_az = s_raw_uncal_az;
+        xSemaphoreGive(s_imu_mux);
+        return true;
+    }
+    return false;
+}
+
 
 void imu_sensor_set_autorotate_enabled(bool enabled) {
     lvgl_port_set_autorotate_enabled(enabled);
