@@ -5,29 +5,36 @@
 #include "version.h"
 #include <Arduino.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
 
 // ----------------------------------------------------------------------------
-// Curated 6-Release Catalog Data Structure
+// Curated Release Catalog Data Structure (Dynamic & Real Byte Sizing)
 // ----------------------------------------------------------------------------
 struct ReleaseItem {
-  const char *version;
-  const char *type_name; // "PATCH", "MINOR", "MAJOR"
-  uint32_t    color_hex;
-  const char *date;
-  const char *size_str;
-  const char *changelog;
-  const char *bin_url;
+  char version[32];
+  char type_name[16]; // "PATCH", "MINOR", "MAJOR"
+  uint32_t color_hex;
+  char date[32];
+  char size_str[32];
+  char changelog[512];
+  char bin_url[256];
+  uint32_t size_bytes;
 };
 
-static const ReleaseItem s_catalog[6] = {
+#define MAX_CATALOG_ITEMS 6
+static ReleaseItem s_catalog[MAX_CATALOG_ITEMS] = {
   {
-    "v1.2.6", "PATCH", 0x00FF88, "Oct 12, 2026", "6.03 MB",
-    "• 10-second breathing cycle (5.0s full black, 1.5s fade in, 2.0s hold high, 1.5s fade out).\n"
+    "v1.2.6", "PATCH", 0x00FF88, "Oct 12, 2026", "4.04 MB",
+    "• LVGL vector themes replace heavy bitmaps (2.21MB flash freed).\n"
+    "• 3-Panel Spirit Level App with 8-pose guided calibration wizard.\n"
+    "• 10-second breathing cycle (5.0s black, 1.5s fade in, 2.0s hold high, 1.5s fade out).\n"
     "• Wi-Fi power-down in clock mode saving ~50 mA quiescent current.\n"
-    "• Wake on touch, boot button, or orientation flip.\n"
     "• Continuous battery voltage and percentage beacon telemetry.\n"
-    "• Backlight CLI range 0-255 scaling with input validation.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin"
+    "• Enlarged 46x38px Close button matching Settings on OTA and Spirit Level.",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin",
+    4237632
   },
   {
     "v1.2.5", "PATCH", 0x00FF88, "Oct 10, 2026", "6.02 MB",
@@ -35,7 +42,8 @@ static const ReleaseItem s_catalog[6] = {
     "• Calibrated QMI8658 6-axis IMU orientation detection.\n"
     "• Resolved 15-second screen timeout conflict on Nixie clock face.\n"
     "• Improved touch responsiveness on 640x172 landscape display.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin"
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin",
+    6318400
   },
   {
     "v1.2.0", "MINOR", 0x00B0FF, "Oct 05, 2026", "5.98 MB",
@@ -44,7 +52,8 @@ static const ReleaseItem s_catalog[6] = {
     "• LAN MP3 / FLAC file indexer and high-throughput streaming.\n"
     "• Multi-catalog Internet Radio station directory.\n"
     "• System telemetry and DRAM/PSRAM diagnostics API.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin"
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin",
+    6280000
   },
   {
     "v1.1.0", "MINOR", 0x00B0FF, "Sep 28, 2026", "5.85 MB",
@@ -52,25 +61,62 @@ static const ReleaseItem s_catalog[6] = {
     "• Groq Whisper audio pipeline with voice activity detection.\n"
     "• Hardware acoustic echo cancellation calibration.\n"
     "• Weather forecast voice responses with multi-day forecasts.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin"
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin",
+    6150000
   },
   {
-    "v2.0.0", "MAJOR", 0xB388FF, "Nov 01, 2026", "6.20 MB",
+    "v2.0.0", "MAJOR", 0xB388FF, "Nov 01, 2026", "4.15 MB",
     "• FreeRTOS symmetric multiprocessing architecture.\n"
     "• LittleFS asset filesystem with dynamic PNG icon loader.\n"
     "• Integrated multi-repo firmware updater with rollback guard.\n"
     "• Low-latency ES8311 HiFi audio pipeline.\n"
     "• Inclinometer spirit level utility app.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin"
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin",
+    4350000
   },
   {
     "v1.0.0", "MAJOR", 0xB388FF, "Sep 01, 2026", "5.70 MB",
     "• Initial commercial firmware release for TuneBar ESP32-S3.\n"
     "• LVGL 8.3 graphics engine on ST7701 640x172 display.\n"
     "• Internet Radio player, Clock, Alarm, and Weather apps.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.0.0.bin"
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.0.0.bin",
+    5700000
   }
 };
+static int s_catalog_count = 6;
+
+// ----------------------------------------------------------------------------
+// Approved Repositories
+// ----------------------------------------------------------------------------
+struct ApprovedRepo {
+  char id[32];
+  char name[64];
+  char author[32];
+  char catalog_url[256];
+  char repo_url[256];
+  char desc[128];
+};
+
+static ApprovedRepo s_repos[2] = {
+  {
+    "official",
+    "TuneBar Official (rahulraj80)",
+    "rahulraj80",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/firmware_catalog.json",
+    "https://github.com/rahulraj80/TuneBar",
+    "Official firmware with HiFi radio, LAN streaming, Nixie clock & IMU auto-rotation"
+  },
+  {
+    "upstream",
+    "TuneBar Upstream (VaAndCob)",
+    "VaAndCob",
+    "https://raw.githubusercontent.com/VaAndCob/TuneBar/main/releases/firmware_catalog.json",
+    "https://github.com/VaAndCob/TuneBar",
+    "Original upstream baseline repository"
+  }
+};
+static int s_active_repo_idx = 0;
+static bool s_is_fetching = false;
 
 // ----------------------------------------------------------------------------
 // UI Containers & Elements
@@ -80,6 +126,9 @@ static lv_obj_t *s_panel_overview    = NULL;
 static lv_obj_t *s_panel_carousel    = NULL;
 static lv_obj_t *s_panel_stepper     = NULL;
 static lv_obj_t *s_panel_repos       = NULL;
+
+// Overview Elements
+static lv_obj_t *s_lbl_overview_info = NULL;
 
 // Carousel Elements
 static int       s_active_card_idx   = 0;
@@ -112,11 +161,12 @@ static lv_timer_t     *s_autoscroll_timer     = NULL;
 // Forward declarations
 static void update_carousel_card(int idx);
 static void autoscroll_timer_cb(lv_timer_t *t);
+static void refresh_overview_text(void);
 
 // ----------------------------------------------------------------------------
-// Flash Execution Trigger
+// Flash Execution Trigger (Real Background HTTP Streaming)
 // ----------------------------------------------------------------------------
-static void trigger_flash_action(const char *ver_str) {
+static void trigger_flash_action(const char *ver_str, const char *bin_url) {
   uint8_t batt_pct = 0;
   float batt_v = 0.0f;
   if (!ota_check_battery_allowed(&batt_pct, &batt_v)) {
@@ -125,11 +175,132 @@ static void trigger_flash_action(const char *ver_str) {
     return;
   }
 
-  ota_pre_update_teardown();
-  ota_ui_show_neon_progress(ver_str);
+  log_i("[OTA] Triggering real HTTP flash for version: %s from: %s", ver_str, bin_url);
+  ota_start_http_flash(ver_str, bin_url);
+}
 
-  // Note: in on-device mode, we kick off background download if URL is present
-  log_i("[OTA] Starting flashing process for: %s", ver_str);
+void ui_ota_trigger_flash_url(const char *version_str, const char *bin_url) {
+  trigger_flash_action(version_str, bin_url);
+}
+
+// ----------------------------------------------------------------------------
+// Dynamic GitHub Catalog Fetcher
+// ----------------------------------------------------------------------------
+void ui_ota_fetch_live_catalog(void) {
+  if (s_is_fetching) return;
+  if (WiFi.status() != WL_CONNECTED) {
+    log_w("[OTA] Wi-Fi not connected. Using cached catalog.");
+    refresh_overview_text();
+    return;
+  }
+  s_is_fetching = true;
+
+  xTaskCreatePinnedToCore([](void *p) {
+    const char *url = s_repos[s_active_repo_idx].catalog_url;
+    log_i("[OTA] Fetching dynamic catalog from: %s", url);
+
+    HTTPClient http;
+    http.setTimeout(8000);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    WiFiClientSecure secure;
+    secure.setInsecure();
+
+    bool beginOk = http.begin(secure, url);
+    if (!beginOk) {
+      log_e("[OTA] Failed to begin HTTP connection to catalog");
+      s_is_fetching = false;
+      vTaskDelete(NULL);
+      return;
+    }
+
+    int code = http.GET();
+    if (code == HTTP_CODE_OK) {
+      String json = http.getString();
+      http.end();
+
+      JsonDocument doc;
+      DeserializationError err = deserializeJson(doc, json);
+      if (!err && doc["releases"].is<JsonArray>()) {
+        JsonArray arr = doc["releases"].as<JsonArray>();
+        int count = 0;
+        for (JsonObject r : arr) {
+          if (count >= MAX_CATALOG_ITEMS) break;
+          const char *v = r["version"] | "";
+          const char *t = r["type"] | "patch";
+          const char *d = r["date"] | "";
+          const char *c = r["changelog"] | "";
+          const char *u = r["url"] | "";
+          uint32_t sz = r["size"] | 0;
+
+          if (v[0] == 'v') {
+            snprintf(s_catalog[count].version, sizeof(s_catalog[count].version), "%s", v);
+          } else {
+            snprintf(s_catalog[count].version, sizeof(s_catalog[count].version), "v%s", v);
+          }
+
+          if (strcasecmp(t, "major") == 0) {
+            snprintf(s_catalog[count].type_name, sizeof(s_catalog[count].type_name), "MAJOR");
+            s_catalog[count].color_hex = 0xB388FF;
+          } else if (strcasecmp(t, "minor") == 0) {
+            snprintf(s_catalog[count].type_name, sizeof(s_catalog[count].type_name), "MINOR");
+            s_catalog[count].color_hex = 0x00B0FF;
+          } else {
+            snprintf(s_catalog[count].type_name, sizeof(s_catalog[count].type_name), "PATCH");
+            s_catalog[count].color_hex = 0x00FF88;
+          }
+
+          snprintf(s_catalog[count].date, sizeof(s_catalog[count].date), "%s", d);
+          snprintf(s_catalog[count].changelog, sizeof(s_catalog[count].changelog), "%s", c);
+          snprintf(s_catalog[count].bin_url, sizeof(s_catalog[count].bin_url), "%s", u);
+          s_catalog[count].size_bytes = sz;
+
+          if (sz > 0) {
+            float mb = (float)sz / (1024.0f * 1024.0f);
+            snprintf(s_catalog[count].size_str, sizeof(s_catalog[count].size_str), "%.2f MB", mb);
+          } else {
+            snprintf(s_catalog[count].size_str, sizeof(s_catalog[count].size_str), "Dynamic");
+          }
+          count++;
+        }
+        if (count > 0) s_catalog_count = count;
+        log_i("[OTA] Catalog updated from GitHub! %d releases loaded.", count);
+
+        // Schedule UI update on LVGL thread
+        lv_async_call([](void *p) {
+          refresh_overview_text();
+          if (s_panel_carousel && !lv_obj_has_flag(s_panel_carousel, LV_OBJ_FLAG_HIDDEN)) {
+            update_carousel_card(s_active_card_idx);
+          }
+        }, NULL);
+      } else {
+        log_w("[OTA] Catalog JSON parse error: %s", err.c_str());
+      }
+    } else {
+      log_w("[OTA] Catalog HTTP GET returned code: %d", code);
+      http.end();
+    }
+    s_is_fetching = false;
+    vTaskDelete(NULL);
+  }, "ota_cat_task", 6144, NULL, 1, NULL, 1);
+}
+
+static void refresh_overview_text(void) {
+  if (!s_lbl_overview_info) return;
+  char ibuf[320];
+  const char *latest_v = (s_catalog_count > 0) ? s_catalog[0].version : "v1.2.6";
+  const char *latest_sz = (s_catalog_count > 0) ? s_catalog[0].size_str : "4.04 MB";
+  bool wifi_ok = (WiFi.status() == WL_CONNECTED);
+
+  snprintf(ibuf, sizeof(ibuf),
+           "Current Build : v%s (Build #%d - %s)\n"
+           "Active Repo   : %s\n"
+           "Latest GitHub : %s (%s • %s)",
+           TUNEBAR_VERSION_STR, TUNEBAR_BUILD_NUM, TUNEBAR_GIT_HASH,
+           s_repos[s_active_repo_idx].name,
+           latest_v,
+           wifi_ok ? "Live Catalog" : "Cached",
+           latest_sz);
+  lv_label_set_text(s_lbl_overview_info, ibuf);
 }
 
 // ----------------------------------------------------------------------------
@@ -139,7 +310,6 @@ static void autoscroll_timer_cb(lv_timer_t *t) {
   if (!s_obj_scroll_box || !lv_obj_is_valid(s_obj_scroll_box)) return;
   if (lv_obj_has_flag(s_panel_carousel, LV_OBJ_FLAG_HIDDEN)) return;
 
-  // 1. User Touch Suspension (Holds manual scroll for 5.0 seconds)
   if (s_user_touching || (millis() - s_user_touch_ms < 5000)) {
     return;
   }
@@ -151,12 +321,10 @@ static void autoscroll_timer_cb(lv_timer_t *t) {
       s_as_state = AS_PAUSE_BOT;
       s_as_timer = millis();
     } else {
-      // Gentle scroll down by 1 pixel every 50ms (20 px/sec)
       lv_obj_scroll_by(s_obj_scroll_box, 0, -1, LV_ANIM_OFF);
     }
   } else if (s_as_state == AS_PAUSE_BOT) {
     if (millis() - s_as_timer >= 2000) {
-      // Smoothly bounce back to top
       lv_obj_scroll_to_y(s_obj_scroll_box, 0, LV_ANIM_ON);
       s_as_state = AS_PAUSE_TOP;
       s_as_timer = millis();
@@ -173,12 +341,12 @@ static void autoscroll_timer_cb(lv_timer_t *t) {
 // ----------------------------------------------------------------------------
 static void update_carousel_card(int idx) {
   if (idx < 0) idx = 0;
-  if (idx > 5) idx = 5;
+  if (idx >= s_catalog_count) idx = s_catalog_count - 1;
   s_active_card_idx = idx;
 
   const ReleaseItem *item = &s_catalog[idx];
 
-  // 1. Update Stationary Left Section (200px)
+  // 1. Update Stationary Left Section
   if (s_lbl_badge) {
     lv_label_set_text(s_lbl_badge, item->type_name);
     lv_obj_set_style_bg_color(s_lbl_badge, lv_color_hex(item->color_hex), 0);
@@ -206,10 +374,10 @@ static void update_carousel_card(int idx) {
     lv_label_set_text(s_lbl_batt_check, bbuf);
   }
 
-  // 2. Update Counter & Changelog Right Section (420px)
+  // 2. Update Counter & Changelog Right Section
   if (s_lbl_card_counter) {
     char cbuf[32];
-    snprintf(cbuf, sizeof(cbuf), "Release %d of 6", idx + 1);
+    snprintf(cbuf, sizeof(cbuf), "Release %d of %d", idx + 1, s_catalog_count);
     lv_label_set_text(s_lbl_card_counter, cbuf);
   }
   if (s_lbl_changelog) {
@@ -230,7 +398,7 @@ static void update_carousel_card(int idx) {
 void ui_ota_manager_init(lv_obj_t *parent_screen) {
   if (s_mgr_root) return;
 
-  // Root Full-Screen Panel
+  // Root Full-Screen Panel: 640x172
   s_mgr_root = lv_obj_create(parent_screen);
   lv_obj_set_size(s_mgr_root, 640, 172);
   lv_obj_center(s_mgr_root);
@@ -253,40 +421,42 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_set_style_border_width(s_panel_overview, 0, 0);
   lv_obj_clear_flag(s_panel_overview, LV_OBJ_FLAG_SCROLLABLE);
 
-  // Top Bar: Title & Close Button
+  // Title
   lv_obj_t *title = lv_label_create(s_panel_overview);
   lv_label_set_text(title, "TuneBar Firmware Manager");
   lv_obj_set_style_text_color(title, lv_color_hex(0x00E5FF), 0);
   lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
   lv_obj_align(title, LV_ALIGN_TOP_LEFT, 16, 10);
 
+  // Enlarged Close Button [X]: 46x38px matching Settings standard
   lv_obj_t *btn_close = lv_btn_create(s_panel_overview);
-  lv_obj_set_size(btn_close, 32, 28);
-  lv_obj_align(btn_close, LV_ALIGN_TOP_RIGHT, -12, 6);
-  lv_obj_set_style_bg_color(btn_close, lv_color_hex(0x333333), 0);
+  lv_obj_set_size(btn_close, 46, 38);
+  lv_obj_align(btn_close, LV_ALIGN_TOP_RIGHT, -10, 6);
+  lv_obj_set_style_bg_color(btn_close, lv_color_hex(0xFFFFFF), 0);
+  lv_obj_set_style_bg_opa(btn_close, 0, 0);
+  lv_obj_set_style_border_color(btn_close, lv_color_hex(0xFFFFFF), 0);
+  lv_obj_set_style_border_opa(btn_close, 255, 0);
+  lv_obj_set_style_border_width(btn_close, 2, 0);
+  lv_obj_set_style_radius(btn_close, 6, 0);
   lv_obj_t *lbl_x = lv_label_create(btn_close);
-  lv_label_set_text(lbl_x, LV_SYMBOL_CLOSE);
+  lv_label_set_text(lbl_x, "X");
+  lv_obj_set_style_text_color(lbl_x, lv_color_hex(0xFFFFFF), 0);
+  lv_obj_set_style_text_font(lbl_x, &lv_font_montserrat_18, 0);
   lv_obj_center(lbl_x);
   lv_obj_add_event_cb(btn_close, [](lv_event_t *e) { ui_ota_close_manager(); }, LV_EVENT_CLICKED, NULL);
 
-  // Status Lines
-  lv_obj_t *lbl_info = lv_label_create(s_panel_overview);
-  char ibuf[256];
-  snprintf(ibuf, sizeof(ibuf),
-           "Current Build : v%s (Build #%d - %s)\n"
-           "Active Repo   : TuneBar Official (rahulraj80) [DRAM: 182K • PSRAM: 4.8M]\n"
-           "Latest GitHub : %s (Up to date • Checked 2m ago)",
-           TUNEBAR_VERSION_STR, TUNEBAR_BUILD_NUM, TUNEBAR_GIT_HASH,
-           s_catalog[0].version);
-  lv_label_set_text(lbl_info, ibuf);
-  lv_obj_set_style_text_color(lbl_info, lv_color_hex(0xCCCCCC), 0);
-  lv_obj_set_style_text_font(lbl_info, &lv_font_montserrat_12, 0);
-  lv_obj_set_style_text_line_space(lbl_info, 3, 0);
-  lv_obj_align(lbl_info, LV_ALIGN_TOP_LEFT, 16, 36);
+  // Status Information
+  s_lbl_overview_info = lv_label_create(s_panel_overview);
+  lv_obj_set_style_text_color(s_lbl_overview_info, lv_color_hex(0xCCCCCC), 0);
+  lv_obj_set_style_text_font(s_lbl_overview_info, &lv_font_montserrat_12, 0);
+  lv_obj_set_style_text_line_space(s_lbl_overview_info, 3, 0);
+  lv_obj_align(s_lbl_overview_info, LV_ALIGN_TOP_LEFT, 16, 36);
+  refresh_overview_text();
 
+  // Switch Repo button (lowered to y=50px to prevent overlap)
   lv_obj_t *btn_switch_repo = lv_btn_create(s_panel_overview);
-  lv_obj_set_size(btn_switch_repo, 130, 26);
-  lv_obj_align(btn_switch_repo, LV_ALIGN_TOP_RIGHT, -12, 44);
+  lv_obj_set_size(btn_switch_repo, 130, 28);
+  lv_obj_align(btn_switch_repo, LV_ALIGN_TOP_RIGHT, -10, 50);
   lv_obj_set_style_bg_color(btn_switch_repo, lv_color_hex(0x1B2A38), 0);
   lv_obj_set_style_border_color(btn_switch_repo, lv_color_hex(0x00E5FF), 0);
   lv_obj_set_style_border_width(btn_switch_repo, 1, 0);
@@ -336,11 +506,11 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_set_style_text_font(lbl_bq, &lv_font_montserrat_12, 0);
   lv_obj_center(lbl_bq);
   lv_obj_add_event_cb(btn_quick, [](lv_event_t *e) {
-    trigger_flash_action(s_catalog[0].version);
+    trigger_flash_action(s_catalog[0].version, s_catalog[0].bin_url);
   }, LV_EVENT_CLICKED, NULL);
 
   // =========================================================================
-  // SUBPANEL 2: LANDSCAPE SPLIT CAROUSEL (200px Stationary + 420px Auto-Scroll)
+  // SUBPANEL 2: LANDSCAPE SPLIT CAROUSEL
   // =========================================================================
   s_panel_carousel = lv_obj_create(s_mgr_root);
   lv_obj_set_size(s_panel_carousel, 640, 172);
@@ -380,7 +550,7 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_set_style_text_font(lbl_nx, &lv_font_montserrat_12, 0);
   lv_obj_center(lbl_nx);
   lv_obj_add_event_cb(btn_next, [](lv_event_t *e) {
-    if (s_active_card_idx < 5) update_carousel_card(s_active_card_idx + 1);
+    if (s_active_card_idx < s_catalog_count - 1) update_carousel_card(s_active_card_idx + 1);
   }, LV_EVENT_CLICKED, NULL);
 
   lv_obj_t *btn_back_car = lv_btn_create(s_panel_carousel);
@@ -425,7 +595,7 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_align(s_lbl_ver, LV_ALIGN_TOP_LEFT, 68, 4);
 
   s_lbl_meta = lv_label_create(box_left);
-  lv_label_set_text(s_lbl_meta, "Date: Oct 12, 2026\nSize: 6.03 MB");
+  lv_label_set_text(s_lbl_meta, "Date: Oct 12, 2026\nSize: 4.04 MB");
   lv_obj_set_style_text_color(s_lbl_meta, lv_color_hex(0xAAAAAA), 0);
   lv_obj_set_style_text_font(s_lbl_meta, &lv_font_montserrat_12, 0);
   lv_obj_set_style_text_line_space(s_lbl_meta, 2, 0);
@@ -441,49 +611,51 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_align(s_btn_flash, LV_ALIGN_BOTTOM_MID, 0, 0);
   lv_obj_set_style_bg_color(s_btn_flash, lv_color_hex(0x008855), 0);
   lv_obj_t *lbl_fl = lv_label_create(s_btn_flash);
-  lv_label_set_text(lbl_fl, LV_SYMBOL_DOWNLOAD " Select & Flash");
+  lv_label_set_text(lbl_fl, LV_SYMBOL_DOWNLOAD " Flash This");
   lv_obj_set_style_text_font(lbl_fl, &lv_font_montserrat_12, 0);
   lv_obj_center(lbl_fl);
   lv_obj_add_event_cb(s_btn_flash, [](lv_event_t *e) {
-    trigger_flash_action(s_catalog[s_active_card_idx].version);
+    const ReleaseItem *item = &s_catalog[s_active_card_idx];
+    trigger_flash_action(item->version, item->bin_url);
   }, LV_EVENT_CLICKED, NULL);
 
-  // Right Scrolling Container (420px)
+  // Right Changelog Scrolling Container (420px)
   s_obj_scroll_box = lv_obj_create(s_panel_carousel);
   lv_obj_set_size(s_obj_scroll_box, 415, 132);
   lv_obj_align(s_obj_scroll_box, LV_ALIGN_BOTTOM_RIGHT, -10, -4);
-  lv_obj_set_style_bg_color(s_obj_scroll_box, lv_color_hex(0x0E141E), 0);
+  lv_obj_set_style_bg_color(s_obj_scroll_box, lv_color_hex(0x0C121A), 0);
   lv_obj_set_style_border_color(s_obj_scroll_box, lv_color_hex(0x223344), 0);
   lv_obj_set_style_border_width(s_obj_scroll_box, 1, 0);
   lv_obj_set_style_radius(s_obj_scroll_box, 6, 0);
   lv_obj_set_style_pad_all(s_obj_scroll_box, 8, 0);
-  lv_obj_set_scrollbar_mode(s_obj_scroll_box, LV_SCROLLBAR_MODE_AUTO);
   lv_obj_set_scroll_dir(s_obj_scroll_box, LV_DIR_VER);
 
-  // Touch Event Callbacks for 5.0s suspension
+  // Touch handlers to suspend auto-scroll on interaction
   lv_obj_add_event_cb(s_obj_scroll_box, [](lv_event_t *e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    if (code == LV_EVENT_PRESSED) {
-      s_user_touching = true;
-    } else if (code == LV_EVENT_RELEASED) {
-      s_user_touching = false;
-      s_user_touch_ms = millis();
-    }
-  }, LV_EVENT_ALL, NULL);
+    s_user_touching = true;
+    s_user_touch_ms = millis();
+  }, LV_EVENT_PRESSED, NULL);
+
+  lv_obj_add_event_cb(s_obj_scroll_box, [](lv_event_t *e) {
+    s_user_touching = false;
+    s_user_touch_ms = millis();
+  }, LV_EVENT_RELEASED, NULL);
 
   s_lbl_changelog = lv_label_create(s_obj_scroll_box);
-  lv_label_set_long_mode(s_lbl_changelog, LV_LABEL_LONG_WRAP);
-  lv_obj_set_width(s_lbl_changelog, 395);
   lv_label_set_text(s_lbl_changelog, s_catalog[0].changelog);
   lv_obj_set_style_text_color(s_lbl_changelog, lv_color_hex(0xDDDDDD), 0);
   lv_obj_set_style_text_font(s_lbl_changelog, &lv_font_montserrat_12, 0);
-  lv_obj_set_style_text_line_space(s_lbl_changelog, 3, 0);
+  lv_obj_set_style_text_line_space(s_lbl_changelog, 4, 0);
+  lv_obj_set_width(s_lbl_changelog, 395);
+  lv_label_set_long_mode(s_lbl_changelog, LV_LABEL_LONG_WRAP);
 
-  // Start 50ms Auto-Scroll Timer
-  s_autoscroll_timer = lv_timer_create(autoscroll_timer_cb, 50, NULL);
+  // Start auto-scroll timer: 50ms interval (20px/s)
+  if (!s_autoscroll_timer) {
+    s_autoscroll_timer = lv_timer_create(autoscroll_timer_cb, 50, NULL);
+  }
 
   // =========================================================================
-  // SUBPANEL 3: NUMERIC STEPPER (v [▲▼].[▲▼].[▲▼])
+  // SUBPANEL 3: NUMERIC STEPPER QUERY (Find on GitHub)
   // =========================================================================
   s_panel_stepper = lv_obj_create(s_mgr_root);
   lv_obj_set_size(s_panel_stepper, 640, 172);
@@ -514,13 +686,11 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
     lv_obj_clear_flag(s_panel_overview, LV_OBJ_FLAG_HIDDEN);
   }, LV_EVENT_CLICKED, NULL);
 
-  // Stepper Columns (Major, Minor, Patch)
   const int col_x[3] = { 100, 190, 280 };
   int *step_ptrs[3]  = { &s_step_major, &s_step_minor, &s_step_patch };
   lv_obj_t **lbl_ptrs[3] = { &s_lbl_step_maj, &s_lbl_step_min, &s_lbl_step_pat };
 
   for (int i = 0; i < 3; i++) {
-    // Up Button
     lv_obj_t *bu = lv_btn_create(s_panel_stepper);
     lv_obj_set_size(bu, 54, 26);
     lv_obj_align(bu, LV_ALIGN_TOP_LEFT, col_x[i], 42);
@@ -539,7 +709,6 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
       snprintf(b, sizeof(b), "%d", s_step_patch); lv_label_set_text(s_lbl_step_pat, b);
     }, LV_EVENT_CLICKED, (void *)(uintptr_t)i);
 
-    // Number Label
     lv_obj_t *lbl_num = lv_label_create(s_panel_stepper);
     char nb[16]; snprintf(nb, sizeof(nb), "%d", *step_ptrs[i]);
     lv_label_set_text(lbl_num, nb);
@@ -548,7 +717,6 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
     lv_obj_align(lbl_num, LV_ALIGN_TOP_LEFT, col_x[i] + 16, 76);
     *lbl_ptrs[i] = lbl_num;
 
-    // Down Button
     lv_obj_t *bd = lv_btn_create(s_panel_stepper);
     lv_obj_set_size(bd, 54, 26);
     lv_obj_align(bd, LV_ALIGN_TOP_LEFT, col_x[i], 106);
@@ -567,7 +735,6 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
       snprintf(b, sizeof(b), "%d", s_step_patch); lv_label_set_text(s_lbl_step_pat, b);
     }, LV_EVENT_CLICKED, (void *)(uintptr_t)i);
 
-    // Dots between numbers
     if (i < 2) {
       lv_obj_t *dot = lv_label_create(s_panel_stepper);
       lv_label_set_text(dot, ".");
@@ -596,28 +763,88 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_add_event_cb(btn_query, [](lv_event_t *e) {
     char target[32];
     snprintf(target, sizeof(target), "v%d.%d.%d", s_step_major, s_step_minor, s_step_patch);
-    // Check if version matches any in catalog
+
+    // 1. Search curated/live catalog first
     int match_idx = -1;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < s_catalog_count; i++) {
       if (strcmp(s_catalog[i].version, target) == 0) {
         match_idx = i;
         break;
       }
     }
+
     if (match_idx >= 0) {
       char sbuf[64];
-      snprintf(sbuf, sizeof(sbuf), "Found %s! Opening release...", target);
+      snprintf(sbuf, sizeof(sbuf), "Found %s (%s)! Opening card...", target, s_catalog[match_idx].size_str);
       lv_label_set_text(s_lbl_step_status, sbuf);
       lv_obj_set_style_text_color(s_lbl_step_status, lv_color_hex(0x00FF88), 0);
       update_carousel_card(match_idx);
       lv_obj_add_flag(s_panel_stepper, LV_OBJ_FLAG_HIDDEN);
       lv_obj_clear_flag(s_panel_carousel, LV_OBJ_FLAG_HIDDEN);
-    } else {
-      char sbuf[64];
-      snprintf(sbuf, sizeof(sbuf), "%s not found on active repo.", target);
-      lv_label_set_text(s_lbl_step_status, sbuf);
-      lv_obj_set_style_text_color(s_lbl_step_status, lv_color_hex(0xFFA500), 0);
+      return;
     }
+
+    // 2. Query GitHub direct URL
+    if (WiFi.status() != WL_CONNECTED) {
+      lv_label_set_text(s_lbl_step_status, "Wi-Fi offline. Cannot query GitHub.");
+      lv_obj_set_style_text_color(s_lbl_step_status, lv_color_hex(0xFFA500), 0);
+      return;
+    }
+
+    lv_label_set_text(s_lbl_step_status, "Probing GitHub releases/bin...");
+    lv_obj_set_style_text_color(s_lbl_step_status, lv_color_hex(0x00E5FF), 0);
+
+    struct ProbeData { char ver[32]; };
+    ProbeData *pd = (ProbeData *)malloc(sizeof(ProbeData));
+    if (!pd) return;
+    snprintf(pd->ver, sizeof(pd->ver), "%s", target);
+
+    xTaskCreatePinnedToCore([](void *p) {
+      ProbeData *d = (ProbeData *)p;
+      char probe_url[256];
+      snprintf(probe_url, sizeof(probe_url),
+               "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-%s.bin",
+               d->ver);
+
+      HTTPClient http;
+      http.setTimeout(8000);
+      http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+      WiFiClientSecure sec;
+      sec.setInsecure();
+
+      bool bOk = http.begin(sec, probe_url);
+      int code = bOk ? http.sendRequest("HEAD") : -1;
+      int sz = http.getSize();
+      http.end();
+
+      struct ProbeRes { char ver[32]; int code; int sz; };
+      ProbeRes *res = (ProbeRes *)malloc(sizeof(ProbeRes));
+      if (res) {
+        snprintf(res->ver, sizeof(res->ver), "%s", d->ver);
+        res->code = code;
+        res->sz = sz;
+        lv_async_call([](void *rp) {
+          ProbeRes *r = (ProbeRes *)rp;
+          if (s_lbl_step_status) {
+            if (r->code == 200) {
+              char b[96];
+              float mb = (r->sz > 0) ? ((float)r->sz / (1024.0f * 1024.0f)) : 0.0f;
+              snprintf(b, sizeof(b), "Found %s! (%.2f MB)\nReady on GitHub.", r->ver, mb);
+              lv_label_set_text(s_lbl_step_status, b);
+              lv_obj_set_style_text_color(s_lbl_step_status, lv_color_hex(0x00FF88), 0);
+            } else {
+              char b[96];
+              snprintf(b, sizeof(b), "%s not found on GitHub (HTTP %d).", r->ver, r->code);
+              lv_label_set_text(s_lbl_step_status, b);
+              lv_obj_set_style_text_color(s_lbl_step_status, lv_color_hex(0xFFA500), 0);
+            }
+          }
+          free(r);
+        }, res);
+      }
+      free(d);
+      vTaskDelete(NULL);
+    }, "ota_probe_task", 4096, pd, 1, NULL, 1);
   }, LV_EVENT_CLICKED, NULL);
 
   // =========================================================================
@@ -653,45 +880,76 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
     lv_obj_clear_flag(s_panel_overview, LV_OBJ_FLAG_HIDDEN);
   }, LV_EVENT_CLICKED, NULL);
 
-  // Repo Card Container
-  lv_obj_t *repo_card = lv_obj_create(s_panel_repos);
-  lv_obj_set_size(repo_card, 608, 76);
-  lv_obj_align(repo_card, LV_ALIGN_TOP_MID, 0, 38);
-  lv_obj_set_style_bg_color(repo_card, lv_color_hex(0x101722), 0);
-  lv_obj_set_style_border_color(repo_card, lv_color_hex(0x00E5FF), 0);
-  lv_obj_set_style_border_width(repo_card, 1, 0);
-  lv_obj_set_style_radius(repo_card, 6, 0);
-  lv_obj_set_style_pad_all(repo_card, 8, 0);
-  lv_obj_clear_flag(repo_card, LV_OBJ_FLAG_SCROLLABLE);
+  // Repo 1 Card (TuneBar Official)
+  lv_obj_t *repo_card1 = lv_obj_create(s_panel_repos);
+  lv_obj_set_size(repo_card1, 608, 48);
+  lv_obj_align(repo_card1, LV_ALIGN_TOP_MID, 0, 38);
+  lv_obj_set_style_bg_color(repo_card1, lv_color_hex(0x101722), 0);
+  lv_obj_set_style_border_color(repo_card1, lv_color_hex(0x00E5FF), 0);
+  lv_obj_set_style_border_width(repo_card1, 1, 0);
+  lv_obj_set_style_radius(repo_card1, 6, 0);
+  lv_obj_set_style_pad_all(repo_card1, 6, 0);
+  lv_obj_clear_flag(repo_card1, LV_OBJ_FLAG_SCROLLABLE);
 
-  lv_obj_t *lbl_repo_name = lv_label_create(repo_card);
-  lv_label_set_text(lbl_repo_name, "[*] TuneBar Official - by rahulraj80 [Official]");
-  lv_obj_set_style_text_color(lbl_repo_name, lv_color_hex(0xFFFFFF), 0);
-  lv_obj_set_style_text_font(lbl_repo_name, &lv_font_montserrat_12, 0);
-  lv_obj_align(lbl_repo_name, LV_ALIGN_TOP_LEFT, 4, 2);
+  lv_obj_t *lbl_repo1 = lv_label_create(repo_card1);
+  lv_label_set_text(lbl_repo1, "1. TuneBar Official (rahulraj80)\nhttps://github.com/rahulraj80/TuneBar");
+  lv_obj_set_style_text_color(lbl_repo1, lv_color_hex(0xFFFFFF), 0);
+  lv_obj_set_style_text_font(lbl_repo1, &lv_font_montserrat_12, 0);
+  lv_obj_align(lbl_repo1, LV_ALIGN_TOP_LEFT, 4, 2);
 
-  lv_obj_t *lbl_repo_meta = lv_label_create(repo_card);
-  lv_label_set_text(lbl_repo_meta, "Avg Free DRAM: 182 KB | PSRAM: 4.8 MB | Batt: 14.5h Clock / 5.2h Active\nRegistry: https://github.com/rahulraj80/TuneBar");
-  lv_obj_set_style_text_color(lbl_repo_meta, lv_color_hex(0x88AACC), 0);
-  lv_obj_set_style_text_font(lbl_repo_meta, &lv_font_montserrat_12, 0);
-  lv_obj_set_style_text_line_space(lbl_repo_meta, 2, 0);
-  lv_obj_align(lbl_repo_meta, LV_ALIGN_TOP_LEFT, 4, 22);
+  lv_obj_t *badge1 = lv_btn_create(repo_card1);
+  lv_obj_set_size(badge1, 90, 24);
+  lv_obj_align(badge1, LV_ALIGN_RIGHT_MID, -4, 0);
+  lv_obj_set_style_bg_color(badge1, lv_color_hex(0x008855), 0);
+  lv_obj_t *lbl_b1 = lv_label_create(badge1);
+  lv_label_set_text(lbl_b1, "ACTIVE");
+  lv_obj_set_style_text_font(lbl_b1, &lv_font_montserrat_12, 0);
+  lv_obj_center(lbl_b1);
+  lv_obj_add_event_cb(badge1, [](lv_event_t *e) {
+    s_active_repo_idx = 0;
+    ui_ota_fetch_live_catalog();
+    lv_obj_add_flag(s_panel_repos, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(s_panel_overview, LV_OBJ_FLAG_HIDDEN);
+  }, LV_EVENT_CLICKED, NULL);
 
-  lv_obj_t *badge_active = lv_btn_create(repo_card);
-  lv_obj_set_size(badge_active, 85, 26);
-  lv_obj_align(badge_active, LV_ALIGN_RIGHT_MID, -4, 0);
-  lv_obj_set_style_bg_color(badge_active, lv_color_hex(0x008855), 0);
-  lv_obj_t *lbl_act = lv_label_create(badge_active);
-  lv_label_set_text(lbl_act, "Active OK");
-  lv_obj_set_style_text_font(lbl_act, &lv_font_montserrat_12, 0);
-  lv_obj_center(lbl_act);
+  // Repo 2 Card (TuneBar Upstream)
+  lv_obj_t *repo_card2 = lv_obj_create(s_panel_repos);
+  lv_obj_set_size(repo_card2, 608, 48);
+  lv_obj_align(repo_card2, LV_ALIGN_TOP_MID, 0, 92);
+  lv_obj_set_style_bg_color(repo_card2, lv_color_hex(0x101722), 0);
+  lv_obj_set_style_border_color(repo_card2, lv_color_hex(0x334455), 0);
+  lv_obj_set_style_border_width(repo_card2, 1, 0);
+  lv_obj_set_style_radius(repo_card2, 6, 0);
+  lv_obj_set_style_pad_all(repo_card2, 6, 0);
+  lv_obj_clear_flag(repo_card2, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t *lbl_repo2 = lv_label_create(repo_card2);
+  lv_label_set_text(lbl_repo2, "2. TuneBar Upstream (VaAndCob)\nhttps://github.com/VaAndCob/TuneBar");
+  lv_obj_set_style_text_color(lbl_repo2, lv_color_hex(0xAAAAAA), 0);
+  lv_obj_set_style_text_font(lbl_repo2, &lv_font_montserrat_12, 0);
+  lv_obj_align(lbl_repo2, LV_ALIGN_TOP_LEFT, 4, 2);
+
+  lv_obj_t *badge2 = lv_btn_create(repo_card2);
+  lv_obj_set_size(badge2, 90, 24);
+  lv_obj_align(badge2, LV_ALIGN_RIGHT_MID, -4, 0);
+  lv_obj_set_style_bg_color(badge2, lv_color_hex(0x223344), 0);
+  lv_obj_t *lbl_b2 = lv_label_create(badge2);
+  lv_label_set_text(lbl_b2, "SELECT");
+  lv_obj_set_style_text_font(lbl_b2, &lv_font_montserrat_12, 0);
+  lv_obj_center(lbl_b2);
+  lv_obj_add_event_cb(badge2, [](lv_event_t *e) {
+    s_active_repo_idx = 1;
+    ui_ota_fetch_live_catalog();
+    lv_obj_add_flag(s_panel_repos, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(s_panel_overview, LV_OBJ_FLAG_HIDDEN);
+  }, LV_EVENT_CLICKED, NULL);
 
   // Footer Note
   lv_obj_t *lbl_footer = lv_label_create(s_panel_repos);
-  lv_label_set_text(lbl_footer, "Community forks are approved and added via Pull Request to releases/approved_repos.json");
+  lv_label_set_text(lbl_footer, "Approved repositories query releases dynamically from GitHub over HTTPS.");
   lv_obj_set_style_text_color(lbl_footer, lv_color_hex(0x667788), 0);
   lv_obj_set_style_text_font(lbl_footer, &lv_font_montserrat_12, 0);
-  lv_obj_align(lbl_footer, LV_ALIGN_BOTTOM_LEFT, 16, -10);
+  lv_obj_align(lbl_footer, LV_ALIGN_BOTTOM_LEFT, 16, -6);
 }
 
 void ui_ota_open_manager(void) {
@@ -701,6 +959,8 @@ void ui_ota_open_manager(void) {
   lv_obj_add_flag(s_panel_carousel, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(s_panel_stepper, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(s_panel_repos, LV_OBJ_FLAG_HIDDEN);
+  refresh_overview_text();
+  ui_ota_fetch_live_catalog(); // trigger background catalog fetch from GitHub!
 }
 
 void ui_ota_close_manager(void) {

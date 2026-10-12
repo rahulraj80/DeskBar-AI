@@ -9,7 +9,40 @@
 
 ---
 
-### 📦 Hardware Overview & Global Sourcing
+<a id="index"></a>
+## 📑 Index & Quick Navigation
+
+* [📦 Hardware Overview](#hardware-overview)
+* [📸 Interface Showcase (Authentic Hardware Captures)](#interface-showcase)
+  * [1. Retro Nixie Digital Clock Face](#1-retro-nixie-digital-clock-face)
+  * [2. Live Weather, AQI & Climate Panel](#2-live-weather-aqi--climate-panel)
+  * [3. Retro Alarm Clock](#3-retro-alarm-clock)
+  * [4. Main Menu Carousel (Option 1 Neon Cards)](#4-main-menu-carousel)
+  * [5. Multilingual Global Internet Radio Player](#5-multilingual-global-internet-radio-player)
+  * [6. Settings Suite — Multilingual Radio Selector](#6-settings-suite)
+  * [7. Media Player Subsystem — Local SD & LAN Streaming](#7-media-player-subsystem)
+  * [8. Autonomous AI Voice Assistant](#8-autonomous-ai-voice-assistant)
+  * [9. System Diagnostics, Hardware Utilities & Firmware OTA](#9-system-diagnostics)
+  * [10. Comprehensive Device Settings & User Guide](#10-comprehensive-device-settings)
+* [⚖️ Key Architectural Differences vs Upstream](#key-architectural-differences)
+* [🛠️ Hardware Specifications & Pinout](#hardware-specifications)
+* [🌍 Multilingual Global Internet Radio](#multilingual-radio)
+* [🎵 Media Player Subsystem: SD Card & LAN Streaming](#media-player)
+* [🤖 Autonomous AI Voice Assistant Pipeline](#voice-assistant)
+* [💡 Display, Brightness & Power Saving Architecture](#power-saving)
+* [🌐 Comprehensive Web Remote REST API](#rest-api)
+* [📐 6-Axis IMU, Spirit Level & Auto-Rotation (QMI8658)](#imu-orientation)
+* [💻 USB Serial CLI Commands](#serial-cli)
+* [👆 Touch Gestures & Navigation Guide](#touch-gestures)
+* [🔍 Hardware Bugs, Silicon Quirks & Verified Fixes](#hardware-fixes)
+* [⚡ DRAM Optimization Deep-Dive](#dram-optimization)
+* [🛠️ Step-by-Step Build & Flash Guide](#build-guide)
+* [🛒 Where to Buy (Trusted Resellers by Region)](#where-to-buy)
+* [📜 Credits & License](#credits-license)
+
+---
+
+### 📦 Hardware Overview & Global Sourcing &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 TuneBar runs on the 3.49-inch capacitive touch screen development board powered by the **ESP32-S3R8** (dual-core 240 MHz, 16MB Flash, 8MB OPI PSRAM) with an integrated acoustic front-end (dual MEMS microphones + ES7210 ADC), audio codec (ES8311 DAC + NS4150B amplifier), 6-axis IMU, and RTC:
 
@@ -24,17 +57,7 @@ TuneBar runs on the 3.49-inch capacitive touch screen development board powered 
 
 *Hardware photos and dimensional diagrams source: [Waveshare Documentation](https://docs.waveshare.com/ESP32-S3-Touch-LCD-3.49?variant=ESP32-S3-Touch-LCD-3.49).*
 
-#### 🛒 Where to Buy (Trusted Resellers by Region & Supported Languages)
-For makers looking to build or replicate this device, the board is widely available through established distributors:
-* **🇮🇳 India (Hindi / HI)**: [Evelta Electronics](https://www.evelta.com) (Search SKU `061-32374` / *Waveshare ESP32-S3 Touch LCD 3.49*).
-* **🌐 Global / North America (English / EN & Spanish / ES)**: [Waveshare Official Store](https://www.waveshare.com/esp32-s3-touch-lcd-3.49.htm) and official stores on AliExpress.
-* **🇪🇺 Europe / DACH (German / DE)**: [BerryBase](https://www.berrybase.de) and [Welectron](https://www.welectron.com).
-* **🇯🇵 Japan (Japanese / JA)**: [Switch Science](https://www.switch-science.com) and Waveshare Direct.
-
-> [!NOTE]
-> **Community Notice**: The purchase links above are provided strictly for community reference to help makers source genuine hardware across supported regions. **None of these are affiliate links**, and the author receives no compensation, commission, or financial benefit from any retailer.
-
-## 📸 Interface Showcase (Authentic Hardware Captures)
+## 📸 Interface Showcase (Authentic Hardware Captures) &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 *All captures shown below are 100% genuine uncompressed framebuffers extracted directly from the physical ESP32-S3 hardware via `/api/screenshot`.*
 
@@ -114,12 +137,49 @@ For makers looking to build or replicate this device, the board is widely availa
 
 ---
 
-### 9. System Diagnostics & Hardware Utilities
-![System Diagnostics](document/screen_utility.png)
-- **What it is**: Utility dashboard providing instant access to the ultra-bright **LED Torch** flashlight and deep **System Info** diagnostics.
-- **Torch Operation**: Tap the Torch icon to drive the AP3032 backlight boost converter to 100% brightness (maximum LCD white screen luminance). Simply **tap anywhere on the screen** to turn off the torch.
-- **System Telemetry**: Tap the System Info button to view real-time internal DRAM free memory, external PSRAM usage, FreeRTOS task high-water marks, battery voltage, and firmware version.
-- **Gestures**: Swipe **Up ($\uparrow$)** anywhere on the screen to dismiss utilities and return to the Main Menu.
+### 9. System Diagnostics, Hardware Utilities & Firmware OTA
+<p align="center">
+  <img src="document/screen_utility_4apps.png" alt="4 Utility Apps Launcher" width="98%" />
+</p>
+
+- **4-App Utility Grid**: Distributed evenly across the 640px display:
+  1. **Torch**: Drives the AP3032 backlight boost converter to 100% white screen luminance. Tap anywhere to toggle off.
+  2. **System Info**: Deep hardware telemetry — DRAM/PSRAM meters, FreeRTOS task high-water marks, battery voltage/percentage, and MAC address.
+  3. **Spirit Level (Inclinometer)**: 6-Axis QMI8658 pitch & roll bubble inclinometer utility app framework.
+  4. **Firmware OTA**: Full on-device Over-the-Air firmware manager and community release catalog.
+
+#### ⚡ On-Device Multi-Repo Firmware OTA Manager
+<p align="center">
+  <img src="document/screen_ota_overview.png" alt="Firmware Manager Overview" width="48%" />
+  <img src="document/screen_ota_carousel.png" alt="Firmware Manager Carousel" width="48%" />
+</p>
+<p align="center">
+  <img src="document/screen_ota_stepper.png" alt="Numeric Stepper GitHub Query" width="60%" />
+</p>
+
+- **Overview Panel**: Displays active build hash, selected community/official repository, live DRAM/PSRAM benchmarks, and battery safety status.
+- **200px / 420px Split Carousel**:
+  - **Stationary Left Section (200px)**: Version badge (`MAJOR`, `MINOR`, `PATCH`), build date, binary size, real-time battery safety check, and single-tap `[Select & Flash]` action button.
+  - **Dynamic Right Section (420px)**: Version changelog with smooth vertical auto-scroll (20 px/s), 2.0s bounceback delay at bottom/top, and a 5.0s user-touch hold override.
+- **Strict Numeric Semantic Versioning**: Strictly `v<Major>.<Minor>.<Patch>` (e.g. `v1.2.6`) tied to git commit count and hash.
+- **Hardware Battery Guard**: OTA flashing is automatically blocked below 70% battery capacity unless connected to USB power.
+- **App Teardown on OTA**: Shuts down audio playback, network streams, and IMU SSE polling before flashing to guarantee maximum free RAM/PSRAM.
+- **Numeric Stepper Query**: Browse arbitrary versions from GitHub using `v[▲▼].[▲▼].[▲▼]` with live compatibility checks.
+- **Approved Repositories Switcher**: Switch between Official (`rahulraj80/TuneBar`) and Upstream (`VaAndCob/TuneBar`) repositories with automatic catalog re-fetching.
+- **Web Remote Integration**: Full OTA firmware upload and repository switching available from the browser at `http://<device-ip>/`.
+
+#### 📐 3-Panel Spirit Level & Guided Inclinometer Calibration
+<p align="center">
+  <img src="document/screen_spirit_level_panel1.png" alt="Spirit Level 2D Dial" width="48%" />
+  <img src="document/screen_spirit_level_panel2.png" alt="Raw IMU & Presets" width="48%" />
+</p>
+<p align="center">
+  <img src="document/screen_spirit_level_panel3.png" alt="Guided 8-Step Calibration Wizard" width="60%" />
+</p>
+
+- **Panel 1 (Spirit Level)**: High-precision 2D bullseye reticle with dynamic liquid bubble physics, pitch/roll readouts in degrees, and level-lock status indicator.
+- **Panel 2 (Raw Scores & Presets)**: Live calibrated 6-axis accelerometer ($g$), gyroscope ($\text{dps}$), and temperature telemetry, orientation badge matching, tolerance range adjuster buttons (`[-]` and `[+]`), and custom orientation preset saving to NVS.
+- **Panel 3 (8-Step Calibration Wizard)**: Step-by-step guided calibration through 8 distinct physical poses: (1) Wall Upright (buttons up), (2) Wall Tilted Up (stand angle), (3) Inverted Upright (buttons down), (4) Inverted Tilted Down (stand angle), (5) Left Edge Rest (USB port on top), (6) Right Edge Rest (USB port at bottom), (7) Desk Face-Up (flat level), (8) Desk Face-Down. Calibration bias offsets are saved to NVS and directly applied to display auto-rotation!
 
 ---
 
@@ -136,7 +196,7 @@ For makers looking to build or replicate this device, the board is widely availa
 
 ---
 
-## 📑 Table of Contents
+## 📑 Table of Contents &nbsp;&nbsp;[ [🔝 Index](#index) ]
 1. [Key Architectural Differences vs Upstream](#-key-architectural-differences-vs-upstream)
 2. [Hardware Specifications & Pinout](#-hardware-specifications--pinout)
 3. [Multilingual Global Internet Radio](#-multilingual-global-internet-radio)
@@ -153,7 +213,7 @@ For makers looking to build or replicate this device, the board is widely availa
 
 ---
 
-## ⚖️ Key Architectural Differences vs Upstream
+## ⚖️ Key Architectural Differences vs Upstream &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 | Subsystem / Feature | Upstream TuneBar (v1.2.x) | TuneBar Advanced Edition (This Repo) |
 | :--- | :--- | :--- |
@@ -170,7 +230,7 @@ For makers looking to build or replicate this device, the board is widely availa
 
 ---
 
-## 🛠️ Hardware Specifications & Pinout
+## 🛠️ Hardware Specifications & Pinout &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 ```
 [ MEMS Mic 1 (Left)  ] ----\
@@ -200,7 +260,7 @@ For makers looking to build or replicate this device, the board is widely availa
 
 ---
 
-## 🌍 Multilingual Global Internet Radio
+## 🌍 Multilingual Global Internet Radio &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 To cater to a global audience, TuneBar features an international internet radio catalog covering 6 major world languages:
 - **Hindi (`HI`)**: Integrates 20 top national and Bollywood stations across dual catalogs (`OnlineRadioFM.in` and `RadioIndia.in`).
@@ -218,7 +278,7 @@ To cater to a global audience, TuneBar features an international internet radio 
 
 ---
 
-## 🎵 Media Player Subsystem: SD Card & LAN Streaming
+## 🎵 Media Player Subsystem: SD Card & LAN Streaming &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 TuneBar features a unified media player engine that seamlessly handles both **Local SD Card Playback** (offline FatFS/SPI) and **LAN Media Streaming (LocalShare)** (online HTTP audio streaming across local Wi-Fi).
 
@@ -239,7 +299,7 @@ TuneBar features a unified media player engine that seamlessly handles both **Lo
 
 ---
 
-## 🎙️ Autonomous AI Voice Assistant Pipeline
+## 🎙️ Autonomous AI Voice Assistant Pipeline &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 1. **Acoustic Front-End**:
    - Dual onboard MEMS microphones capture audio via the ES7210 4-channel ADC at 16 kHz / 16-bit mono.
@@ -257,28 +317,40 @@ TuneBar features a unified media player engine that seamlessly handles both **Lo
 
 ---
 
-## 💡 Display, Brightness & Power Saving Architecture
+## 💡 Display, Brightness & Power Saving Architecture &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 ### 1. Hardware Pin Corrections & PWM Polarity (V2 Board)
 On the Waveshare V2 board revision (marked with `Rev1.1` silkscreen):
 - Backlight PWM is mapped to **`GPIO 42`**, while **`EXIO Pin 1`** on the TCA9554 expander acts as hardware backlight enable (`BL_EN`).
 - The PWM logic uses ESP32-S3 **LEDC timer channels** (5 kHz, 8-bit resolution) with non-volatile NVS brightness storage (`Low: 35%`, `Med: 65%`, `High: 100%`).
 
-### 2. Sine-Wave Ambient Breathing Animation
-To transform the device into an unobtrusive, elegant desk accessory while drastically curbing energy consumption, we engineered a hardware **Sine-Wave Breathing Algorithm**:
-$$PWM(t) = \text{Base} + A \cdot \sin\left(\frac{2\pi t}{T}\right)$$
-- In Clock or Idle mode, the backlight oscillates between **15% and 45%** over an 8-second cycle.
-- **Power Impact**: Reduces display power draw from **~1.1W to ~0.38W** (>62% power saved).
+### 2. Vintage Nixie Tube 10-Second Breathing Animation
+To transform the device into an unobtrusive, elegant desk accessory while preserving battery life and maintaining hardware stability:
+- **10-Second Cycle with 5 Seconds Full Black**:
+  - **`FULL_BLACK` (5.0s)**: Backlight PWM duty is set to 0 for exactly 5.0 seconds of complete pitch black darkness. The AP3032 boost rail remains powered and `BL_OFF` stays `false`, ensuring FreeRTOS LVGL timers never freeze.
+  - **`FADE_IN` (1.5s)**: Smooth ramp up from the **90/255** Nixie filament floor to the configured ceiling.
+  - **`HOLD_HIGH` (2.0s)**: Steady peak illumination at the configured ceiling.
+  - **`FADE_OUT` (1.5s)**: Smooth ramp down from ceiling back to the **90/255** floor, dropping instantly into `FULL_BLACK`.
+- **Configurable Brightness Ceilings**:
+  - **Low**: Ramps smoothly between **90** $\leftrightarrow$ **120** PWM.
+  - **Medium**: Ramps smoothly between **90** $\leftrightarrow$ **180** PWM.
+  - **High**: Ramps smoothly between **90** $\leftrightarrow$ **250** PWM.
+- **Clock Face Sleep Protection**: The idle sleep timeout (`SCREEN_OFF_DELAY`) in FreeRTOS is guarded so it never executes `screenPowerOff()` while on the clock screen, allowing ambient breathing to cycle perpetually without screen freeze.
 
-### 3. Audio Domain Power Gating
+### 3. Orientation-as-Interaction & Idle Breathing Timeout Engine
+- **Orientation Wake**: Turning or rotating the device (e.g. from upside-down to upright, or between $0^\circ$ and $180^\circ$) is recognized as an active user interaction.
+- **Immediate Steady Brightness**: Any detected orientation flip immediately terminates the breathing dimming cycle, asserts `bsp_set_backlight_power(true)` on the AP3032 boost rail, and restores the display to the user-defined active brightness (`Low: 120`, `Med: 180`, or `High: 250`). The screen stays steadily lit and never unexpectedly switches off into a dark cycle while being handled.
+- **Automatic Re-Breathing Timer**: An inactivity countdown timer (`SCREEN_OFF_DELAY`, defaulting to 15 seconds) is armed upon any orientation flip or capacitive touch. If no further physical interaction occurs, the clock smoothly re-engages the ambient breathing cycle.
+
+### 4. Audio Domain Power Gating
 - The onboard **NS4150B Class-D audio amplifier** is dynamically gated: whenever audio playback or recording finishes, the firmware asserts `NS_MODE = LOW` and `SYS_EN = LOW` via the TCA9554 expander. The amplifier completely powers down to **0 mA quiescent drain**, eliminating background hiss and extending battery runtime.
 
-### 4. Calibrated Battery Voltage Filtering
+### 5. Calibrated Battery Voltage Filtering
 - Implemented a 10-second Exponential Moving Average (EMA) low-pass filter to prevent Wi-Fi transmission bursts (350–400 mA) from causing erratic battery percentage jumps.
 
 ---
 
-## 🌐 Comprehensive Web Remote REST API
+## 🌐 Comprehensive Web Remote REST API &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 TuneBar hosts an embedded HTTP REST API on port 80:
 
@@ -303,11 +375,41 @@ TuneBar hosts an embedded HTTP REST API on port 80:
 | `/api/rec` | `GET/POST` | `action=<start\|stop\|play>` | Triggers voice recording, stops & normalizes, or plays local `/rec.wav` loopback. |
 | `/api/ask` | `GET/POST` | `q=<text_query>` | Sends text query to AI Assistant pipeline over Wi-Fi. |
 | `/api/telemetry` | `POST` | `action=<snap\|flush>` | Captures immediate telemetry sample or flushes ring buffer to server. |
-| `/api/screenshot` | `GET` | *none* | Dumps live 640×172 RGB24 BMP framebuffer screenshot over HTTP. |
+| `/api/imu` | `GET/POST` | `autorotate=<0\|1>&rotate=<0\|180>` | Returns 6-axis accelerometer, gyroscope, temperature, and orientation state JSON; optionally sets auto-rotate or forces rotation. |
+| `/api/imu/stream` | `GET` | *none* | Server-Sent Events (SSE) live streaming 10 Hz real-time motion and orientation telemetry. |
+| `/api/update` | `POST` | `multipart/form-data (firmware.bin)` | Direct browser/curl firmware upload & flash endpoint over Wi-Fi LAN; verifies binary and restarts. |
+| `/api/screenshot` | `GET` | *none* | Dumps live 640×172 RGB24 BMP framebuffer screenshot over HTTP (dynamically rotated to match orientation). |
 
 ---
 
-## 💻 USB Serial CLI Commands
+## 📐 6-Axis IMU & Landscape Auto-Rotation (QMI8658) &nbsp;&nbsp;[ [🔝 Index](#index) ]
+
+TuneBar leverages the onboard **QMI8658 6-axis IMU** (3-axis accelerometer + 3-axis gyroscope) to provide seamless, jitter-free **Landscape Auto-Rotation**:
+
+### 1. Motion Sensing Architecture
+* **Strict Landscape Locking**: To preserve the ultra-wide $640\times172$ widescreen layout, rotation is restricted strictly to horizontal landscape modes (**$0^\circ$ Normal Landscape** $\leftrightarrow$ **$180^\circ$ Inverted Landscape**). Portrait orientations ($|A_x| > 0.75g$) and flat desk placements ($|A_z| > 0.85g$) are locked in place and ignored.
+* **Physical Edge & Port Reference**:
+  - **Normal Landscape**: Power buttons up, screen facing user.
+  - **Left Edge Rest (Portrait CCW)**: Device resting on its left edge — **USB-C port is at the top**.
+  - **Right Edge Rest (Portrait CW)**: Device resting on its right edge — **USB-C port is at the bottom**.
+* **Hysteresis & Debounce Filtering**: Uses a $350\text{ ms}$ time-window hysteresis filter on vertical acceleration thresholds ($A_y > +0.50g$ for normal, $A_y < -0.50g$ for inverted) to eliminate accidental flipping from minor hand tremors or desk vibration.
+* **Synchronized Display DMA & Capacitive Touch Mapping**: When inverted, both the 16-bit DMA scan buffer and the touch input driver synchronously invert coordinates ($X \leftrightarrow 640 - X, Y \leftrightarrow 172 - Y$), ensuring buttons and gestures remain 100% natural and responsive.
+* **Orientation as User Interaction**: Flipping or rotating the unit is recognized as an active user wake event (`on_clock_interaction_wake()`), terminating clock breathing, powering the backlight to full active brightness, and starting the 15s idle timer before breathing resumes.
+* **8-Step Guided IMU Calibration Wizard**: Calibrates zero-point bias and gravity offsets across 8 distinct physical poses:
+  1. *Wall Upright (Buttons Ceiling)* — screen facing wall/user, power buttons facing ceiling.
+  2. *Wall Tilted Up (Stand Angle)* — same as 1, but tilted back with screen facing slightly upwards.
+  3. *Inverted Upright (Buttons Floor)* — vertical flip of 1: screen facing wall, buttons facing floor.
+  4. *Inverted Tilted Down (Stand Angle)* — vertical flip of 2: screen tilted back, buttons facing floor.
+  5. *Left Edge Rest* — resting on left edge (**USB-C port on top**).
+  6. *Right Edge Rest* — resting on right edge (**USB-C port at bottom**).
+  7. *Desk Face-Up (Flat Level)* — screen facing ceiling.
+  8. *Desk Face-Down* — screen facing table/desk surface.
+* **Live Accelerometer Monitor**: Run `python monitor_accel.py COM11` to stream live parsed 3-axis acceleration vectors and orientation labels at 5 Hz directly to your terminal.
+* **Web Remote Card 9 & 10**: The Web Remote dashboard features real-time 6-axis accelerometer ($g$), gyroscope ($\text{dps}$), and die temperature ($^\circ\text{C}$) monitoring, manual $0^\circ / 180^\circ$ orientation overrides, an Auto-Rotate toggle, an SSE live stream (`/api/imu/stream`), and **Card 10: Firmware OTA Update** with direct browser file upload and live flashing progress bar.
+
+---
+
+## 💻 USB Serial CLI Commands &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 Connect over USB serial at **115200 baud** to access the interactive CLI:
 
@@ -316,6 +418,13 @@ Connect over USB serial at **115200 baud** to access the interactive CLI:
 status                    # Print uptime, battery voltage, WiFi RSSI, and audio state
 heap                      # Print detailed internal DRAM and external PSRAM breakdown
 touch                     # Wake screen and reset sleep timer
+
+# 6-Axis IMU & Orientation
+imu                       # Print real-time accelerometer, gyroscope, temperature, and orientation
+imu stream                # Stream 20 consecutive 10Hz motion readings to serial terminal
+rotate 0                  # Force display to Normal Landscape (0 deg)
+rotate 180                # Force display to Inverted Landscape (180 deg)
+autorotate on / off       # Enable or disable automatic landscape orientation switching
 
 # Radio Subsystem
 radio lang hi             # Switch radio to Hindi (OnlineRadioFM & RadioIndia)
@@ -333,14 +442,19 @@ lan server <ip:port>      # Set LAN HTTP media server address
 lan fetch                 # Index LAN media tracks
 lan play <N>              # Play LAN track N
 
-# Display & Backlight
-bl <low|med|high>         # Set backlight brightness preset
+# Display, Backlight & Diagnostics
+bl <low|med|high>         # Set brightness preset (Low: 120, Med: 180, High: 250)
+bl <0-255>                # Set raw PWM duty (0=cut rail, 1..255=raw duty, pauses breathing)
 wifi on / wifi off        # Control Wi-Fi radio power state
+
+# Diagnostics & Logging Tools
+python log_breathing_120m.py COM11   # 120-minute continuous breathing & battery discharge logging tool
+python monitor_accel.py COM11        # Live 5Hz 3-axis accelerometer gravity vector stream
 ```
 
 ---
 
-## 👆 Touch Gestures & Navigation Guide
+## 👆 Touch Gestures & Navigation Guide &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 ```
                 [ CLOCK / WEATHER / ALARM ] (ui_Screen_Info)
@@ -379,7 +493,7 @@ wifi on / wifi off        # Control Wi-Fi radio power state
 
 ---
 
-## 🔍 Hardware Bugs, Silicon Quirks & Verified Fixes
+## 🔍 Hardware Bugs, Silicon Quirks & Verified Fixes &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 Rigorous empirical testing on physical silicon diagnosed several critical bugs present in vendor reference code:
 
@@ -405,7 +519,7 @@ Rigorous empirical testing on physical silicon diagnosed several critical bugs p
 
 ---
 
-## ⚡ DRAM Optimization Deep-Dive
+## ⚡ DRAM Optimization Deep-Dive &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 On the ESP32-S3, internal **DRAM** (Data RAM) is limited to ~320 KB usable. Critical operations—such as **DMA transfers, Wi-Fi baseband descriptors, and FreeRTOS ISR stacks**—**must** reside in internal DRAM.
 
@@ -422,7 +536,7 @@ On the ESP32-S3, internal **DRAM** (Data RAM) is limited to ~320 KB usable. Crit
 
 ---
 
-## 🛠️ Step-by-Step Build & Flash Guide
+## 🛠️ Step-by-Step Build & Flash Guide &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 ### 1. Clone & Configure
 ```bash
@@ -450,7 +564,20 @@ pio device monitor -b 115200
 
 ---
 
-## 📜 Credits & License
+## 🛒 Where to Buy (Trusted Resellers by Region & Supported Languages) &nbsp;&nbsp;[ [🔝 Index](#index) ]
+
+For makers looking to build or replicate this device, the board is widely available through established distributors:
+* **🇮🇳 India (Hindi / HI)**: [Evelta Electronics](https://www.evelta.com) (Search SKU `061-32374` / *Waveshare ESP32-S3 Touch LCD 3.49*).
+* **🌐 Global / North America (English / EN & Spanish / ES)**: [Waveshare Official Store](https://www.waveshare.com/esp32-s3-touch-lcd-3.49.htm) and official stores on AliExpress.
+* **🇪🇺 Europe / DACH (German / DE)**: [BerryBase](https://www.berrybase.de) and [Welectron](https://www.welectron.com).
+* **🇯🇵 Japan (Japanese / JA)**: [Switch Science](https://www.switch-science.com) and Waveshare Direct.
+
+> [!NOTE]
+> **Community Notice**: The purchase links above are provided strictly for community reference to help makers source genuine hardware across supported regions. **None of these are affiliate links**, and the author receives no compensation, commission, or financial benefit from any retailer.
+
+---
+
+## 📜 Credits & License &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
 * Original TuneBar project by **[VaAndCob](https://github.com/VaAndCob/TuneBar)**.
 * Core audio functionality powered by the **[ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S)** library.

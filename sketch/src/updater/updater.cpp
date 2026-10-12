@@ -249,6 +249,127 @@ void ota_ui_show_blocked_battery(uint8_t batt_pct) {
   }, (void *)(uintptr_t)batt_pct);
 }
 
+// -------------------------------------------------------------
+// Real HTTP Background OTA Flasher
+// -------------------------------------------------------------
+struct HttpOtaParams {
+  char version[32];
+  char url[256];
+};
+
+static void http_ota_task(void *pvParameters) {
+  HttpOtaParams *params = (HttpOtaParams *)pvParameters;
+  log_i("[OTA TASK] Starting background HTTP flash for %s from: %s", params->version, params->url);
+
+  HTTPClient http;
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  http.setTimeout(20000);
+
+  WiFiClientSecure secureClient;
+  secureClient.setInsecure(); // GitHub raw content over HTTPS
+
+  bool beginOk = false;
+  if (strncmp(params->url, "https://", 8) == 0) {
+    beginOk = http.begin(secureClient, params->url);
+  } else {
+    beginOk = http.begin(params->url);
+  }
+
+  if (!beginOk) {
+    log_e("[OTA TASK] HTTP begin failed!");
+    free(params);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  int httpCode = http.GET();
+  if (httpCode != HTTP_CODE_OK) {
+    log_e("[OTA TASK] HTTP GET failed with code: %d", httpCode);
+    http.end();
+    free(params);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  int totalLength = http.getSize();
+  log_i("[OTA TASK] Content-Length: %d bytes", totalLength);
+
+  if (!Update.begin(totalLength > 0 ? totalLength : UPDATE_SIZE_UNKNOWN, U_FLASH)) {
+    log_e("[OTA TASK] Update.begin failed!");
+    http.end();
+    free(params);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  WiFiClient *stream = http.getStreamPtr();
+  uint8_t buff[2048];
+  size_t written = 0;
+  uint32_t last_progress_ms = millis();
+  uint32_t speed_bytes = 0;
+
+  while (http.connected() && (totalLength <= 0 || written < (size_t)totalLength)) {
+    size_t sizeAvailable = stream->available();
+    if (sizeAvailable) {
+      size_t readBytes = stream->readBytes(buff, ((sizeAvailable > sizeof(buff)) ? sizeof(buff) : sizeAvailable));
+      size_t bytesWritten = Update.write(buff, readBytes);
+      if (bytesWritten != readBytes) {
+        log_e("[OTA TASK] Update write mismatch!");
+        break;
+      }
+      written += bytesWritten;
+      speed_bytes += bytesWritten;
+
+      uint32_t now = millis();
+      if (now - last_progress_ms >= 300) {
+        uint32_t dt = now - last_progress_ms;
+        uint32_t speed_kbs = (speed_bytes * 1000ULL) / (dt * 1024ULL);
+        last_progress_ms = now;
+        speed_bytes = 0;
+        uint8_t pct = (totalLength > 0) ? (uint8_t)((written * 100ULL) / (size_t)totalLength) : 50;
+        ota_ui_update_progress(pct, written, totalLength > 0 ? totalLength : written, speed_kbs);
+      }
+    } else {
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
+  }
+
+  if (Update.end(true)) {
+    log_i("[OTA TASK] Update completed successfully! Total bytes: %u", (unsigned)written);
+    ota_ui_show_complete(params->version);
+    http.end();
+    free(params);
+    delay(2000);
+    ESP.restart();
+  } else {
+    log_e("[OTA TASK] Update.end failed with error: %d", Update.getError());
+    http.end();
+    free(params);
+    vTaskDelete(NULL);
+  }
+}
+
+bool ota_start_http_flash(const char *version_str, const char *bin_url) {
+  uint8_t batt_pct = 0;
+  float batt_v = 0.0f;
+  if (!ota_check_battery_allowed(&batt_pct, &batt_v)) {
+    log_w("[OTA] Blocked: Battery %u%%, %.2fV", (unsigned)batt_pct, batt_v);
+    ota_ui_show_blocked_battery(batt_pct);
+    return false;
+  }
+
+  ota_pre_update_teardown();
+  ota_ui_show_neon_progress(version_str);
+
+  HttpOtaParams *params = (HttpOtaParams *)malloc(sizeof(HttpOtaParams));
+  if (!params) return false;
+  snprintf(params->version, sizeof(params->version), "%s", version_str ? version_str : TUNEBAR_VERSION_STR);
+  snprintf(params->url, sizeof(params->url), "%s", bin_url ? bin_url : "");
+
+  xTaskCreatePinnedToCore(http_ota_task, "http_ota_task", 8192, params, 5, NULL, 1);
+  return true;
+}
+
 void ota_post_boot_toast(void) {
   Preferences prefs;
   prefs.begin("ota_state", false);

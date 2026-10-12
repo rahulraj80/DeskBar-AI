@@ -430,10 +430,25 @@ void serial_cli_task(void *param) {
             xQueueSend(ui_status_queue, &ui_msg, 100);
             if (lvgl_port_lock(500)) {
               _ui_screen_change(&ui_Screen_Utility, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Utility_screen_init);
-              if (ui_Utility_Panel_SystemInfo) {
-                lv_obj_clear_flag(ui_Utility_Panel_SystemInfo, LV_OBJ_FLAG_HIDDEN);
+              if (cmd.equalsIgnoreCase("sysinfo")) {
+                if (ui_Utility_Panel_SystemInfo) {
+                  lv_obj_clear_flag(ui_Utility_Panel_SystemInfo, LV_OBJ_FLAG_HIDDEN);
+                }
+                showSystemInfo(NULL);
+              } else {
+                if (ui_Utility_Panel_SystemInfo) {
+                  lv_obj_add_flag(ui_Utility_Panel_SystemInfo, LV_OBJ_FLAG_HIDDEN);
+                }
+                if (ui_Utility_Panel_Torch) {
+                  lv_obj_add_flag(ui_Utility_Panel_Torch, LV_OBJ_FLAG_HIDDEN);
+                }
+                if (ui_Utility_Panel_SpiritLevel) {
+                  lv_obj_add_flag(ui_Utility_Panel_SpiritLevel, LV_OBJ_FLAG_HIDDEN);
+                }
+                if (ui_Utility_Button_returnMenu) {
+                  lv_obj_clear_flag(ui_Utility_Button_returnMenu, LV_OBJ_FLAG_HIDDEN);
+                }
               }
-              showSystemInfo(NULL);
               lvgl_port_unlock();
             }
             Serial.println("[CLI] OK: Switched to Utility / System Info Screen");

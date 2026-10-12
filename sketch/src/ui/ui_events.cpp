@@ -52,13 +52,24 @@ void set_last_lan_track_idx(int idx) { s_last_lan_track_idx = idx; }
 void set_last_local_track_idx(int idx) { s_last_local_track_idx = idx; }
 
 #define WIFI_CHECK_INTERVAL 5000 //wifi connection checking interval 5 second.
-#define MAX_WALLPAPER 7 //number of wallpaper (including none)
+#define MAX_WALLPAPER 7 // Number of procedural vector themes
 
-// set wallpaper dropdown menu
-const char *wallpaper_menu = "None\nThailand\nChristmas1\nChristmas2\nFuture\nBeach\nNature";
-// all wallaper image in c
-const lv_img_dsc_t *wallpaper_list[MAX_WALLPAPER] = {
-    NULL, &ui_img_wallpaper_thailand_png, &ui_img_wallpaper_christmas1_png, &ui_img_wallpaper_christmas2_png, &ui_img_wallpaper_future_png, &ui_img_wallpaper_beach_png, &ui_img_wallpaper_nature_png,
+// Procedural vector themes (pure LVGL styling, zero flash footprint)
+const char *wallpaper_menu = "Pure Dark\nCyberpunk\nDeep Ocean\nEmerald\nSunset\nCarbon\nMidnight Blue";
+
+struct VectorTheme {
+    uint32_t bg_top;
+    uint32_t bg_bottom;
+};
+
+static const VectorTheme vector_themes[MAX_WALLPAPER] = {
+    {0x000000, 0x000000}, // Pure Dark (OLED black)
+    {0x1A0933, 0x070114}, // Cyberpunk (Violet to Dark Void)
+    {0x041C32, 0x040D1A}, // Deep Ocean (Navy to Abyssal)
+    {0x042B1A, 0x02140C}, // Emerald Matrix (Deep forest to shadow)
+    {0x331204, 0x140601}, // Sunset Amber (Ember glow)
+    {0x181A1F, 0x0C0D10}, // Carbon Slate (Brushed graphite)
+    {0x0B192C, 0x1E3E62}  // Midnight Blue (Dual tone blue)
 };
 
 // --- Clock Face Breathing Backlight & Power State ---
@@ -897,17 +908,27 @@ void turnonScreen(lv_event_t *e) {
   last_click_time = current_time;  
 }
 
-// change wallpapaer with dropdown
+// Apply procedural vector theme with zero flash overhead
 void setWallpaper(lv_event_t *e) {
-  // lv_obj_t *widget = lv_event_get_target(e);
   lv_obj_t *widget = ui_MainMenu_Dropdown_Wallpaper;
-  wallpaperIndex = lv_dropdown_get_selected(widget);
-  const void *img_src = NULL; // default no wallpaper
-  if (wallpaperIndex < MAX_WALLPAPER) // default wallper
-    img_src = wallpaper_list[wallpaperIndex];
-  else { // user custom wallapper load from littleFS
+  if (widget) {
+    wallpaperIndex = lv_dropdown_get_selected(widget);
   }
-  lv_obj_set_style_bg_img_src(ui_Screen_Player, img_src, LV_PART_MAIN);
+  if (wallpaperIndex >= MAX_WALLPAPER) {
+    wallpaperIndex = 0;
+  }
+
+  const VectorTheme &thm = vector_themes[wallpaperIndex];
+  if (ui_Screen_Player) {
+    lv_obj_set_style_bg_img_src(ui_Screen_Player, NULL, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ui_Screen_Player, lv_color_hex(thm.bg_top), LV_PART_MAIN);
+    if (thm.bg_top != thm.bg_bottom) {
+      lv_obj_set_style_bg_grad_color(ui_Screen_Player, lv_color_hex(thm.bg_bottom), LV_PART_MAIN);
+      lv_obj_set_style_bg_grad_dir(ui_Screen_Player, LV_GRAD_DIR_VER, LV_PART_MAIN);
+    } else {
+      lv_obj_set_style_bg_grad_dir(ui_Screen_Player, LV_GRAD_DIR_NONE, LV_PART_MAIN);
+    }
+  }
   SCREEN_OFF_TIMER = millis(); // reset timer
 }
 

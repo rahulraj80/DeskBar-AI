@@ -1,0 +1,19 @@
+{
+  "approved_repos": [
+    {
+      "id": "official",
+      "name": "TuneBar Official",
+      "author": "rahulraj80",
+      "repo_url": "https://github.com/rahulraj80/TuneBar",
+      "catalog_url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/firmware_catalog.json",
+      "description": "Official firmware with HiFi radio, LAN streaming, Nixie clock & IMU auto-rotation",
+      "is_official": true,
+      "metrics": {
+        "dram_free_avg_kb": 182,
+        "psram_free_avg_mb": 4.8,
+        "battery_life_clock_hours": 14.5,
+        "battery_life_active_hours": 5.2
+      }
+    }
+  ]
+}

@@ -30,6 +30,11 @@ void imu_sensor_set_autorotate_enabled(bool enabled);
 bool imu_sensor_is_autorotate_enabled(void);
 void imu_sensor_force_orientation(bool inverted);
 
+// IMU Calibration Bias Compensation
+void imu_sensor_set_calibration_bias(float b_ax, float b_ay, float b_az);
+void imu_sensor_get_calibration_bias(float *b_ax, float *b_ay, float *b_az);
+void imu_sensor_load_calibration(void);
+
 #ifdef __cplusplus
 }
 #endif

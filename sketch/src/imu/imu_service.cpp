@@ -7,6 +7,8 @@
 #include "freertos/semphr.h"
 #include <math.h>
 
+#include <Preferences.h>
+
 extern "C" void on_clock_interaction_wake(void);
 
 static const char *TAG = "imu_service";
@@ -15,6 +17,12 @@ static qmi8658_dev_t s_qmi_dev;
 static bool s_imu_available = false;
 static SemaphoreHandle_t s_imu_mux = NULL;
 static imu_reading_t s_latest_reading = {0};
+
+// Calibration bias offsets (calibrated in Spirit Level app)
+static float s_bias_ax = 0.0f;
+static float s_bias_ay = 0.0f;
+static float s_bias_az = 0.0f;
+static bool s_cal_loaded = false;
 
 // Orientation state & hysteresis debounce filter
 static bool s_current_inverted = false;
@@ -36,6 +44,7 @@ bool imu_sensor_init(void) {
     esp_err_t err = qmi8658_init_with_dev(&s_qmi_dev, imu_dev_handle);
     if (err == ESP_OK) {
         s_imu_available = true;
+        imu_sensor_load_calibration();
         ESP_LOGI(TAG, "QMI8658 6-axis IMU initialized successfully on I2C port 0");
         return true;
     } else {
@@ -60,10 +69,10 @@ bool imu_sensor_poll(void) {
         return false;
     }
 
-    // Convert raw values (driver returns mg and dps)
-    float ax_g = raw_data.accelX / 1000.0f;
-    float ay_g = raw_data.accelY / 1000.0f;
-    float az_g = raw_data.accelZ / 1000.0f;
+    // Convert raw values (driver returns mg and dps) with calibrated bias compensation
+    float ax_g = (raw_data.accelX / 1000.0f) - s_bias_ax;
+    float ay_g = (raw_data.accelY / 1000.0f) - s_bias_ay;
+    float az_g = (raw_data.accelZ / 1000.0f) - s_bias_az;
     float gx_dps = raw_data.gyroX;
     float gy_dps = raw_data.gyroY;
     float gz_dps = raw_data.gyroZ;
@@ -157,4 +166,36 @@ void imu_sensor_force_orientation(bool inverted) {
     s_current_inverted = inverted;
     s_pending_inverted = inverted;
     lvgl_port_set_inverted_landscape(inverted);
+}
+
+void imu_sensor_load_calibration(void) {
+    Preferences p;
+    if (p.begin("imu_cal", true)) {
+        s_bias_ax = p.getFloat("b_ax", 0.0f);
+        s_bias_ay = p.getFloat("b_ay", 0.0f);
+        s_bias_az = p.getFloat("b_az", 0.0f);
+        p.end();
+        s_cal_loaded = true;
+        ESP_LOGI(TAG, "Loaded calibration bias: X:%.3f Y:%.3f Z:%.3f", s_bias_ax, s_bias_ay, s_bias_az);
+    }
+}
+
+void imu_sensor_set_calibration_bias(float b_ax, float b_ay, float b_az) {
+    s_bias_ax = b_ax;
+    s_bias_ay = b_ay;
+    s_bias_az = b_az;
+    Preferences p;
+    if (p.begin("imu_cal", false)) {
+        p.putFloat("b_ax", b_ax);
+        p.putFloat("b_ay", b_ay);
+        p.putFloat("b_az", b_az);
+        p.end();
+        ESP_LOGI(TAG, "Saved new calibration bias to NVS: X:%.3f Y:%.3f Z:%.3f", b_ax, b_ay, b_az);
+    }
+}
+
+void imu_sensor_get_calibration_bias(float *b_ax, float *b_ay, float *b_az) {
+    if (b_ax) *b_ax = s_bias_ax;
+    if (b_ay) *b_ay = s_bias_ay;
+    if (b_az) *b_az = s_bias_az;
 }
