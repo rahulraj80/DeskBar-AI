@@ -17,12 +17,14 @@ build/
 build_phase1/
 sketch/build/
 *.bin
-!releases/**/*.bin
-releases/bin/firmware-v1.2.6.bin
+releases/bin/
 *.elf
 *.tar.gz
 sync_payload.tar.gz
 screen_temp.bmp
+/*.png
+!document/**/*.png
+server/registered_devices.json
 sketch/src/ui/images_backup/
 sketch/*.py
 __pycache__/

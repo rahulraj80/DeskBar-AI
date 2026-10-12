@@ -3,7 +3,7 @@
 #include <Preferences.h>
 #include <esp_mac.h>
 #include <mbedtls/sha256.h>
-#include "../user_config.h"
+#include "user_config.h"
 
 static char s_device_hash[20] = {0};
 static char s_telemetry_table[32] = {0};

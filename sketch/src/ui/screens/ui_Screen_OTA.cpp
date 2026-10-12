@@ -18,72 +18,30 @@ struct ReleaseItem {
   uint32_t color_hex;
   char date[32];
   char size_str[32];
-  char changelog[512];
+  char changelog[1024];
   char bin_url[256];
   uint32_t size_bytes;
 };
 
-#define MAX_CATALOG_ITEMS 6
-static ReleaseItem s_catalog[MAX_CATALOG_ITEMS] = {
-  {
-    "v1.2.6", "PATCH", 0x00FF88, "Oct 12, 2026", "4.04 MB",
-    "• LVGL vector themes replace heavy bitmaps (2.21MB flash freed).\n"
-    "• 3-Panel Spirit Level App with 8-pose guided calibration wizard.\n"
-    "• 10-second breathing cycle (5.0s black, 1.5s fade in, 2.0s hold high, 1.5s fade out).\n"
-    "• Wi-Fi power-down in clock mode saving ~50 mA quiescent current.\n"
-    "• Continuous battery voltage and percentage beacon telemetry.\n"
-    "• Enlarged 46x38px Close button matching Settings on OTA and Spirit Level.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin",
-    4237632
-  },
-  {
-    "v1.2.5", "PATCH", 0x00FF88, "Oct 10, 2026", "6.02 MB",
-    "• Fixed AP3032 boost converter enable rail on EXIO1.\n"
-    "• Calibrated QMI8658 6-axis IMU orientation detection.\n"
-    "• Resolved 15-second screen timeout conflict on Nixie clock face.\n"
-    "• Improved touch responsiveness on 640x172 landscape display.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin",
-    6318400
-  },
-  {
-    "v1.2.0", "MINOR", 0x00B0FF, "Oct 05, 2026", "5.98 MB",
-    "• Web Remote controller with virtual touch canvas and D-pad.\n"
-    "• Real-time IMU SSE live sensor streaming at 10Hz.\n"
-    "• LAN MP3 / FLAC file indexer and high-throughput streaming.\n"
-    "• Multi-catalog Internet Radio station directory.\n"
-    "• System telemetry and DRAM/PSRAM diagnostics API.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin",
-    6280000
-  },
-  {
-    "v1.1.0", "MINOR", 0x00B0FF, "Sep 28, 2026", "5.85 MB",
-    "• ES7210 dual I2S microphone array driver integration.\n"
-    "• Groq Whisper audio pipeline with voice activity detection.\n"
-    "• Hardware acoustic echo cancellation calibration.\n"
-    "• Weather forecast voice responses with multi-day forecasts.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin",
-    6150000
-  },
-  {
-    "v2.0.0", "MAJOR", 0xB388FF, "Nov 01, 2026", "4.15 MB",
-    "• FreeRTOS symmetric multiprocessing architecture.\n"
-    "• LittleFS asset filesystem with dynamic PNG icon loader.\n"
-    "• Integrated multi-repo firmware updater with rollback guard.\n"
-    "• Low-latency ES8311 HiFi audio pipeline.\n"
-    "• Inclinometer spirit level utility app.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin",
-    4350000
-  },
-  {
-    "v1.0.0", "MAJOR", 0xB388FF, "Sep 01, 2026", "5.70 MB",
-    "• Initial commercial firmware release for TuneBar ESP32-S3.\n"
-    "• LVGL 8.3 graphics engine on ST7701 640x172 display.\n"
-    "• Internet Radio player, Clock, Alarm, and Weather apps.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.0.0.bin",
-    5700000
+#include "generated_catalog.h"
+
+#define MAX_CATALOG_ITEMS 16
+static ReleaseItem s_catalog[MAX_CATALOG_ITEMS];
+static int s_catalog_count = 0;
+
+static void init_catalog_from_generated(void) {
+  s_catalog_count = (GENERATED_CATALOG_COUNT < MAX_CATALOG_ITEMS) ? GENERATED_CATALOG_COUNT : MAX_CATALOG_ITEMS;
+  for (int i = 0; i < s_catalog_count; i++) {
+    snprintf(s_catalog[i].version, sizeof(s_catalog[i].version), "%s", s_generated_catalog[i].version);
+    snprintf(s_catalog[i].type_name, sizeof(s_catalog[i].type_name), "%s", s_generated_catalog[i].type_name);
+    s_catalog[i].color_hex = s_generated_catalog[i].color_hex;
+    snprintf(s_catalog[i].date, sizeof(s_catalog[i].date), "%s", s_generated_catalog[i].date);
+    snprintf(s_catalog[i].size_str, sizeof(s_catalog[i].size_str), "%s", s_generated_catalog[i].size_str);
+    snprintf(s_catalog[i].changelog, sizeof(s_catalog[i].changelog), "%s", s_generated_catalog[i].changelog);
+    snprintf(s_catalog[i].bin_url, sizeof(s_catalog[i].bin_url), "%s", s_generated_catalog[i].bin_url);
+    s_catalog[i].size_bytes = s_generated_catalog[i].size_bytes;
   }
-};
-static int s_catalog_count = 6;
+}
 
 // ----------------------------------------------------------------------------
 // Approved Repositories
@@ -396,6 +354,9 @@ static void update_carousel_card(int idx) {
 // Initialize Firmware Manager UI
 // ----------------------------------------------------------------------------
 void ui_ota_manager_init(lv_obj_t *parent_screen) {
+  if (s_catalog_count == 0) {
+    init_catalog_from_generated();
+  }
   if (s_mgr_root) return;
 
   // Root Full-Screen Panel: 640x172

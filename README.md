@@ -162,7 +162,9 @@ TuneBar runs on the 3.49-inch capacitive touch screen development board powered 
 - **200px / 420px Split Carousel**:
   - **Stationary Left Section (200px)**: Version badge (`MAJOR`, `MINOR`, `PATCH`), build date, binary size, real-time battery safety check, and single-tap `[Select & Flash]` action button.
   - **Dynamic Right Section (420px)**: Version changelog with smooth vertical auto-scroll (20 px/s), 2.0s bounceback delay at bottom/top, and a 5.0s user-touch hold override.
-- **Strict Numeric Semantic Versioning**: Strictly `v<Major>.<Minor>.<Patch>` (e.g. `v1.2.6`) tied to git commit count and hash.
+- **Strict Numeric Semantic Versioning**: Strictly `v<Major>.<Minor>.<Patch>` (e.g. `v1.2.8`) tied directly to git commit count and hash.
+- **Automated Catalog Pipeline**: Community release catalogs are generated dynamically via `scripts/generate_catalog.py` into `sketch/include/generated_catalog.h` and `releases/firmware_catalog.json` with zero manual hardcoding.
+- **Firmware Binary Footprint**: ~4.09 MB (4,293,248 bytes, 58.5% flash utilization), leaving ample headroom for over-the-air partition dual-bank bank switching.
 - **Hardware Battery Guard**: OTA flashing is automatically blocked below 70% battery capacity unless connected to USB power.
 - **App Teardown on OTA**: Shuts down audio playback, network streams, and IMU SSE polling before flashing to guarantee maximum free RAM/PSRAM.
 - **Numeric Stepper Query**: Browse arbitrary versions from GitHub using `v[▲▼].[▲▼].[▲▼]` with live compatibility checks.
@@ -178,9 +180,9 @@ TuneBar runs on the 3.49-inch capacitive touch screen development board powered 
   <img src="document/screen_spirit_level_panel3.png" alt="Guided 8-Step Calibration Wizard" width="60%" />
 </p>
 
-- **Panel 1 (`[01] RAW DATA`)**: Live calibrated 6-axis accelerometer ($m/s^2$), sparkline waveform chart, named orientations matching matrix (Normal Landscape, Tilted Stand, Inverted Landscape, Flat Desk Screen Up, and Portrait Lock), and interactive tolerance adjuster steppers (`[-]` and `[+]`).
-- **Panel 2 (`[02] SPIRIT LEVEL`)**: High-precision 2D bullseye reticle with liquid bubble physics (bubble rises uphill to highest elevation point), dual inclinometer sliders (Depth declination leaning backward/forward and Horizontal declination tilted left/right), real-time degree readouts, and `[LOCKED] LEVEL` status indicator.
-- **Panel 3 (`[03] CALIBRATION`)**: 8-step guided calibration wizard with 0.5s stabilization delay through distinct physical poses: (1) Wall Upright (buttons up, USB right), (2) Wall Tilted Up (stand angle), (3) Inverted Upright (buttons down, USB left), (4) Inverted Tilted Down, (5) Left Edge Rest (USB port on top), (6) Right Edge Rest (USB port at bottom), (7) Desk Face-Up (flat level), (8) Desk Face-Down. Calibration bias offsets are saved to NVS and directly applied across the system and display auto-rotation!
+- **Panel 1 (`[01] RAW DATA`)**: Live calibrated 6-axis accelerometer ($m/s^2$), real-time sparkline waveform chart, 4-row named orientation posture tracker (`[01] NORMAL LANDSCAPE`, `[02] TILTED LANDSCAPE`, `[03] PORTRAIT`, `[04] FLAT`) with 3-state badges (`[ACTIVE]` in green, `[INVERTED]` in amber, `[IDLE]` in dim slate), interactive `[-]` / `[+]` 0.25° tolerance adjustment steppers, and single-tap `[↺]` reset button restoring default $\pm 2.00^\circ$ level lock.
+- **Panel 2 (`[02] SPIRIT LEVEL`)**: High-precision 2D bullseye reticle with liquid bubble physics (air bubble rises uphill to highest elevation edge across all orientations), high-precision `SHELF >` horizontal carpenter level ($\pm 10.0^\circ$ full scale, $0.1^\circ$ resolution, turning vibrant green when within tolerance), `PLUMB >` depth wall inclinometer ($\pm 15.0^\circ$), real-time degree readouts, and `[LOCKED] LEVEL` status indicator.
+- **Panel 3 (`[03] CALIBRATION`)**: 8-step guided calibration wizard with 0.5s hand stabilization delay featuring a dynamic isometric device wireframe diagram updating chassis posture, button orientation (`BTNS: UP`/`BTNS: DN`), and USB port (`USB: RIGHT`/`USB: LEFT`/`USB: TOP`/`USB: BOT`) per step across all 8 poses: (1) Wall Upright (buttons up, USB right), (2) Wall Tilted Up (stand angle), (3) Inverted Upright (buttons down, USB left), (4) Inverted Tilted Down, (5) Left Edge Rest (USB port on top), (6) Right Edge Rest (USB port at bottom), (7) Desk Face-Up (flat level), (8) Desk Face-Down. Calibration bias offsets are saved to NVS and directly applied across the system and display auto-rotation!
 
 ---
 
@@ -310,8 +312,8 @@ TuneBar features a unified media player engine that seamlessly handles both **Lo
    - **Instant Repeat Disabled by Default**: To keep voice conversations swift and natural, the device does **not** repeat the user's voice aloud by default; instead, it transitions immediately into the cloud pipeline and speaks the AI answer.
    - **Diagnostic Local Loopback**: Whenever acoustic testing or mic calibration is needed, the local `/rec.wav` buffer can be played back immediately through the ES8311 DAC and NS4150B amplifier without cloud access via `/api/rec?action=play` or serial `rec play`.
    - **Raw WAV Download**: The audio file can be inspected or retrieved across your LAN via `http://<device-ip>/rec.wav` for audio quality and STT accuracy audits.
-3. **Low-Latency Cloud Pipeline**:
-   - Audio payload is uploaded via background HTTPS TLS to the FastAPI backend.
+3. **Low-Latency Cloud Pipeline & Hardware Authentication**:
+   - Audio payload is uploaded via background HTTPS TLS to the assistant endpoint (`ask.php`). Requests are verified against a hardware device registry populated by initial telemetry ping-home, ensuring complimentary services are reserved for genuine TuneBar devices running verified firmware.
    - **Groq Whisper Large V3 Turbo** transcribes speech in <200ms.
    - **Llama 3.3 70B Versatile** generates concise, intelligent responses in <250ms.
    - **Microsoft Edge-TTS** streams natural neural speech back to the ESP32-S3 over Wi-Fi.

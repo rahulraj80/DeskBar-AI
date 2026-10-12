@@ -17,6 +17,7 @@ Preferences pref;
 #include "weather/weather.h"
 #include <LittleFS.h>
 #include "lvgl_port/lvgl_port.h"
+#include "screens/ui_Screen_Consent.h"
 
 #include "ESP32-audioI2S-master/Audio.h"
 #include "es7210/es7210.h"
@@ -172,10 +173,11 @@ void update_clock_breathing(void) {
   // If we are on the Clock face (infoPageIndex == 0 on ui_Screen_Info) and breathing was paused due to interaction:
   if (!clock_face_active) {
     if (lv_scr_act() == ui_Screen_Info && infoPageIndex == 0) {
+      if (SCREEN_OFF_DELAY == 0) return; // If screen off delay is Never (0), never re-engage breathing!
       if (s_clock_interaction_ms == 0) {
         s_clock_interaction_ms = now;
       }
-      uint32_t idle_limit = (SCREEN_OFF_DELAY > 0) ? SCREEN_OFF_DELAY : 15000;
+      uint32_t idle_limit = SCREEN_OFF_DELAY;
       if (now - s_clock_interaction_ms >= idle_limit) {
         log_i("[BREATH] Clock idle timeout reached (%u ms) -> re-engaging breathing cycle", (unsigned)idle_limit);
         enter_clock_breathing();
@@ -384,6 +386,9 @@ void init_main_menu_task(lv_timer_t *timer) {
   if (!menu_audio_anim_timer) {
     menu_audio_anim_timer = lv_timer_create(menu_audio_anim_cb, 350, NULL);
   }
+
+  // Check and show Community Cloud Consent Modal on cold first boot
+  ui_consent_modal_show_if_needed();
 }
 
 // ################# App start here after screen initialized ##############################
@@ -1526,7 +1531,11 @@ void loadStationFromSDCARD(lv_event_t *e) {
 // reset SCREEN_OFF_TIMER timer on config panel
 void resetScreenOffTimer(lv_event_t *e) {
   SCREEN_OFF_TIMER = millis(); // reset timer
+  s_clock_interaction_ms = millis();
   BL_OFF = false; // wake screen explicitly
+  if (clock_face_active) {
+    on_clock_interaction_wake();
+  }
 }
 
 //------------ Info screen events ---------------
