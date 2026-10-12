@@ -1,4 +1,5 @@
 #include "battery/battery.h"
+#include "updater/updater.h"
 /**
  * @details
  *  - **Application Name:** TuneBar
@@ -42,6 +43,7 @@ static void mbedtls_psram_free(void *ptr) {
 #include "lcd_bl_bsp/lcd_bl_pwm_bsp.h"
 #include "lvgl_port/lvgl_port.h"
 #include "ui/ui.h"
+#include "ui/ui_events.h"
 #include "user_config.h"
 #include <Arduino.h>
 #include <stdio.h>
@@ -55,7 +57,7 @@ static void mbedtls_psram_free(void *ptr) {
 #include "network/network.h" // wifi network
 #include "updater/updater.h"
 #include "lan_stream/lan_stream.h"
-//#include "qmi8658/qmi8658.h" // imu
+#include "imu/imu_service.h"
 
 
 extern Audio audio;
@@ -202,6 +204,8 @@ void setup() {
   // Alarm engine init (Preferences NVS on main thread)
   alarm_init();
   lan_stream_init();
+  imu_sensor_init();
+  ota_post_boot_toast();
 
   // Free RTOS Tasks
   // Core 1 (Audio decoding & RTC/hardware application processing)
@@ -242,8 +246,12 @@ void serial_debug_beacon_task(void *param) {
     size_t free_heap = esp_get_free_heap_size();
     size_t min_heap = esp_get_minimum_free_heap_size();
     size_t free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-    log_i("[BEACON] Heap: %u (min: %u) | PSRAM: %u | BL_OFF: %d | Audio: %s | WiFi: %s",
+    float batt_v = 0.0f;
+    uint8_t batt_pct = 0;
+    getBatteryStatus(&batt_v, &batt_pct);
+    log_i("[BEACON] Heap: %u (min: %u) | PSRAM: %u | BL_OFF: %d | Batt: %.2fV (%d%%) | Audio: %s | WiFi: %s",
           (unsigned)free_heap, (unsigned)min_heap, (unsigned)free_psram, (int)BL_OFF,
+          batt_v, (int)batt_pct,
           audio.isRunning() ? "PLAYING" : "IDLE",
           (WiFi.status() == WL_CONNECTED) ? "CONNECTED" : "OFFLINE");
 
@@ -531,13 +539,10 @@ void serial_cli_task(void *param) {
               Serial.println("[CLI RADIO] Invalid station index");
             }
           } else if (cmd.equalsIgnoreCase("touch") || cmd.equalsIgnoreCase("tap")) {
-            exit_clock_breathing();
-            screenPowerOn();
+            on_clock_interaction_wake();
             bsp_set_audio_amp_power(true);
             UIStatusPayload ui_msg = {.type = STATUS_SCREEN_UNLOCK};
             xQueueSend(ui_status_queue, &ui_msg, 100);
-            extern void on_clock_touch_or_button(void);
-            on_clock_touch_or_button();
             resetScreenOffTimer(NULL);
             extern void lvgl_port_inject_touch(int16_t x, int16_t y, uint32_t duration_ms);
             lvgl_port_inject_touch(320, 86, 150);
@@ -869,19 +874,31 @@ void serial_cli_task(void *param) {
               pref.begin("config", false); pref.putUChar("bl_state", 1); pref.end();
               lv_dropdown_set_selected(ui_MainMenu_Dropdown_Brightness, 1);
               setUpduty(LCD_BL_MED);
-              Serial.println("[CLI] OK: Brightness set to MED (170)");
+              Serial.println("[CLI] OK: Brightness set to MED (180)");
             } else if (arg.equalsIgnoreCase("high") || arg == "2") {
               backlight_state = 2;
               pref.begin("config", false); pref.putUChar("bl_state", 2); pref.end();
               lv_dropdown_set_selected(ui_MainMenu_Dropdown_Brightness, 2);
               setUpduty(LCD_BL_HIGH);
-              Serial.println("[CLI] OK: Brightness set to HIGH (255)");
-            } else {
+              Serial.println("[CLI] OK: Brightness set to HIGH (250)");
+            } else if (arg.length() > 0 && isdigit(arg[0])) {
               int raw_val = arg.toInt();
-              if (raw_val < 0) raw_val = 0;
-              if (raw_val > 255) raw_val = 255;
-              setUpduty(255 - raw_val);
-              Serial.printf("[CLI] OK: Raw brightness PWM set to %d (duty %d)\n", raw_val, 255 - raw_val);
+              if (raw_val <= 0) {
+                clock_face_active = 0;
+                setUpduty(255);
+                bsp_set_backlight_power(false);
+                BL_OFF = true;
+                Serial.println("[CLI] OK: Raw brightness PWM set to 0 (Backlight Rail Cut, breathing paused)");
+              } else {
+                if (raw_val > 255) raw_val = 255;
+                clock_face_active = 0;
+                bsp_set_backlight_power(true);
+                BL_OFF = false;
+                setUpduty(255 - raw_val);
+                Serial.printf("[CLI] OK: Raw brightness PWM set to %d/255 (duty %d, breathing paused)\n", raw_val, 255 - raw_val);
+              }
+            } else {
+              Serial.println("[CLI] Usage: bl low|med|high OR bl <0-255>");
             }
           } else if (cmd.startsWith("vol ")) {
             int v = cmd.substring(4).toInt();
@@ -982,6 +999,41 @@ void serial_cli_task(void *param) {
                           (unsigned)((318 * 1024 - dram_free) / 1024),
                           (unsigned)((318 * 1024 - dram_free) * 100 / (318 * 1024)));
             Serial.println("======================================\n");
+          } else if (cmd.equalsIgnoreCase("imu") || cmd.equalsIgnoreCase("accel")) {
+            imu_reading_t imu;
+            if (imu_sensor_get_latest(&imu)) {
+              Serial.println("\n========== QMI8658 6-AXIS IMU ==========");
+              Serial.printf("  Accel (g)   : X=%+0.3f | Y=%+0.3f | Z=%+0.3f\n", imu.ax, imu.ay, imu.az);
+              Serial.printf("  Gyro (dps)  : X=%+0.2f | Y=%+0.2f | Z=%+0.2f\n", imu.gx, imu.gy, imu.gz);
+              Serial.printf("  Temperature : %0.1f C\n", imu.temp_c);
+              Serial.printf("  Orientation : %s (%s)\n", imu.orientation_str, imu.is_inverted ? "180 deg Inverted" : "0 deg Normal");
+              Serial.printf("  Auto-Rotate : %s\n", imu_sensor_is_autorotate_enabled() ? "ENABLED" : "DISABLED");
+              Serial.println("========================================\n");
+            } else {
+              Serial.println("[CLI IMU] Sensor unavailable or not initialized.");
+            }
+          } else if (cmd.equalsIgnoreCase("imu stream")) {
+            Serial.println("[CLI IMU] Streaming 20 samples (press any key to stop)...");
+            for (int i = 0; i < 20; i++) {
+              imu_reading_t imu;
+              if (imu_sensor_get_latest(&imu)) {
+                Serial.printf("#%02d | Accel(g): [%+0.2f, %+0.2f, %+0.2f] | Gyro(dps): [%+0.1f, %+0.1f, %+0.1f] | %s\n",
+                              i + 1, imu.ax, imu.ay, imu.az, imu.gx, imu.gy, imu.gz, imu.orientation_str);
+              }
+              vTaskDelay(pdMS_TO_TICKS(150));
+            }
+          } else if (cmd.equalsIgnoreCase("rotate 0") || cmd.equalsIgnoreCase("rotate normal")) {
+            imu_sensor_force_orientation(false);
+            Serial.println("[CLI IMU] Screen forced to Normal Landscape (0 deg)");
+          } else if (cmd.equalsIgnoreCase("rotate 180") || cmd.equalsIgnoreCase("rotate inverted")) {
+            imu_sensor_force_orientation(true);
+            Serial.println("[CLI IMU] Screen forced to Inverted Landscape (180 deg)");
+          } else if (cmd.equalsIgnoreCase("autorotate on")) {
+            imu_sensor_set_autorotate_enabled(true);
+            Serial.println("[CLI IMU] Landscape Auto-rotation ENABLED");
+          } else if (cmd.equalsIgnoreCase("autorotate off")) {
+            imu_sensor_set_autorotate_enabled(false);
+            Serial.println("[CLI IMU] Landscape Auto-rotation DISABLED");
           } else {
             Serial.printf("[CLI] Unknown command: '%s' (type 'help')\n", cmd.c_str());
           }

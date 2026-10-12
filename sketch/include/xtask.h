@@ -29,6 +29,7 @@ CORE 0:
 #include <ArduinoJson.h>
 #include "user_config.h"
 #include "lan_stream/lan_stream.h"
+#include "imu/imu_service.h"
 
 extern "C" void on_clock_boot_button_pressed(void);
 extern bool wifiEnable;
@@ -106,7 +107,7 @@ void button_input_task(void *param) {
     uint32_t start = SCREEN_OFF_TIMER;
     uint32_t delay = SCREEN_OFF_DELAY;
 
-    if (delay != 0 && !BL_OFF && !clock_face_active) {
+    if (delay != 0 && !BL_OFF && !clock_face_active && !is_on_nixie_clock()) {
       if ((now - start) >= delay) {
         log_d("< Lock Screen >");
         ui_msg.type = STATUS_SCREEN_LOCK;
@@ -117,6 +118,12 @@ void button_input_task(void *param) {
           bsp_set_audio_amp_power(false);
         }
       }
+    }
+
+    static uint32_t last_imu_poll = 0;
+    if (now - last_imu_poll >= 100) {
+      last_imu_poll = now;
+      imu_sensor_poll();
     }
 
     vTaskDelay(pdMS_TO_TICKS(10)); // yield CPU

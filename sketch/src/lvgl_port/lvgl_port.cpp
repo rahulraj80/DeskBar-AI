@@ -23,6 +23,7 @@
 #include "ui/screens/ui_Screen_MainMenu.h"
 #include "ui/screens/ui_Screen_Player.h"
 #include "ui/screens/ui_Screen_Utility.h"
+extern "C" void on_clock_interaction_wake(void);
 
 extern uint8_t mediaType;
 extern "C" void exit_clock_breathing(void);
@@ -58,6 +59,31 @@ static void WAVESHARE_349_increase_lvgl_tick(void *arg) {
   lv_tick_inc(WAVESHARE_349_LVGL_TICK_PERIOD_MS);
 }
 
+static volatile bool s_inverted_landscape = false;
+static volatile bool s_autorotate_enabled = true;
+
+void lvgl_port_set_inverted_landscape(bool inverted) {
+  if (s_inverted_landscape != inverted) {
+    s_inverted_landscape = inverted;
+    if (lvgl_port_lock(200)) {
+      lv_obj_invalidate(lv_scr_act());
+      lvgl_port_unlock();
+    }
+  }
+}
+
+bool lvgl_port_is_inverted_landscape(void) {
+  return s_inverted_landscape;
+}
+
+void lvgl_port_set_autorotate_enabled(bool enabled) {
+  s_autorotate_enabled = enabled;
+}
+
+bool lvgl_port_is_autorotate_enabled(void) {
+  return s_autorotate_enabled;
+}
+
 static void WAVESHARE_349_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map) {
   if (BL_OFF) {
     lv_disp_flush_ready(drv);
@@ -87,14 +113,41 @@ static void WAVESHARE_349_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *are
   uint16_t *map = (uint16_t *)color_map;
 #endif
 
+  const uint32_t total_pixels = (uint32_t)(WAVESHARE_349_LCD_H_RES * WAVESHARE_349_LCD_V_RES);
+  const bool is_flipped = s_inverted_landscape;
+
   xSemaphoreGive(lvgl_flush_semap);
   for (int i = 0; i < flush_coun; i++) {
     xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
-    memcpy(lvgl_dma_buf, map, LVGL_DMA_BUFF_LEN);
+    if (!is_flipped) {
+      memcpy(lvgl_dma_buf, map, LVGL_DMA_BUFF_LEN);
+      map += dmalen;
+    } else {
+      // Physical display is 172 columns (X) by 640 scanlines (Y).
+      // Each flush chunk i covers rows y_local from 0 to offgap-1 within the chunk,
+      // corresponding to physical scanline y_phys = i * offgap + y_local.
+      // In normal mode: dst_row[x_phys] = src_fb[x_phys * 640 + y_phys].
+      // In true 180-degree inverted mode (buttons facing ground, screen facing user):
+      // The physical scanlines reverse order (y_phys -> 639 - y_phys) and physical columns reverse (x_phys -> 171 - x_phys).
+      // Since normal mode maps row index to y_phys and column index to x_phys,
+      // inverted mode must read:
+      // x_src = (WAVESHARE_349_LCD_H_RES - 1) - y_phys; (639 - y_phys)
+      // y_src = x_phys;
+      // dst_row[x_phys] = src_fb[y_src * WAVESHARE_349_LCD_H_RES + x_src];
+      const uint16_t *src_fb = (const uint16_t *)color_map;
+      for (int y_local = 0; y_local < offgap; y_local++) {
+        int y_phys = i * offgap + y_local;
+        int x_src = (WAVESHARE_349_LCD_H_RES - 1) - y_phys;
+        uint16_t *dst_row = lvgl_dma_buf + (y_local * LCD_NOROT_HRES);
+        for (int x_phys = 0; x_phys < LCD_NOROT_HRES; x_phys++) {
+          int y_src = x_phys;
+          dst_row[x_phys] = src_fb[y_src * WAVESHARE_349_LCD_H_RES + x_src];
+        }
+      }
+    }
     esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2, offsety2, lvgl_dma_buf);
     offsety1 += offgap;
     offsety2 += offgap;
-    map += dmalen;
   }
   xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
   s_last_frame_buffer = (const uint16_t *)color_map;
@@ -237,9 +290,7 @@ static void WAVESHARE_349_lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *da
   // ESP_LOGD(TAG, "Raw Touch: %d - %d", pointX, pointY);
 
   if (buff[1] > 0 && buff[1] < 5) {
-    exit_clock_breathing();
-    screenPowerOn();
-    SCREEN_OFF_TIMER = millis();
+    on_clock_interaction_wake();
     data->state = LV_INDEV_STATE_PR;
 #if (Rotated != USER_DISP_ROT_NONO)
     if (pointX > WAVESHARE_349_LCD_V_RES) pointX = WAVESHARE_349_LCD_V_RES;
@@ -249,8 +300,13 @@ static void WAVESHARE_349_lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *da
 #else
     if (pointX > WAVESHARE_349_LCD_H_RES) pointX = WAVESHARE_349_LCD_H_RES;
     if (pointY > WAVESHARE_349_LCD_V_RES) pointY = WAVESHARE_349_LCD_V_RES;
-    data->point.x = (WAVESHARE_349_LCD_H_RES - pointX);
-    data->point.y = (WAVESHARE_349_LCD_V_RES - pointY);
+    if (!s_inverted_landscape) {
+      data->point.x = (WAVESHARE_349_LCD_H_RES - pointX);
+      data->point.y = (WAVESHARE_349_LCD_V_RES - pointY);
+    } else {
+      data->point.x = pointX;
+      data->point.y = pointY;
+    }
 #endif
 
   } else {

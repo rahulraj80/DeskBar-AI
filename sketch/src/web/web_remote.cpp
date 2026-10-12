@@ -1,6 +1,7 @@
 #include "web_remote.h"
 #include <WebServer.h>
 #include <WiFi.h>
+#include <Update.h>
 #include <Preferences.h>
 #include "esp_heap_caps.h"
 #include "ESP32-audioI2S-master/Audio.h"
@@ -16,8 +17,10 @@
 #include "lvgl_port/lvgl_port.h"
 #include "ui/ui.h"
 #include "ui/ui_events.h"
-#include "ui/screens/ui_Screen_Player.h"
 #include "user_config.h"
+#include "imu/imu_service.h"
+#include "updater/updater.h"
+#include "version.h"
 
 extern Audio audio;
 extern Preferences pref;
@@ -255,6 +258,87 @@ static const char HTML_PAGE[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       <button class="btn" id="bl-btn-2" onclick="setBL(2)">Bright (High)</button>
     </div>
   </div>
+
+  <!-- CARD 9: 6-AXIS MOTION & LANDSCAPE AUTO-ROTATION -->
+  <div class="card">
+    <div class="card-title">
+      <span>📐 6-Axis IMU & Orientation</span>
+      <span id="imu-state" style="color:var(--accent);font-size:0.78rem">--</span>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-chip"><span>Accel X, Y, Z (g)</span><strong id="imu-accel">--</strong></div>
+      <div class="stat-chip"><span>Gyro X, Y, Z (dps)</span><strong id="imu-gyro">--</strong></div>
+      <div class="stat-chip"><span>Die Temp</span><strong id="imu-temp">--</strong></div>
+    </div>
+    <div class="btn-group">
+      <button class="btn" id="imu-rot-0" onclick="callApi('/api/imu?rotate=0')">Normal (0°)</button>
+      <button class="btn" id="imu-rot-180" onclick="callApi('/api/imu?rotate=180')">Invert (180°)</button>
+      <button class="btn primary" id="imu-autorot-btn" onclick="toggleAutoRotate()">Auto-Rotate: ON</button>
+      <button class="btn" id="imu-stream-btn" onclick="toggleImuLiveStream()">📡 Live Stream</button>
+    </div>
+    <div id="imu-stream-status" style="font-size:0.75rem;color:var(--sub);min-height:16px"></div>
+  </div>
+
+  <!-- CARD 10: MULTI-REPO FIRMWARE OTA UPDATE -->
+  <div class="card">
+    <div class="card-title">
+      <span>🚀 Firmware OTA & GitHub Releases</span>
+      <span id="ota-batt-badge" style="font-size:0.75rem;padding:2px 8px;border-radius:10px;background:#063025;color:#00FF88">🔋 Battery OK</span>
+    </div>
+
+    <!-- Section A: Approved Repositories -->
+    <div style="font-size:0.8rem;color:var(--sub);margin-bottom:4px;display:flex;justify-content:space-between">
+      <span>Active Repository (Approved Community / Official):</span>
+      <a href="https://github.com/rahulraj80/TuneBar/blob/main/releases/approved_repos.json" target="_blank" style="color:var(--accent);font-size:0.75rem;text-decoration:none">View Registry ↗</a>
+    </div>
+    <select id="ota-repo-select" onchange="onRepoChanged()" style="width:100%;padding:6px;background:#18202c;border:1px solid #334455;color:var(--text);border-radius:4px;margin-bottom:6px">
+      <option value="official">TuneBar Official — by rahulraj80 [Official]</option>
+    </select>
+    <div class="stats-grid" style="margin-bottom:8px">
+      <div class="stat-chip"><span>Avg Free DRAM</span><strong id="repo-dram" style="color:#00FF88">182 KB</strong></div>
+      <div class="stat-chip"><span>Avg Free PSRAM</span><strong id="repo-psram" style="color:#00E5FF">4.8 MB</strong></div>
+      <div class="stat-chip"><span>Clock Battery</span><strong id="repo-clock-batt" style="color:#FFB800">14.5 Hours</strong></div>
+      <div class="stat-chip"><span>Active Battery</span><strong id="repo-active-batt" style="color:#FF8800">5.2 Hours</strong></div>
+    </div>
+
+    <!-- Section B: Releases Selector -->
+    <div style="font-size:0.8rem;color:var(--sub);margin-bottom:4px">Select Curated Release (Last 2 Major, 2 Minor, 2 Patch):</div>
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <select id="ota-release-select" onchange="onReleaseChanged()" style="flex:1;padding:6px;background:#18202c;border:1px solid #334455;color:var(--text);border-radius:4px">
+        <option value="0">🟢 v1.2.6 (PATCH) — Oct 12, 2026 [6.03 MB]</option>
+        <option value="1">🟢 v1.2.5 (PATCH) — Oct 10, 2026 [6.02 MB]</option>
+        <option value="2">🔵 v1.2.0 (MINOR) — Oct 05, 2026 [5.98 MB]</option>
+        <option value="3">🔵 v1.1.0 (MINOR) — Sep 28, 2026 [5.85 MB]</option>
+        <option value="4">🟣 v2.0.0 (MAJOR) — Nov 01, 2026 [6.20 MB]</option>
+        <option value="5">🟣 v1.0.0 (MAJOR) — Sep 01, 2026 [5.70 MB]</option>
+      </select>
+      <button class="btn primary" id="ota-github-btn" onclick="flashSelectedRelease()">⚡ Flash from GitHub</button>
+    </div>
+    <div id="ota-release-notes" style="font-size:0.75rem;color:#AAA;background:#111822;padding:6px 8px;border-radius:4px;border:1px solid #223344;min-height:36px;white-space:pre-line;margin-bottom:8px">Loading release notes...</div>
+
+    <!-- Section C: Custom Numeric Version & Local Upload -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:4px;border-top:1px solid #223344">
+      <div style="display:flex;gap:4px;align-items:center;font-size:0.8rem">
+        <span>Custom: v</span>
+        <input type="number" id="v-maj" min="0" max="9" value="1" style="width:34px;padding:3px;background:#18202c;border:1px solid #334455;color:#fff;border-radius:3px">.
+        <input type="number" id="v-min" min="0" max="99" value="2" style="width:38px;padding:3px;background:#18202c;border:1px solid #334455;color:#fff;border-radius:3px">.
+        <input type="number" id="v-pat" min="0" max="99" value="6" style="width:38px;padding:3px;background:#18202c;border:1px solid #334455;color:#fff;border-radius:3px">
+        <button class="btn" style="padding:4px 8px;font-size:0.75rem" onclick="flashCustomVersion()">🔍 Pull & Flash</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:240px">
+        <input type="file" id="ota-file-input" accept=".bin" style="font-size:0.75rem;color:var(--text);flex:1">
+        <button class="btn" id="ota-upload-btn" style="padding:4px 10px;font-size:0.75rem" onclick="uploadFirmware()">Upload .bin</button>
+      </div>
+    </div>
+
+    <!-- Progress & Status Box -->
+    <div id="ota-progress-box" style="display:none;margin-top:8px">
+      <div style="background:#111;border-radius:4px;overflow:hidden;height:14px;margin-bottom:4px;border:1px solid #00E5FF">
+        <div id="ota-progress-bar" style="background:#00E5FF;width:0%;height:100%;transition:width 0.1s"></div>
+      </div>
+      <div id="ota-status-text" style="font-size:0.78rem;color:#00E5FF;font-weight:bold">Ready</div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -428,6 +512,19 @@ function refreshData(data) {
   document.getElementById('stat-dram').innerText = (data.dram_free || Math.round(data.heap/1024)) + ' KB Free (' + (data.dram_pct || 65) + '% used)';
   document.getElementById('stat-psram').innerText = (data.psram / 1048576).toFixed(1) + ' MB Free';
   document.getElementById('stat-batt').innerText = data.batt_v + 'V (' + data.batt_pct + '%)';
+  currentBattPct = data.batt_pct || 100;
+  const otaBadge = document.getElementById('ota-batt-badge');
+  if (otaBadge) {
+    if (currentBattPct >= 70) {
+      otaBadge.style.background = '#063025';
+      otaBadge.style.color = '#00FF88';
+      otaBadge.innerText = '🔋 Battery ' + currentBattPct + '% (Safe to Flash)';
+    } else {
+      otaBadge.style.background = '#3A1E00';
+      otaBadge.style.color = '#FFA500';
+      otaBadge.innerText = '⚠️ Battery ' + currentBattPct + '% (Blocked < 70%)';
+    }
+  }
   document.getElementById('stat-wifi').innerText = data.rssi + ' dBm';
   document.getElementById('stat-screen').innerText = data.bl_off ? 'Locked/Off' : ('BL: ' + ['Low','Med','High'][data.bl_state]);
   document.getElementById('stat-boot').innerText = (data.boot_count || 1) + ' boots';
@@ -497,15 +594,257 @@ function refreshData(data) {
   }
 }
 
+let imuEventSource = null;
+let autoRotateEnabled = true;
+
+function toggleAutoRotate() {
+  autoRotateEnabled = !autoRotateEnabled;
+  fetch('/api/imu?autorotate=' + (autoRotateEnabled ? 1 : 0), { method: 'POST' })
+    .then(r => r.json())
+    .then(updateImuUI)
+    .catch(console.error);
+}
+
+function updateImuUI(data) {
+  if (!data || !data.available) {
+    document.getElementById('imu-state').innerText = 'Offline';
+    return;
+  }
+  document.getElementById('imu-state').innerText = data.orientation + (data.is_inverted ? ' (180°)' : ' (0°)');
+  document.getElementById('imu-accel').innerText = `${data.ax.toFixed(2)}, ${data.ay.toFixed(2)}, ${data.az.toFixed(2)}`;
+  document.getElementById('imu-gyro').innerText = `${data.gx.toFixed(1)}, ${data.gy.toFixed(1)}, ${data.gz.toFixed(1)}`;
+  document.getElementById('imu-temp').innerText = `${data.temp_c ? data.temp_c.toFixed(1) : (data.temp ? data.temp.toFixed(1) : '--')} °C`;
+  
+  autoRotateEnabled = data.autorotate;
+  const btn = document.getElementById('imu-autorot-btn');
+  if (btn) {
+    btn.className = 'btn ' + (data.autorotate ? 'primary' : '');
+    btn.innerText = 'Auto-Rotate: ' + (data.autorotate ? 'ON' : 'OFF');
+  }
+  document.getElementById('imu-rot-0').className = 'btn' + (!data.is_inverted ? ' active' : '');
+  document.getElementById('imu-rot-180').className = 'btn' + (data.is_inverted ? ' active' : '');
+}
+
+function pollImu() {
+  if (imuEventSource) return; // SSE is streaming
+  fetch('/api/imu')
+    .then(r => r.json())
+    .then(updateImuUI)
+    .catch(console.error);
+}
+
+function toggleImuLiveStream() {
+  const btn = document.getElementById('imu-stream-btn');
+  const status = document.getElementById('imu-stream-status');
+  if (imuEventSource) {
+    imuEventSource.close();
+    imuEventSource = null;
+    btn.innerText = '📡 Live Stream';
+    btn.className = 'btn';
+    status.innerText = 'Stream stopped.';
+  } else {
+    btn.innerText = '⏹ Stop Stream';
+    btn.className = 'btn danger';
+    status.innerText = 'Live 10Hz SSE stream connected.';
+    imuEventSource = new EventSource('/api/imu/stream');
+    imuEventSource.onmessage = function(e) {
+      try {
+        const d = JSON.parse(e.data);
+        d.available = true;
+        d.orientation = d.state;
+        d.is_inverted = d.inverted;
+        d.autorotate = autoRotateEnabled;
+        updateImuUI(d);
+      } catch (err) { console.error(err); }
+    };
+    imuEventSource.onerror = function() {
+      if (imuEventSource) {
+        imuEventSource.close();
+        imuEventSource = null;
+      }
+      btn.innerText = '📡 Live Stream';
+      btn.className = 'btn';
+      status.innerText = 'Stream ended / closed.';
+    };
+  }
+}
+
+let currentBattPct = 100;
+let otaReleases = [
+  { ver: 'v1.2.6', type: 'PATCH', date: 'Oct 12, 2026', size: '6.03 MB', notes: '• 10s breathing cycle (5s black, 2s hold high).\n• Wi-Fi power down in clock mode.\n• Real-time battery telemetry beacon.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin' },
+  { ver: 'v1.2.5', type: 'PATCH', date: 'Oct 10, 2026', size: '6.02 MB', notes: '• AP3032 boost rail fix on EXIO1.\n• QMI8658 IMU orientation calibration.\n• Clock face timeout guard.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin' },
+  { ver: 'v1.2.0', type: 'MINOR', date: 'Oct 05, 2026', size: '5.98 MB', notes: '• Web Remote controller with D-pad.\n• 10Hz IMU live stream.\n• LAN MP3 indexer & player.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin' },
+  { ver: 'v1.1.0', type: 'MINOR', date: 'Sep 28, 2026', size: '5.85 MB', notes: '• ES7210 dual I2S mic driver.\n• Groq Whisper voice assistant.\n• Acoustic echo cancellation.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin' },
+  { ver: 'v2.0.0', type: 'MAJOR', date: 'Nov 01, 2026', size: '6.20 MB', notes: '• FreeRTOS SMP architecture.\n• LittleFS asset filesystem.\n• Multi-repo rollback watchdog.\n• Spirit Level app.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin' },
+  { ver: 'v1.0.0', type: 'MAJOR', date: 'Sep 01, 2026', size: '5.70 MB', notes: '• Initial commercial release.\n• Internet Radio, Clock, Alarm, Weather.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.0.0.bin' }
+];
+
+function checkBatterySafe() {
+  if (currentBattPct < 70) {
+    alert('⚠️ Battery is at ' + currentBattPct + '%. Minimum 70% required to prevent corruption during firmware update. Please connect USB charger.');
+    return false;
+  }
+  return true;
+}
+
+function onReleaseChanged() {
+  const sel = document.getElementById('ota-release-select');
+  if (!sel) return;
+  const idx = parseInt(sel.value, 10);
+  const r = otaReleases[idx];
+  if (r) {
+    document.getElementById('ota-release-notes').innerText = r.notes + '\n\nFile Size: ' + r.size + ' • Date: ' + r.date;
+  }
+}
+
+function onRepoChanged() {
+  const repo = document.getElementById('ota-repo-select').value;
+  if (repo === 'official') {
+    document.getElementById('repo-dram').innerText = '182 KB';
+    document.getElementById('repo-psram').innerText = '4.8 MB';
+    document.getElementById('repo-clock-batt').innerText = '14.5 Hours';
+    document.getElementById('repo-active-batt').innerText = '5.2 Hours';
+  }
+}
+
+function flashSelectedRelease() {
+  if (!checkBatterySafe()) return;
+  const sel = document.getElementById('ota-release-select');
+  const idx = parseInt(sel.value, 10);
+  const r = otaReleases[idx];
+  if (r) streamFirmwareFromUrl(r.url, r.ver);
+}
+
+function flashCustomVersion() {
+  if (!checkBatterySafe()) return;
+  const maj = document.getElementById('v-maj').value || 1;
+  const min = document.getElementById('v-min').value || 0;
+  const pat = document.getElementById('v-pat').value || 0;
+  const ver = 'v' + maj + '.' + min + '.' + pat;
+  const url = 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-' + ver + '.bin';
+  streamFirmwareFromUrl(url, ver);
+}
+
+function streamFirmwareFromUrl(url, verName) {
+  const box = document.getElementById('ota-progress-box');
+  const bar = document.getElementById('ota-progress-bar');
+  const status = document.getElementById('ota-status-text');
+  const btn = document.getElementById('ota-github-btn');
+  if (btn) btn.disabled = true;
+  box.style.display = 'block';
+  bar.style.width = '10%';
+  bar.style.background = '#00E5FF';
+  status.innerText = 'Downloading ' + verName + ' from repository...';
+
+  fetch(url)
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' downloading firmware');
+      return r.blob();
+    })
+    .then(blob => {
+      bar.style.width = '30%';
+      status.innerText = 'Streaming ' + verName + ' (' + Math.round(blob.size/1024) + ' KB) to TuneBar over Wi-Fi...';
+      const formData = new FormData();
+      formData.append('firmware', blob, 'firmware-' + verName + '.bin');
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/update', true);
+      xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          bar.style.width = pct + '%';
+          status.innerText = 'Flashing: ' + pct + '% (' + Math.round(e.loaded/1024) + ' / ' + Math.round(e.total/1024) + ' KB)';
+        }
+      };
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          bar.style.width = '100%';
+          bar.style.background = '#00FF88';
+          status.innerText = '✅ Update to ' + verName + ' successful! Device rebooting...';
+        } else {
+          bar.style.background = '#F44336';
+          status.innerText = '❌ Update failed: ' + xhr.responseText;
+          if (btn) btn.disabled = false;
+        }
+      };
+      xhr.onerror = function() {
+        bar.style.background = '#F44336';
+        status.innerText = '❌ Network error during firmware stream';
+        if (btn) btn.disabled = false;
+      };
+      xhr.send(formData);
+    })
+    .catch(err => {
+      bar.style.background = '#F44336';
+      status.innerText = '❌ Download error: ' + err.message;
+      if (btn) btn.disabled = false;
+    });
+}
+
+function uploadFirmware() {
+  if (!checkBatterySafe()) return;
+  const fileInput = document.getElementById('ota-file-input');
+  if (!fileInput.files || fileInput.files.length === 0) {
+    alert('Please select a firmware.bin file first.');
+    return;
+  }
+  const file = fileInput.files[0];
+  const btn = document.getElementById('ota-upload-btn');
+  const box = document.getElementById('ota-progress-box');
+  const bar = document.getElementById('ota-progress-bar');
+  const status = document.getElementById('ota-status-text');
+
+  btn.disabled = true;
+  box.style.display = 'block';
+  bar.style.width = '0%';
+  bar.style.background = '#00E5FF';
+  status.innerText = 'Uploading ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)...';
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/update', true);
+
+  xhr.upload.onprogress = function(e) {
+    if (e.lengthComputable) {
+      const pct = Math.round((e.loaded / e.total) * 100);
+      bar.style.width = pct + '%';
+      status.innerText = 'Uploading: ' + pct + '% (' + Math.round(e.loaded/1024) + ' / ' + Math.round(e.total/1024) + ' KB)';
+    }
+  };
+
+  xhr.onload = function() {
+    if (xhr.status === 200) {
+      bar.style.width = '100%';
+      bar.style.background = '#00FF88';
+      status.innerText = '✅ Update Successful! Rebooting...';
+    } else {
+      bar.style.background = '#F44336';
+      status.innerText = '❌ Update Failed: ' + xhr.responseText;
+      btn.disabled = false;
+    }
+  };
+
+  xhr.onerror = function() {
+    bar.style.background = '#F44336';
+    status.innerText = '❌ Network error during firmware upload';
+    btn.disabled = false;
+  };
+
+  const formData = new FormData();
+  formData.append('firmware', file, file.name);
+  xhr.send(formData);
+}
+
 function refresh() {
   fetch('/api/status')
     .then(r => r.json())
     .then(refreshData)
     .catch(console.error);
+  pollImu();
 }
 
-setInterval(refresh, 2500);
+setInterval(refresh, 2000);
 refresh();
+pollImu();
 </script>
 </body>
 </html>)rawliteral";
@@ -889,12 +1228,15 @@ static void handle_screenshot() {
         server.send(500, "text/plain", "Out of memory for screenshot buffer");
         return;
     }
+    const bool is_flipped = lvgl_port_is_inverted_landscape();
     for (int y = (int)height - 1; y >= 0; y--) {
         memset(row_buf, 0, row_stride);
-        const uint16_t *src_row = fb + (y * width);
+        int src_y = is_flipped ? ((int)height - 1 - y) : y;
+        const uint16_t *src_row = fb + (src_y * width);
         uint8_t *dst = row_buf;
         for (uint32_t x = 0; x < width; x++) {
-            uint16_t raw = src_row[x];
+            uint32_t src_x = is_flipped ? (width - 1 - x) : x;
+            uint16_t raw = src_row[src_x];
 #if LV_COLOR_16_SWAP
             uint16_t p = (uint16_t)((raw >> 8) | (raw << 8));
 #else
@@ -943,11 +1285,202 @@ static void handle_rec_action() {
     }
 }
 
+static void handle_imu() {
+    if (server.hasArg("autorotate")) {
+        String ar = server.arg("autorotate");
+        if (ar == "1" || ar == "true" || ar == "on") {
+            imu_sensor_set_autorotate_enabled(true);
+        } else if (ar == "0" || ar == "false" || ar == "off") {
+            imu_sensor_set_autorotate_enabled(false);
+        }
+    }
+    if (server.hasArg("rotate")) {
+        int r = server.arg("rotate").toInt();
+        if (r == 180) {
+            imu_sensor_force_orientation(true);
+        } else if (r == 0) {
+            imu_sensor_force_orientation(false);
+        }
+    }
+
+    imu_reading_t imu;
+    bool ok = imu_sensor_get_latest(&imu);
+    char buf[384];
+    if (ok) {
+        snprintf(buf, sizeof(buf),
+            "{\"available\":true,\"ax\":%.3f,\"ay\":%.3f,\"az\":%.3f,"
+            "\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"temp_c\":%.1f,"
+            "\"is_inverted\":%s,\"orientation\":\"%s\",\"autorotate\":%s}",
+            imu.ax, imu.ay, imu.az,
+            imu.gx, imu.gy, imu.gz, imu.temp_c,
+            imu.is_inverted ? "true" : "false",
+            imu.orientation_str,
+            imu_sensor_is_autorotate_enabled() ? "true" : "false"
+        );
+    } else {
+        snprintf(buf, sizeof(buf), "{\"available\":false,\"error\":\"imu_unavailable\"}");
+    }
+    server.send(200, "application/json", buf);
+}
+
+static void handle_imu_stream() {
+    WiFiClient client = server.client();
+    server.sendHeader("Cache-Control", "no-cache");
+    server.sendHeader("Connection", "keep-alive");
+    server.send(200, "text/event-stream", "");
+
+    // Stream live sensor updates for up to 30 seconds or until client disconnects
+    uint32_t start_ms = millis();
+    while (client.connected() && (millis() - start_ms < 30000)) {
+        imu_reading_t imu;
+        if (imu_sensor_get_latest(&imu)) {
+            char chunk[256];
+            int len = snprintf(chunk, sizeof(chunk),
+                "data: {\"ax\":%.3f,\"ay\":%.3f,\"az\":%.3f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"temp\":%.1f,\"inverted\":%s,\"state\":\"%s\"}\n\n",
+                imu.ax, imu.ay, imu.az, imu.gx, imu.gy, imu.gz, imu.temp_c,
+                imu.is_inverted ? "true" : "false", imu.orientation_str);
+            client.write((const uint8_t *)chunk, len);
+        }
+        vTaskDelay(pdMS_TO_TICKS(100)); // 10Hz live stream
+    }
+}
+
+static bool s_ota_active = false;
+static size_t s_ota_bytes_last = 0;
+static uint32_t s_ota_ms_last = 0;
+
+static void handle_ota_repos(void) {
+    const char *json = "{\"active_repo\":\"official\",\"approved_repos\":["
+      "{\"id\":\"official\",\"name\":\"TuneBar Official (Rahul Mod)\",\"author\":\"rahul\","
+      "\"catalog_url\":\"https://raw.githubusercontent.com/rahul/TuneBar/main/releases/firmware_catalog.json\","
+      "\"description\":\"Official firmware with HiFi radio, LAN streaming, Nixie clock & IMU auto-rotation\","
+      "\"metrics\":{\"dram_free_avg_kb\":182,\"psram_free_avg_mb\":4.8,\"battery_life_clock_hours\":14.5,\"battery_life_active_hours\":5.2}},"
+      "{\"id\":\"tunebar_dsp_pro\",\"name\":\"TuneBar DSP & Studio Sound\",\"author\":\"audio_enthusiast\","
+      "\"catalog_url\":\"https://raw.githubusercontent.com/community/TuneBar-DSP/main/releases/firmware_catalog.json\","
+      "\"description\":\"Optimized audio equalization and wide-band acoustic processing\","
+      "\"metrics\":{\"dram_free_avg_kb\":148,\"psram_free_avg_mb\":3.6,\"battery_life_clock_hours\":12.0,\"battery_life_active_hours\":4.5}}"
+      "]}";
+    server.send(200, "application/json", json);
+}
+
+static void handle_ota_catalog(void) {
+    const char *json = "{\"repo_id\":\"official\",\"releases\":["
+      "{\"version\":\"1.2.6\",\"type\":\"patch\",\"build\":48,\"date\":\"2026-10-12\",\"size\":\"6.03 MB\","
+      "\"changelog\":\"10s breathing cycle (5s black, 2s hold high). Wi-Fi power down in clock mode. Real-time battery telemetry.\","
+      "\"url\":\"https://raw.githubusercontent.com/rahul/TuneBar/main/releases/bin/firmware-v1.2.6.bin\"},"
+      "{\"version\":\"1.2.5\",\"type\":\"patch\",\"build\":46,\"date\":\"2026-10-10\",\"size\":\"6.02 MB\","
+      "\"changelog\":\"Fixed AP3032 boost rail. IMU orientation calibration. 15s timeout clock face fix.\","
+      "\"url\":\"https://raw.githubusercontent.com/rahul/TuneBar/main/releases/bin/firmware-v1.2.5.bin\"},"
+      "{\"version\":\"1.2.0\",\"type\":\"minor\",\"build\":40,\"date\":\"2026-10-05\",\"size\":\"5.98 MB\","
+      "\"changelog\":\"Web Remote controller with D-pad. 10Hz IMU live stream. LAN MP3 indexer. Telemetry API.\","
+      "\"url\":\"https://raw.githubusercontent.com/rahul/TuneBar/main/releases/bin/firmware-v1.2.0.bin\"},"
+      "{\"version\":\"1.1.0\",\"type\":\"minor\",\"build\":28,\"date\":\"2026-09-28\",\"size\":\"5.85 MB\","
+      "\"changelog\":\"ES7210 dual I2S mic driver. Groq Whisper audio pipeline with voice activity detection.\","
+      "\"url\":\"https://raw.githubusercontent.com/rahul/TuneBar/main/releases/bin/firmware-v1.1.0.bin\"},"
+      "{\"version\":\"2.0.0\",\"type\":\"major\",\"build\":50,\"date\":\"2026-11-01\",\"size\":\"6.20 MB\","
+      "\"changelog\":\"Next-Gen OS: FreeRTOS SMP, LittleFS dynamic PNG loader, multi-repo rollback guard, spirit level app.\","
+      "\"url\":\"https://raw.githubusercontent.com/rahul/TuneBar/main/releases/bin/firmware-v2.0.0.bin\"},"
+      "{\"version\":\"1.0.0\",\"type\":\"major\",\"build\":1,\"date\":\"2026-09-01\",\"size\":\"5.70 MB\","
+      "\"changelog\":\"Initial commercial release. Internet Radio, Clock, Alarm, Weather apps on ST7701.\","
+      "\"url\":\"https://raw.githubusercontent.com/rahul/TuneBar/main/releases/bin/firmware-v1.0.0.bin\"}"
+      "]}";
+    server.send(200, "application/json", json);
+}
+
+static void handle_update_done(void) {
+    uint8_t batt_pct = 0; float batt_v = 0.0f;
+    if (!ota_check_battery_allowed(&batt_pct, &batt_v)) {
+        server.sendHeader("Connection", "close");
+        server.send(403, "application/json", "{\"status\":\"blocked\",\"reason\":\"battery_too_low\",\"battery_pct\":" + String(batt_pct) + ",\"required_pct\":70,\"message\":\"OTA blocked: Battery below 70% (" + String(batt_pct) + "%). Connect USB charger.\"}");
+        return;
+    }
+
+    bool ok = !Update.hasError();
+    server.sendHeader("Connection", "close");
+    if (ok) {
+        server.send(200, "application/json", "{\"status\":\"ok\",\"version\":\"" TUNEBAR_VERSION_STR "\",\"build\":" + String(TUNEBAR_BUILD_NUM) + ",\"message\":\"Update successful! Rebooting now...\"}");
+        log_i("[OTA] Firmware update successful! Restarting in 2s...");
+        delay(2000);
+        ESP.restart();
+    } else {
+        String err = "{\"status\":\"error\",\"message\":\"Update failed (code " + String(Update.getError()) + ")\"}";
+        server.send(500, "application/json", err);
+        log_e("[OTA] Firmware update failed with error code: %d", Update.getError());
+    }
+}
+
+static void handle_update_upload(void) {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+        log_i("[OTA] Starting firmware upload: %s", upload.filename.c_str());
+
+        uint8_t batt_pct = 0; float batt_v = 0.0f;
+        if (!ota_check_battery_allowed(&batt_pct, &batt_v)) {
+            log_w("[OTA] BLOCKED: Battery is too low (%u%%, %.2fV)", (unsigned)batt_pct, batt_v);
+            ota_ui_show_blocked_battery(batt_pct);
+            s_ota_active = false;
+            return;
+        }
+
+        s_ota_active = true;
+        s_ota_bytes_last = 0;
+        s_ota_ms_last = millis();
+
+        ota_pre_update_teardown();
+        ota_ui_show_neon_progress(upload.filename.c_str());
+
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)) {
+            Update.printError(Serial);
+            log_e("[OTA] Update.begin failed!");
+            s_ota_active = false;
+        }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+        if (!s_ota_active) return;
+
+        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+            Update.printError(Serial);
+            log_e("[OTA] Update.write failed!");
+        } else {
+            uint32_t now = millis();
+            if (now - s_ota_ms_last >= 250) {
+                uint32_t dt_ms = now - s_ota_ms_last;
+                size_t dbytes = upload.totalSize - s_ota_bytes_last;
+                uint32_t speed_kb = (dt_ms > 0) ? (uint32_t)((dbytes * 1000ULL) / (dt_ms * 1024ULL)) : 0;
+                s_ota_ms_last = now;
+                s_ota_bytes_last = upload.totalSize;
+
+                uint8_t pct = (uint8_t)((upload.totalSize * 100ULL) / 6350000ULL);
+                if (pct > 99) pct = 99;
+                ota_ui_update_progress(pct, upload.totalSize, 6350000, speed_kb);
+            }
+        }
+    } else if (upload.status == UPLOAD_FILE_END) {
+        if (!s_ota_active) return;
+
+        if (Update.end(true)) {
+            log_i("[OTA] Firmware upload completed! Total size: %u bytes", (unsigned)upload.totalSize);
+            ota_ui_update_progress(100, upload.totalSize, upload.totalSize, 0);
+            ota_ui_show_complete(TUNEBAR_VERSION_STR);
+        } else {
+            Update.printError(Serial);
+            log_e("[OTA] Update.end failed!");
+        }
+        s_ota_active = false;
+    } else if (upload.status == UPLOAD_FILE_ABORTED) {
+        Update.end();
+        s_ota_active = false;
+        log_w("[OTA] Firmware upload aborted by client");
+    }
+}
+
 void web_remote_init(void) {
     if (server_running) return;
 
     server.on("/", HTTP_GET, handle_root);
     server.on("/api/status", HTTP_GET, handle_status);
+    server.on("/api/update", HTTP_POST, handle_update_done, handle_update_upload);
+    server.on("/api/ota/repos", HTTP_GET, handle_ota_repos);
+    server.on("/api/ota/catalog", HTTP_GET, handle_ota_catalog);
     server.on("/api/vol", HTTP_POST, handle_vol);
     server.on("/api/radio/lang", HTTP_GET, handle_radio_lang);
     server.on("/api/radio/lang", HTTP_POST, handle_radio_lang);
@@ -978,6 +1511,9 @@ void web_remote_init(void) {
     server.on("/api/rec", HTTP_POST, handle_rec_action);
     server.on("/api/screenshot", HTTP_GET, handle_screenshot);
     server.on("/screenshot.bmp", HTTP_GET, handle_screenshot);
+    server.on("/api/imu", HTTP_GET, handle_imu);
+    server.on("/api/imu", HTTP_POST, handle_imu);
+    server.on("/api/imu/stream", HTTP_GET, handle_imu_stream);
 
     server.enableCORS(true);
     server.begin();

@@ -66,6 +66,10 @@ LV_IMG_DECLARE(ui_img_custom_dog_left1_png);    // assets/custom/dog_left1.png
 LV_IMG_DECLARE(ui_img_images_mute_png);    // assets/images/mute.png
 LV_IMG_DECLARE(ui_img_images_torch_png);    // assets/images/torch.png
 LV_IMG_DECLARE(ui_img_images_systeminfo_png);    // assets/images/systeminfo.png
+LV_IMG_DECLARE(ui_img_utility_torch_png);
+LV_IMG_DECLARE(ui_img_utility_systeminfo_png);
+LV_IMG_DECLARE(ui_img_utility_spirit_level_png);
+LV_IMG_DECLARE(ui_img_utility_firmware_ota_png);
 LV_IMG_DECLARE(ui_img_images_vaandcobbanner_png);    // assets/images/vaandcobBanner.png
 LV_IMG_DECLARE(ui_img_images_qr_png);    // assets/images/qr.png
 LV_IMG_DECLARE(ui_img_aqi_good_png);    // assets/aqi/good.png

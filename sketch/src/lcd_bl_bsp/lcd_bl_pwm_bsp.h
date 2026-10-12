@@ -16,9 +16,10 @@
 #define  LCD_PWM_MODE_225 (0xff-225)
 #define  LCD_PWM_MODE_255 (0xff-255)
 
-#define  LCD_BL_LOW   (255 - 120)  // 120 = LOW (bumped above 93 floor)
-#define  LCD_BL_MED   (255 - 170)  // 170 = MEDIUM
-#define  LCD_BL_HIGH  (255 - 255)  // 255 = HIGH
+#define  LCD_BL_MIN   (255 - 90)   // 90 = Minimum vacuum tube glow floor
+#define  LCD_BL_LOW   (255 - 120)  // 120 = LOW
+#define  LCD_BL_MED   (255 - 180)  // 180 = MEDIUM
+#define  LCD_BL_HIGH  (255 - 250)  // 250 = HIGH
 
 
 
