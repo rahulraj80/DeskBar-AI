@@ -16,30 +16,22 @@ static uint32_t s_telemetry_interval = 300; // default 5 minutes (300s)
 static bool s_has_custom_ini = false;
 static bool s_cloud_consent = false;
 static bool s_has_decided_consent = false;
+static bool s_has_existing_pin = false;
 
 static Preferences s_sec_prefs;
 
-static void compute_device_hash(void) {
+void secrets_calculate_table_for_pin(const char *pin, char *out_table, size_t max_len) {
+    if (!out_table || max_len == 0) return;
     uint8_t mac[6] = {0};
     esp_efuse_mac_get_default(mac);
 
-    // Read stored PIN or default to "1234"
-    if (s_master_pin[0] == '\0') {
-        if (s_sec_prefs.begin("sys_sec", true)) {
-            String pin = s_sec_prefs.getString("pin", "1234");
-            strncpy(s_master_pin, pin.c_str(), sizeof(s_master_pin) - 1);
-            s_sec_prefs.end();
-        } else {
-            strncpy(s_master_pin, "1234", sizeof(s_master_pin) - 1);
-        }
-    }
-
-    // Hash MAC + PIN with SHA-256
     uint8_t input[38];
     memcpy(input, mac, 6);
-    size_t pin_len = strlen(s_master_pin);
+    size_t pin_len = (pin) ? strlen(pin) : 0;
     if (pin_len > 31) pin_len = 31;
-    memcpy(input + 6, s_master_pin, pin_len);
+    if (pin && pin_len > 0) {
+        memcpy(input + 6, pin, pin_len);
+    }
 
     uint8_t hash[32];
     mbedtls_sha256_context ctx;
@@ -49,14 +41,20 @@ static void compute_device_hash(void) {
     mbedtls_sha256_finish(&ctx, hash);
     mbedtls_sha256_free(&ctx);
 
-    // Take first 16 hex characters in uppercase
+    char dev_hash[17];
     for (int i = 0; i < 8; i++) {
-        snprintf(s_device_hash + (i * 2), 3, "%02X", hash[i]);
+        snprintf(dev_hash + (i * 2), 3, "%02X", hash[i]);
     }
-    s_device_hash[16] = '\0';
+    dev_hash[16] = '\0';
+    snprintf(out_table, max_len, "TB_%s", dev_hash);
+}
 
-    // Default telemetry table is TB_<hash>
-    snprintf(s_telemetry_table, sizeof(s_telemetry_table), "TB_%s", s_device_hash);
+static void compute_device_hash(void) {
+    secrets_calculate_table_for_pin(s_master_pin, s_telemetry_table, sizeof(s_telemetry_table));
+    if (strlen(s_telemetry_table) >= 19) {
+        strncpy(s_device_hash, s_telemetry_table + 3, sizeof(s_device_hash) - 1);
+        s_device_hash[sizeof(s_device_hash) - 1] = '\0';
+    }
 }
 
 static void trim_str(char *str) {
@@ -80,7 +78,15 @@ void secrets_manager_reload(void) {
     s_has_custom_ini = false;
 
     // Load cloud consent and registration version from NVS
+    s_has_existing_pin = false;
     if (s_sec_prefs.begin("sys_sec", true)) {
+        if (s_sec_prefs.isKey("pin")) {
+            String p = s_sec_prefs.getString("pin", "");
+            if (p.length() > 0) {
+                strncpy(s_master_pin, p.c_str(), sizeof(s_master_pin) - 1);
+                s_has_existing_pin = true;
+            }
+        }
         String reg_ver = s_sec_prefs.getString("reg_ver", "");
         s_has_decided_consent = s_sec_prefs.getBool("decided", false);
         s_cloud_consent = s_sec_prefs.getBool("consent", false);
@@ -303,4 +309,24 @@ bool secrets_delete_ini_file(void) {
     }
     secrets_manager_reload();
     return true;
+}
+
+bool secrets_has_existing_pin(void) {
+    return s_has_existing_pin;
+}
+
+void secrets_erase_all(void) {
+    if (s_sec_prefs.begin("sys_sec", false)) {
+        s_sec_prefs.clear();
+        s_sec_prefs.end();
+    }
+    if (LittleFS.exists("/secrets.ini")) {
+        LittleFS.remove("/secrets.ini");
+    }
+    s_master_pin[0] = '\0';
+    s_has_existing_pin = false;
+    s_has_decided_consent = false;
+    s_cloud_consent = false;
+    log_w("[SECRETS] All secrets and NVS credentials completely erased!");
+    secrets_manager_reload();
 }

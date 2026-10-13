@@ -6,12 +6,14 @@
 #include "../ui.h"
 #include "ui_Screen_OTA.h"
 #include "ui_Screen_SpiritLevel.h"
+#include "ui_Screen_Consent.h"
 
 lv_obj_t * ui_Screen_Utility = NULL;
 lv_obj_t * ui_Utility_Image_TorchButton = NULL;
 lv_obj_t * ui_Utility_Image_SystemInfoButton = NULL;
 lv_obj_t * ui_Utility_Button_SpiritLevel = NULL;
 lv_obj_t * ui_Utility_Button_FirmwareOTA = NULL;
+lv_obj_t * ui_Utility_Button_Privacy = NULL;
 
 lv_obj_t * ui_Utility_Panel_Torch = NULL;
 lv_obj_t * ui_Utility_Label_Label26 = NULL;
@@ -93,6 +95,13 @@ void ui_event_Utility_SpiritLevel_Close(lv_event_t * e)
     if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
         _ui_flag_modify(ui_Utility_Panel_SpiritLevel, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
         _ui_flag_modify(ui_Utility_Button_returnMenu, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+    }
+}
+
+void ui_event_Utility_Privacy_Click(lv_event_t * e)
+{
+    if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        ui_consent_modal_force_show();
     }
 }
 
@@ -354,6 +363,24 @@ void ui_Screen_Utility_screen_init(void)
     lv_obj_set_style_text_opa(ui_Utility_Label_Metrics, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui_Utility_Label_Metrics, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_Utility_Label_Metrics, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_Utility_Button_Privacy = lv_btn_create(ui_Utility_Panel_SystemInfo);
+    lv_obj_set_width(ui_Utility_Button_Privacy, 140);
+    lv_obj_set_height(ui_Utility_Button_Privacy, 30);
+    lv_obj_set_x(ui_Utility_Button_Privacy, 310);
+    lv_obj_set_y(ui_Utility_Button_Privacy, 122);
+    lv_obj_set_align(ui_Utility_Button_Privacy, LV_ALIGN_TOP_LEFT);
+    lv_obj_set_style_bg_color(ui_Utility_Button_Privacy, lv_color_hex(0x131B2E), LV_PART_MAIN);
+    lv_obj_set_style_border_color(ui_Utility_Button_Privacy, lv_color_hex(0x00F0FF), LV_PART_MAIN);
+    lv_obj_set_style_border_width(ui_Utility_Button_Privacy, 1, LV_PART_MAIN);
+    lv_obj_set_style_radius(ui_Utility_Button_Privacy, 4, LV_PART_MAIN);
+    lv_obj_add_event_cb(ui_Utility_Button_Privacy, ui_event_Utility_Privacy_Click, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *lbl_priv = lv_label_create(ui_Utility_Button_Privacy);
+    lv_label_set_text(lbl_priv, "Cloud & PIN");
+    lv_obj_set_align(lbl_priv, LV_ALIGN_CENTER);
+    lv_obj_set_style_text_color(lbl_priv, lv_color_hex(0x00F0FF), LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl_priv, &lv_font_montserrat_10, LV_PART_MAIN);
 
     ui_Utility_Button_closeConfig2 = lv_btn_create(ui_Utility_Panel_SystemInfo);
     lv_obj_set_width(ui_Utility_Button_closeConfig2, 36);

@@ -32,9 +32,12 @@ const char* secrets_get_master_pin(void);
 // Community cloud consent management
 bool secrets_has_cloud_consent(void);
 bool secrets_has_decided_consent(void);
+bool secrets_has_existing_pin(void);
 void secrets_set_cloud_consent(bool consent);
 void secrets_reset_consent(void);
 void secrets_set_master_pin(const char *pin);
+void secrets_calculate_table_for_pin(const char *pin, char *out_table, size_t max_len);
+void secrets_erase_all(void);
 bool secrets_has_custom_ini(void);
 
 // Web Remote INI editor helpers
