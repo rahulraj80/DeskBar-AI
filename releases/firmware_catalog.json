@@ -2,6 +2,16 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.0.3",
+      "type": "patch",
+      "build": 30,
+      "date": "Oct 13, 2026",
+      "title": "TuneBar v2.0.3: Increase webstream pre-buffering to 256KB in PSRAM to eliminate stutter on 256kbps radio stations",
+      "changelog": "\u2022 Increase webstream pre-buffering to 256KB in PSRAM to eliminate stutter on 256kbps radio stations",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.3.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.0.2",
       "type": "patch",
       "build": 29,
@@ -9,7 +19,7 @@
       "title": "TuneBar v2.0.2: Add gTTS speech fallback and eliminate UI freeze when TTS audio is empty or fails",
       "changelog": "\u2022 Add gTTS speech fallback and eliminate UI freeze when TTS audio is empty or fails",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.2.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.0.1",

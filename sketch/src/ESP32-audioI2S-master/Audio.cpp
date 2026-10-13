@@ -3992,8 +3992,8 @@ void Audio::processWebStream() {
         if (!initializeDecoder()) return;
     }
 
-    // start audio decoding with 32 KB safety cushion (~2 sec at 128kbps) - - - - - - - - - - - - - - -
-    const size_t prebuff_target = 32768;
+    // start audio decoding with 256 KB safety cushion (~8 sec at 256kbps, ~16 sec at 128kbps) - - - - - - - - - - - - - - -
+    const size_t prebuff_target = 262144;
     if (!m_f_stream && (InBuff.bufferFilled() >= prebuff_target || m_f_allDataReceived || !m_pwst.f_clientIsConnected)) {
         if (InBuff.bufferFilled() > m_pwst.maxFrameSize) {
             info(*this, evt_info, "stream ready");
@@ -4072,7 +4072,7 @@ void Audio::processWebFile() {
             }
             return;
         } else {
-            const size_t prebuff_webfile = 32768;
+            const size_t prebuff_webfile = 262144;
             if (InBuff.bufferFilled() >= prebuff_webfile || m_f_allDataReceived || (m_audioFileSize > 0 && InBuff.bufferFilled() >= m_audioFileSize)) {
                 m_f_stream = true;
                 info(*this, evt_info, "stream ready");
