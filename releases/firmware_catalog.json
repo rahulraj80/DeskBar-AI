@@ -4,12 +4,12 @@
     {
       "version": "2.0.0",
       "type": "major",
-      "build": 20,
-      "date": "2026-11-01",
-      "title": "Next-Gen TuneBar OS (Preview)",
-      "changelog": "\u2022 FreeRTOS symmetric multiprocessing architecture.\n\u2022 LittleFS asset filesystem with dynamic vector styling.\n\u2022 Integrated multi-repo firmware updater with rollback guard.\n\u2022 Low-latency ES8311 HiFi audio pipeline.\n\u2022 Full 6-axis motion tracking and gesture controls.",
+      "build": 27,
+      "date": "Oct 13, 2026",
+      "title": "TuneBar v2.0.0: Fix version numbering and major rewrites to security and accessibility features",
+      "changelog": "\u2022 Fix version numbering and major rewrites to security and accessibility features",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin",
-      "size": 4350000
+      "size": 4283408
     },
     {
       "version": "1.3.0",
@@ -19,7 +19,7 @@
       "title": "TuneBar v1.3.0: Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase",
       "changelog": "\u2022 Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "1.2.9",

@@ -19,21 +19,17 @@ struct CatalogItem {
 static const CatalogItem s_generated_catalog[10] = {
   // [0] v2.0.0
   {
-    "v2.0.0", "MAJOR", 0xB388FF, "2026-11-01", "4.15 MB",
-    "• FreeRTOS symmetric multiprocessing architecture.\n"
-    "• LittleFS asset filesystem with dynamic vector styling.\n"
-    "• Integrated multi-repo firmware updater with rollback guard.\n"
-    "• Low-latency ES8311 HiFi audio pipeline.\n"
-    "• Full 6-axis motion tracking and gesture controls.",
+    "v2.0.0", "MAJOR", 0xB388FF, "Oct 13, 2026", "4.08 MB",
+    "• Fix version numbering and major rewrites to security and accessibility features",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin",
-    4350000
+    4283408
   },
   // [1] v1.3.0
   {
-    "v1.3.0", "MINOR", 0x00B0FF, "Oct 13, 2026", "4.01 MB",
+    "v1.3.0", "MINOR", 0x00B0FF, "Oct 13, 2026", "4.08 MB",
     "• Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin",
-    4200000
+    4283408
   },
   // [2] v1.2.9
   {
@@ -125,8 +121,8 @@ static const CatalogItem s_generated_catalog[10] = {
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.0.0\",\"type\":\"major\",\"build\":20,\"date\":\"2026-11-01\",\"size\":\"4.15 MB\",\"size_bytes\":4350000,\"changelog\":\"• FreeRTOS symmetric multiprocessing architecture. • LittleFS asset filesystem with dynamic vector styling. • Integrated multi-repo firmware updater with rollback guard. • Low-latency ES8311 HiFi audio pipeline. • Full 6-axis motion tracking and gesture controls.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin\"},";
-  j += "{\"version\":\"1.3.0\",\"type\":\"minor\",\"build\":26,\"date\":\"Oct 13, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin\"},";
+  j += "{\"version\":\"2.0.0\",\"type\":\"major\",\"build\":27,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix version numbering and major rewrites to security and accessibility features\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin\"},";
+  j += "{\"version\":\"1.3.0\",\"type\":\"minor\",\"build\":26,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin\"},";
   j += "{\"version\":\"1.2.9\",\"type\":\"patch\",\"build\":25,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Enforced First-Boot Registration & Cloud Notice modal on screen. • Immediate boot telemetry ping-home unblocked across Wi-Fi reconnects. • Removed audio-player starvation of telemetry upload batches. • Per-device table isolation (TB_<hash>) with dedicated telemetry.php dashboard. • Full Web Remote Secrets Manager card for /secrets.ini editing and endpoint override. • Server-side hardware authentication guard on AI Voice Assistant (ask.php).\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.9.bin\"},";
   j += "{\"version\":\"1.2.8\",\"type\":\"patch\",\"build\":22,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.8.bin\"},";
   j += "{\"version\":\"1.2.7\",\"type\":\"patch\",\"build\":21,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.7.bin\"},";
