@@ -12,9 +12,19 @@
       "size": 4350000
     },
     {
+      "version": "1.3.0",
+      "type": "minor",
+      "build": 26,
+      "date": "Oct 13, 2026",
+      "title": "TuneBar v1.3.0: Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase",
+      "changelog": "\u2022 Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin",
+      "size": 4200000
+    },
+    {
       "version": "1.2.9",
       "type": "patch",
-      "build": 24,
+      "build": 25,
       "date": "Oct 12, 2026",
       "title": "TuneBar v1.2.9: First-Boot Registration & Telemetry Fixes",
       "changelog": "\u2022 Enforced First-Boot Registration & Cloud Notice modal on screen.\n\u2022 Immediate boot telemetry ping-home unblocked across Wi-Fi reconnects.\n\u2022 Removed audio-player starvation of telemetry upload batches.\n\u2022 Per-device table isolation (TB_<hash>) with dedicated telemetry.php dashboard.\n\u2022 Full Web Remote Secrets Manager card for /secrets.ini editing and endpoint override.\n\u2022 Server-side hardware authentication guard on AI Voice Assistant (ask.php).",
