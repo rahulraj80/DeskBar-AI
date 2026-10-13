@@ -9,7 +9,7 @@
       "title": "TuneBar v2.0.5: Fix throttled streams and standardize 64KB buffer",
       "changelog": "\u2022 Fix throttled streams and standardize 64KB buffer",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.5.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.0.4",

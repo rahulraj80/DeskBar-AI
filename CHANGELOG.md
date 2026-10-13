@@ -1,6 +1,38 @@
 ## Version history
 
-### 1.2.6 (Oct 12th, 2026)
+### 2.0.5 (Oct 13th, 2026)
+- **Throttled Stream Replacement**: Replaced server-throttled web streams with high-bandwidth CDN alternatives (Bombay Beats to regional load balancer, added Radio Paradise Rock, RdMix Classic Rock, and Radio Caroline 259).
+- **Buffer Standardization**: Standardized audio prebuffering to 64 KB across all stations.
+- **Safe Serial Monitor Tooling**: Implemented non-resetting serial CLI & framebuffer capture script (`safe_serial_monitor.py`) eliminating unexpected hardware resets.
+
+### 2.0.4 (Oct 13th, 2026)
+- **Buffer Underflow & Recovery Telemetry**: Added deep telemetry tracking and automated recovery callbacks on stream starve.
+
+### 2.0.3 (Oct 13th, 2026)
+- **PSRAM Webstream Prebuffering**: Increased webstream prebuffer to 256 KB in PSRAM to eliminate stutter on 256 kbps radio stations.
+
+### 2.0.2 (Oct 13th, 2026)
+- **gTTS Speech Fallback**: Added speech synthesis fallback and eliminated UI freeze when Edge-TTS audio returns empty or fails.
+
+### 2.0.1 (Oct 13th, 2026)
+- **AI Authentication Guard**: Fixed AI assistant device authentication headers and restricted status handling against device registry.
+
+### 2.0.0 (Oct 13th, 2026)
+- **Major Architecture Rewrite**: Re-architected versioning, security consent models, and accessibility features.
+
+### 1.3.0 (Oct 12th, 2026)
+- **Interactive Security PIN Setup**: First-boot 4-digit Master PIN configuration with hardware TRNG default (`esp_random()`).
+- **Masked Protection & Erase**: Added masked PIN UI protection and OTA secrets erase workflow.
+
+### 1.2.9 (Oct 12th, 2026)
+- **First-Boot Registration Modal**: Full-screen community cloud consent dialog, telemetry unblocking, initial ping-home, and web remote secrets manager.
+
+### 1.2.8 (Oct 12th, 2026)
+- **4-Row Orientations & Precision Shelf Level**: Added 4-row named posture tracking, dynamic wireframe, and dynamic release catalog pipeline.
+
+### 1.2.7 (Oct 12th, 2026)
+- **Tactical UI Glyphs & Vector Refinements**: Refined Spirit Level tactical UI glyphs, slider tracks, and calibration badges.
+
 - **Procedural LVGL Vector Themes**: Replaced 8 heavy bitmap backgrounds with procedural LVGL vector gradients and styles, slashing flash consumption from 6.44MB to 4.06MB (2.21MB flash freed).
 - **Dynamic Multi-Repo Firmware OTA Engine**: Replaced static mock release tables with dynamic HTTPS catalog query (`firmware_catalog.json` and `approved_repos.json`) calculating actual binary sizing directly from integer byte counts.
 - **On-Device Version Stepper & GitHub Binary Probing**: Step through any historical release; queries GitHub directly with HTTP HEAD if not present in the curated catalog.
