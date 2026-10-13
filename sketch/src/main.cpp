@@ -1113,7 +1113,7 @@ void serial_cli_task(void *param) {
             xQueueSend(ui_status_queue, &p, 100);
             String enc = q;
             enc.replace(" ", "+");
-            String url = String(secrets_get_ai_url()) + "?q=" + enc;
+            String url = String(secrets_get_ai_url()) + "?device=" + secrets_get_telemetry_table() + "&q=" + enc;
             audioPlayHOST(url.c_str(), "AI Assistant");
             Serial.printf("[CLI ASSISTANT] Query: '%s' -> Streaming AI speech audio response (HTTPS)...\n", q.c_str());
           } else if (cmd.equalsIgnoreCase("heap") || cmd.equalsIgnoreCase("ram")) {
