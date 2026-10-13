@@ -36,6 +36,7 @@ __pycache__/
 *.pcm
 
 # Root scratch scripts, logs, test files, and reverse-engineering references
+scratch/
 /*.py
 /*.sh
 /*.diff
