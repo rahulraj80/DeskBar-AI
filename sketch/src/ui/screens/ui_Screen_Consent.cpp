@@ -94,9 +94,18 @@ static void refresh_modal_state(void) {
         if (s_subtitle_label) {
             lv_label_set_text(s_subtitle_label, "Set your 4-digit PIN (tap digits to cycle 0-9) to create your isolated cloud table.");
         }
-        s_pin_digits[0] = 0; s_pin_digits[1] = 0; s_pin_digits[2] = 0; s_pin_digits[3] = 0;
+        // Generate random 4-digit PIN via ESP32 Hardware TRNG for unique per-device isolation
+        uint32_t rnd = esp_random() % 10000;
+        s_pin_digits[0] = (rnd / 1000) % 10;
+        s_pin_digits[1] = (rnd / 100) % 10;
+        s_pin_digits[2] = (rnd / 10) % 10;
+        s_pin_digits[3] = rnd % 10;
         for (int i = 0; i < 4; i++) {
-            if (s_lbl_digits[i]) lv_label_set_text(s_lbl_digits[i], "0");
+            if (s_lbl_digits[i]) {
+                char txt[4];
+                snprintf(txt, sizeof(txt), "%u", s_pin_digits[i]);
+                lv_label_set_text(s_lbl_digits[i], txt);
+            }
         }
     }
 
