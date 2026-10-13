@@ -14,31 +14,38 @@ struct CatalogItem {
   uint32_t size_bytes;
 };
 
-#define GENERATED_CATALOG_COUNT 11
+#define GENERATED_CATALOG_COUNT 12
 
-static const CatalogItem s_generated_catalog[11] = {
-  // [0] v2.0.1
+static const CatalogItem s_generated_catalog[12] = {
+  // [0] v2.0.2
   {
-    "v2.0.1", "PATCH", 0x00FF88, "Oct 13, 2026", "4.01 MB",
-    "• Fix AI assistant device authentication headers and restricted status handling",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.1.bin",
+    "v2.0.2", "PATCH", 0x00FF88, "Oct 13, 2026", "4.01 MB",
+    "• Add gTTS speech fallback and eliminate UI freeze when TTS audio is empty or fails",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.2.bin",
     4200000
   },
-  // [1] v2.0.0
+  // [1] v2.0.1
+  {
+    "v2.0.1", "PATCH", 0x00FF88, "Oct 13, 2026", "4.08 MB",
+    "• Fix AI assistant device authentication headers and restricted status handling",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.1.bin",
+    4283408
+  },
+  // [2] v2.0.0
   {
     "v2.0.0", "MAJOR", 0xB388FF, "Oct 13, 2026", "4.08 MB",
     "• Fix version numbering and major rewrites to security and accessibility features",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin",
     4283408
   },
-  // [2] v1.3.0
+  // [3] v1.3.0
   {
     "v1.3.0", "MINOR", 0x00B0FF, "Oct 13, 2026", "4.08 MB",
     "• Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin",
     4283408
   },
-  // [3] v1.2.9
+  // [4] v1.2.9
   {
     "v1.2.9", "PATCH", 0x00FF88, "Oct 12, 2026", "4.08 MB",
     "• Enforced First-Boot Registration & Cloud Notice modal on screen.\n"
@@ -50,7 +57,7 @@ static const CatalogItem s_generated_catalog[11] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.9.bin",
     4283408
   },
-  // [4] v1.2.8
+  // [5] v1.2.8
   {
     "v1.2.8", "PATCH", 0x00FF88, "Oct 12, 2026", "4.08 MB",
     "• Automated multi-tenant telemetry and device registration guard.\n"
@@ -61,7 +68,7 @@ static const CatalogItem s_generated_catalog[11] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.8.bin",
     4283408
   },
-  // [5] v1.2.7
+  // [6] v1.2.7
   {
     "v1.2.7", "PATCH", 0x00FF88, "Oct 12, 2026", "4.08 MB",
     "• Automated multi-tenant telemetry and device registration guard.\n"
@@ -72,7 +79,7 @@ static const CatalogItem s_generated_catalog[11] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.7.bin",
     4283408
   },
-  // [6] v1.2.6
+  // [7] v1.2.6
   {
     "v1.2.6", "PATCH", 0x00FF88, "2026-10-12", "4.06 MB",
     "• Procedural LVGL vector styles replace 8 heavy bitmaps: binary dropped from 6.44MB to 4.04MB (2.21MB flash freed).\n"
@@ -84,7 +91,7 @@ static const CatalogItem s_generated_catalog[11] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin",
     4259536
   },
-  // [7] v1.2.5
+  // [8] v1.2.5
   {
     "v1.2.5", "PATCH", 0x00FF88, "2026-10-10", "6.03 MB",
     "• Fixed AP3032 boost converter enable rail on EXIO1.\n"
@@ -94,7 +101,7 @@ static const CatalogItem s_generated_catalog[11] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin",
     6318400
   },
-  // [8] v1.2.0
+  // [9] v1.2.0
   {
     "v1.2.0", "MINOR", 0x00B0FF, "2026-10-05", "5.99 MB",
     "• Web Remote controller with virtual touch canvas and D-pad.\n"
@@ -105,7 +112,7 @@ static const CatalogItem s_generated_catalog[11] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin",
     6280000
   },
-  // [9] v1.1.0
+  // [10] v1.1.0
   {
     "v1.1.0", "MINOR", 0x00B0FF, "2026-09-28", "5.87 MB",
     "• ES7210 dual I2S microphone array driver integration.\n"
@@ -115,7 +122,7 @@ static const CatalogItem s_generated_catalog[11] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin",
     6150000
   },
-  // [10] v1.0.0
+  // [11] v1.0.0
   {
     "v1.0.0", "MAJOR", 0xB388FF, "2026-09-01", "5.44 MB",
     "• Initial commercial firmware release for TuneBar ESP32-S3.\n"
@@ -128,7 +135,8 @@ static const CatalogItem s_generated_catalog[11] = {
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.0.1\",\"type\":\"patch\",\"build\":28,\"date\":\"Oct 13, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Fix AI assistant device authentication headers and restricted status handling\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.1.bin\"},";
+  j += "{\"version\":\"2.0.2\",\"type\":\"patch\",\"build\":29,\"date\":\"Oct 13, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Add gTTS speech fallback and eliminate UI freeze when TTS audio is empty or fails\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.2.bin\"},";
+  j += "{\"version\":\"2.0.1\",\"type\":\"patch\",\"build\":28,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix AI assistant device authentication headers and restricted status handling\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.1.bin\"},";
   j += "{\"version\":\"2.0.0\",\"type\":\"major\",\"build\":27,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix version numbering and major rewrites to security and accessibility features\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin\"},";
   j += "{\"version\":\"1.3.0\",\"type\":\"minor\",\"build\":26,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin\"},";
   j += "{\"version\":\"1.2.9\",\"type\":\"patch\",\"build\":25,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Enforced First-Boot Registration & Cloud Notice modal on screen. • Immediate boot telemetry ping-home unblocked across Wi-Fi reconnects. • Removed audio-player starvation of telemetry upload batches. • Per-device table isolation (TB_<hash>) with dedicated telemetry.php dashboard. • Full Web Remote Secrets Manager card for /secrets.ini editing and endpoint override. • Server-side hardware authentication guard on AI Voice Assistant (ask.php).\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.9.bin\"},";
