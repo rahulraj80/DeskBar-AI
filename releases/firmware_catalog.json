@@ -2,6 +2,16 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.0.1",
+      "type": "patch",
+      "build": 28,
+      "date": "Oct 13, 2026",
+      "title": "TuneBar v2.0.1: Fix AI assistant device authentication headers and restricted status handling",
+      "changelog": "\u2022 Fix AI assistant device authentication headers and restricted status handling",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.1.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.0.0",
       "type": "major",
       "build": 27,

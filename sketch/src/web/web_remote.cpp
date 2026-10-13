@@ -1407,7 +1407,7 @@ static void handle_ask() {
         q.trim();
         q.replace(" ", "+");
         mediaType = 2; // AI Assistant mode
-        String bridgeUrl = String(secrets_get_ai_url()) + "?q=" + q;
+        String bridgeUrl = String(secrets_get_ai_url()) + "?device=" + secrets_get_telemetry_table() + "&q=" + q;
         audioPlayHOST(bridgeUrl.c_str(), "AI Assistant");
     }
     handle_status();

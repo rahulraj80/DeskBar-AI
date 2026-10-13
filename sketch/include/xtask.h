@@ -336,9 +336,11 @@ void ai_upload_task(void *param) {
     } else {
       client.setTimeout(30000); // Set 30s timeout on active socket descriptor
       log_i("[AI UPLOAD] Connected via TLS! Sending headers...");
-      client.printf("POST %s HTTP/1.1\r\n", AI_ASSISTANT_PATH);
+      const char *device_id = secrets_get_telemetry_table();
+      client.printf("POST %s?device=%s HTTP/1.1\r\n", AI_ASSISTANT_PATH, device_id);
       client.printf("Host: %s\r\n", AI_ASSISTANT_HOST);
       client.print("User-Agent: ESP32-TuneBar\r\n");
+      client.printf("X-Device-Id: %s\r\n", device_id);
       client.print("Content-Type: audio/wav\r\n");
       client.printf("Content-Length: %u\r\n", (unsigned)wav_len);
       client.print("Connection: close\r\n\r\n");
@@ -440,23 +442,33 @@ void ai_upload_task(void *param) {
             JsonDocument doc;
             DeserializationError dErr = deserializeJson(doc, json_start);
             if (!dErr) {
-              const char *question = doc["question"] | "(Audio Query)";
-              const char *answer = doc["answer"] | "Processing complete.";
-              const char *audio_url = doc["audio_url"] | "";
+              const char *st = doc["status"] | "ok";
+              if (strcmp(st, "restricted") == 0) {
+                const char *msg = doc["message"] | "Service restricted for this device.";
+                log_w("[AI UPLOAD] Backend restricted: %s", msg);
+                UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+                snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Restricted:\n%s", msg);
+                xQueueSend(ui_status_queue, &p, 100);
+                UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+                xQueueSend(ui_status_queue, &p_idle, 100);
+              } else {
+                const char *question = doc["question"] | "(Audio Query)";
+                const char *answer = doc["answer"] | "Processing complete.";
+                const char *audio_url = doc["audio_url"] | "";
 
-              if (lvgl_port_lock(500)) {
-                if (ui_Player_Textarea_status) {
-                  char *disp_buf = (char *)ai_wav_buffer; // Zero DRAM: re-use PSRAM buffer
-                  snprintf(disp_buf, 4096, "You: %s\n\nAI: %s", question, answer);
-                  lv_textarea_set_text(ui_Player_Textarea_status, disp_buf);
-                  lv_textarea_set_cursor_pos(ui_Player_Textarea_status, 0);
-                  lv_obj_scroll_to_y(ui_Player_Textarea_status, 0, LV_ANIM_OFF);
+                if (lvgl_port_lock(500)) {
+                  if (ui_Player_Textarea_status) {
+                    char *disp_buf = (char *)ai_wav_buffer; // Zero DRAM: re-use PSRAM buffer
+                    snprintf(disp_buf, 4096, "You: %s\n\nAI: %s", question, answer);
+                    lv_textarea_set_text(ui_Player_Textarea_status, disp_buf);
+                    lv_textarea_set_cursor_pos(ui_Player_Textarea_status, 0);
+                    lv_obj_scroll_to_y(ui_Player_Textarea_status, 0, LV_ANIM_OFF);
+                  }
+                  lvgl_port_unlock();
                 }
-                lvgl_port_unlock();
-              }
 
-              UIStatusPayload p_spk = {.type = STATUS_UPDATE_AI_SPEAKING};
-              xQueueSend(ui_status_queue, &p_spk, 100);
+                UIStatusPayload p_spk = {.type = STATUS_UPDATE_AI_SPEAKING};
+                xQueueSend(ui_status_queue, &p_spk, 100);
 
               if (audio_url && strlen(audio_url) > 0) {
                 log_i("[AI UPLOAD] Streaming answer audio from: %s", audio_url);
@@ -469,6 +481,7 @@ void ai_upload_task(void *param) {
               } else {
                 UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
                 xQueueSend(ui_status_queue, &p_idle, 100);
+              }
               }
             } else {
               log_e("[AI UPLOAD] JSON parse failed: %s", dErr.c_str());
