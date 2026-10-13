@@ -40,6 +40,10 @@ constexpr size_t AUDIO_STACK_SIZE = 3500;
 StaticTask_t __attribute__((unused)) xAudioTaskBuffer;
 StackType_t __attribute__((unused))  xAudioStack[AUDIO_STACK_SIZE];
 
+uint32_t g_underflow_start_ms = 0;
+uint32_t g_underflow_count = 0;
+uint32_t g_total_underflow_wait_ms = 0;
+
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 // 📌📌📌  A U D I O B U F F E R  📌📌📌
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -3998,6 +4002,15 @@ void Audio::processWebStream() {
         if (InBuff.bufferFilled() > m_pwst.maxFrameSize) {
             info(*this, evt_info, "stream ready");
             m_f_stream = true; // ready to play the audio data
+            if (g_underflow_start_ms > 0) {
+                uint32_t wait_ms = millis() - g_underflow_start_ms;
+                g_total_underflow_wait_ms += wait_ms;
+                log_e("[BUF_EVENT #%u] RESUMED after %u ms! Filled: %u bytes. Total cumulative wait: %u ms",
+                      (unsigned)g_underflow_count, (unsigned)wait_ms, (unsigned)InBuff.bufferFilled(), (unsigned)g_total_underflow_wait_ms);
+                g_underflow_start_ms = 0;
+            } else {
+                log_i("[BUF_EVENT] INITIAL STARTUP READY: %u bytes buffered.", (unsigned)InBuff.bufferFilled());
+            }
         }
     }
 
@@ -4423,6 +4436,12 @@ void Audio::playAudioData() {
         m_pad.count++;
         if (!m_f_allDataReceived && (m_streamType == ST_WEBSTREAM || m_streamType == ST_WEBFILE)) {
             if (InBuff.bufferFilled() < InBuff.getMaxBlockSize()) {
+                if (m_f_stream) {
+                    g_underflow_start_ms = millis();
+                    g_underflow_count++;
+                    log_e("[BUF_EVENT #%u] UNDERFLOW! Buffer drained to %u bytes (< frame %u). Halting playback, waiting for buffer to fill...",
+                          (unsigned)g_underflow_count, (unsigned)InBuff.bufferFilled(), (unsigned)InBuff.getMaxBlockSize());
+                }
                 m_f_stream = false; // re-enter buffering mode until safety cushion is restored
             }
             vTaskDelay(pdMS_TO_TICKS(1)); // brief 1ms yield to let network task ingest packets
