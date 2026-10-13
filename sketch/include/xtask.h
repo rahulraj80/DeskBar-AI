@@ -467,21 +467,18 @@ void ai_upload_task(void *param) {
                   lvgl_port_unlock();
                 }
 
-                UIStatusPayload p_spk = {.type = STATUS_UPDATE_AI_SPEAKING};
-                xQueueSend(ui_status_queue, &p_spk, 100);
-
-              if (audio_url && strlen(audio_url) > 0) {
-                log_i("[AI UPLOAD] Streaming answer audio from: %s", audio_url);
-                bsp_set_audio_amp_power(true);
-                speaker.setVolume(90);
-                audio.setVolume(21);
-                resetScreenOffTimer(NULL);
-                mediaType = 2; // AI Assistant mode
-                audioPlayHOST(audio_url, "");
-              } else {
-                UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
-                xQueueSend(ui_status_queue, &p_idle, 100);
-              }
+                if (audio_url && strlen(audio_url) > 0) {
+                  log_i("[AI UPLOAD] Streaming answer audio from: %s", audio_url);
+                  bsp_set_audio_amp_power(true);
+                  speaker.setVolume(90);
+                  audio.setVolume(21);
+                  resetScreenOffTimer(NULL);
+                  mediaType = 2; // AI Assistant mode
+                  audioPlayHOST(audio_url, "");
+                } else {
+                  UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+                  xQueueSend(ui_status_queue, &p_idle, 100);
+                }
               }
             } else {
               log_e("[AI UPLOAD] JSON parse failed: %s", dErr.c_str());
@@ -753,10 +750,11 @@ void my_audio_info(Audio::msg_t m) {
   } break;
   case 2: // AI Assistant streaming info
   {
-    if (m.e == Audio::evt_eof || strstr(m.msg, "MP3Decoder has been destroyed") || strstr(m.msg, "WAVDecoder has been destroyed") || strstr(m.msg, "Closing web file")) {
+    if (m.e == Audio::evt_eof || strstr(m.msg, "MP3Decoder has been destroyed") || strstr(m.msg, "WAVDecoder has been destroyed") || strstr(m.msg, "Closing web file") ||
+        strstr(m.msg, "cannot connect") || strstr(m.msg, "format is not supported") || strstr(m.msg, "SSL") || strstr(m.msg, "HTTP/1.1 40") || strstr(m.msg, "HTTP/1.1 50")) {
       msg.type = STATUS_UPDATE_AI_IDLE;
       xQueueSend(ui_status_queue, &msg, 100);
-      log_i("[AI INFO] Stream finished -> UI set to IDLE");
+      log_i("[AI INFO] Stream ended/failed (%s) -> UI set to IDLE", m.msg ? m.msg : "");
     } else if (strstr(m.msg, "MP3Decoder has been initialized") || strstr(m.msg, "WAVDecoder has been initialized") || strstr(m.msg, "stream ready")) {
       msg.type = STATUS_UPDATE_AI_SPEAKING;
       xQueueSend(ui_status_queue, &msg, 100);
