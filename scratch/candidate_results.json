@@ -1,0 +1,109 @@
+[
+  {
+    "name": "Radio City Hindi Hits",
+    "url": "https://prclive1.listenon.in/Hindi",
+    "genre": "Hindi",
+    "error": "HTTP Error 301: The HTTP server returned a redirect error that would lead to an infinite loop.\nThe last 30x error message was:\nMoved Permanently",
+    "pass": false
+  },
+  {
+    "name": "Meethi Mirchi",
+    "url": "https://drive.uber.radio/uber/meethimirchi/icecast.audio",
+    "genre": "Hindi",
+    "error": "HTTP Error 404: Not Found",
+    "pass": false
+  },
+  {
+    "name": "Mirchi 90s Radio",
+    "url": "https://drive.uber.radio/uber/bollywood90s/icecast.audio",
+    "genre": "Hindi",
+    "error": "HTTP Error 404: Not Found",
+    "pass": false
+  },
+  {
+    "name": "Radio City Freedom",
+    "url": "https://prclive1.listenon.in/Freedom",
+    "genre": "Hindi",
+    "error": "HTTP Error 301: The HTTP server returned a redirect error that would lead to an infinite loop.\nThe last 30x error message was:\nMoved Permanently",
+    "pass": false
+  },
+  {
+    "name": "Big FM 92.7",
+    "url": "https://drive.uber.radio/uber/bigfm/icecast.audio",
+    "genre": "Hindi",
+    "error": "HTTP Error 404: Not Found",
+    "pass": false
+  },
+  {
+    "name": "Radio Paradise Rock Mix",
+    "url": "https://stream.radioparadise.com/rock-128",
+    "genre": "English Rock",
+    "content_type": "audio/aac",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 172.2,
+    "surplus_kbps": 44.2,
+    "pass": true,
+    "connect_sec": 0.38
+  },
+  {
+    "name": "Radio Paradise Main",
+    "url": "https://stream.radioparadise.com/mp3-128",
+    "genre": "English Eclectic",
+    "content_type": "audio/mpeg",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 172.9,
+    "surplus_kbps": 44.9,
+    "pass": true,
+    "connect_sec": 0.28
+  },
+  {
+    "name": "Classic Rock Florida",
+    "url": "http://streams.crucialp.com:8000/classicrock",
+    "genre": "English Rock",
+    "error": "<urlopen error [Errno 11001] getaddrinfo failed>",
+    "pass": false
+  },
+  {
+    "name": "Linn Classic",
+    "url": "http://radio.linn.co.uk:8000/autodj",
+    "genre": "English Classical",
+    "content_type": "audio/mpeg",
+    "nominal_kbps": 320.0,
+    "sustained_kbps": 340.0,
+    "surplus_kbps": 20.0,
+    "pass": true,
+    "connect_sec": 0.56
+  },
+  {
+    "name": "Virgin Radio UK",
+    "url": "https://radio.virginradio.co.uk/stream",
+    "genre": "English Pop/Rock",
+    "content_type": "audio/mpeg",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 2648.2,
+    "surplus_kbps": 2520.2,
+    "pass": true,
+    "connect_sec": 3.05
+  },
+  {
+    "name": "Exclusive Radio 70s Hits",
+    "url": "https://streaming.exclusive.radio/er/classichits/icecast.audio",
+    "genre": "English 70s",
+    "error": "HTTP Error 404: Not Found",
+    "pass": false
+  },
+  {
+    "name": "I Love Radio 80s",
+    "url": "https://streams.ilovemusic.de/iloveradio16.mp3",
+    "genre": "English 80s",
+    "error": "'charmap' codec can't encode character '\\x99' in position 71: character maps to <undefined>",
+    "pass": false
+  },
+  {
+    "name": "Hits 70s 80s Exclusive",
+    "url": "https://streaming.exclusive.radio/er/80shits/icecast.audio",
+    "genre": "English 80s",
+    "error": "HTTP Error 404: Not Found",
+    "pass": false
+  }
+]
