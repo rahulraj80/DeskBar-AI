@@ -1,0 +1,142 @@
+[
+  {
+    "target": "Hindi Replacement",
+    "name": "Radio Mirchi Hindi",
+    "url": "https://eu8.fastcast4u.com/proxy/clyedupq/stream",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 228.4,
+    "surplus_kbps": 100.4,
+    "connect_sec": 0.61,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "Mirchi Top 20",
+    "url": "https://drive.uber.radio/uber/bollywoodnow/icecast.audio",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 256.8,
+    "surplus_kbps": 128.8,
+    "connect_sec": 0.63,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "Rafi hit songs",
+    "url": "https://stream-143.zeno.fm/0zkr7x8ztm0uv?zs=WTPQx8TiQXSo11XU0iyTAQ",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 157.2,
+    "surplus_kbps": 29.2,
+    "connect_sec": 2.25,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "Hindi Gold Radio",
+    "url": "https://azuracast.vibesounds.in:8010/radio.mp3",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 153.9,
+    "surplus_kbps": 25.9,
+    "connect_sec": 0.79,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "Diverse FM",
+    "url": "https://carol.epichosts.co.uk:8570/;",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 227.6,
+    "surplus_kbps": 99.6,
+    "connect_sec": 1.36,
+    "content_type": "audio/aacp"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "latamangeshkarradio",
+    "url": "https://stream.zeno.fm/87xam8pf7tzuv",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 193.3,
+    "surplus_kbps": 65.3,
+    "connect_sec": 1.89,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "Nostalgic Bollywood 90s",
+    "url": "https://www.desizoneradio.com/relay3",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 223.7,
+    "surplus_kbps": 95.7,
+    "connect_sec": 1.64,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "Fnf.Fm Hindi",
+    "url": "http://192.99.8.192:5032/;stream",
+    "nominal_kbps": 64.0,
+    "sustained_kbps": 164.6,
+    "surplus_kbps": 100.6,
+    "connect_sec": 0.5,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "90sonceagainradio",
+    "url": "https://stream.zeno.fm/rm4i9pdex3cuv",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 194.5,
+    "surplus_kbps": 66.5,
+    "connect_sec": 2.1,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "Radio Udaan",
+    "url": "https://stream.radioudaan.com/listen/radio_udaan/radio.mp3",
+    "nominal_kbps": 256.0,
+    "sustained_kbps": 279.3,
+    "surplus_kbps": 23.3,
+    "connect_sec": 0.78,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "Hits Of Lata Mangeshkar",
+    "url": "http://stream.zeno.fm/g95zm67prfhvv",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 153.9,
+    "surplus_kbps": 25.9,
+    "connect_sec": 1.18,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "Bombay Beats Radio",
+    "url": "https://strmreg.1.fm/bombaybeats_mobile_mp3",
+    "nominal_kbps": 256.0,
+    "sustained_kbps": 638.8,
+    "surplus_kbps": 382.8,
+    "connect_sec": 0.84,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "Hindi Replacement",
+    "name": "Hindi Retro",
+    "url": "https://stream.zeno.fm/v2zfmxef798uv",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 190.7,
+    "surplus_kbps": 62.7,
+    "connect_sec": 1.87,
+    "content_type": "audio/mpeg"
+  },
+  {
+    "target": "English Replacement",
+    "name": "Classics Pop & Rock",
+    "url": "http://c9.radioboss.fm:8035/stream",
+    "nominal_kbps": 128.0,
+    "sustained_kbps": 157.2,
+    "surplus_kbps": 29.2,
+    "connect_sec": 0.47,
+    "content_type": "audio/aac"
+  }
+]

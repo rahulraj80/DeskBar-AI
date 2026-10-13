@@ -463,7 +463,7 @@ uint8_t currentRadioLang = RADIO_LANG_HI;
 const char defaultStationsOnlineRadioFM_CSV[] PROGMEM =
     "Mirchi Top 20,https://drive.uber.radio/uber/bollywoodnow/icecast.audio\n"
     "Bollywood Hits,https://streaming.exclusive.radio/er/bollywood/icecast.audio\n"
-    "Bombay Beats India,http://strm112.1.fm/bombaybeats_mobile_mp3\n"
+    "Bombay Beats India,https://strmreg.1.fm/bombaybeats_mobile_mp3\n"
     "Fnf.Fm Hindi,http://192.99.8.192:5032/;stream\n"
     "Ishq FM Bollywood,https://drive.uber.radio/uber/bollywoodlove/icecast.audio\n"
     "Hum FM 106.2,https://server.mediacast4u.stream/8002/stream\n"
@@ -489,12 +489,12 @@ const char defaultStationsRadioIndia_CSV[] PROGMEM =
 const char defaultStationsEnglish_CSV[] PROGMEM =
     "Dance Wave!,https://dancewave.online/dance.mp3\n"
     "BBC World Service,http://stream.live.vc.bbcmedia.co.uk/bbc_world_service\n"
-    "Classic Vinyl HD,https://icecast.walmradio.com:8443/classic\n"
+    "Radio Paradise Rock,https://stream.radioparadise.com/rock-128\n"
     "WALM Old Time Radio,https://icecast.walmradio.com:8443/otr\n"
     "101 Smooth Jazz,http://jking.cdnstream1.com/b22139_128mp3\n"
     "Radio Paradise EU,http://stream-uk1.radioparadise.com/aac-320\n"
-    "Classic Hits 70s 80s,https://radiopanther.radiolebowski.com/play\n"
-    "WALM 2 HD,https://icecast.walmradio.com:8443/walm2\n"
+    "RdMix Classic Rock,https://cast1.torontocast.com:4610/stream\n"
+    "Radio Caroline 259,https://happy.radiocaroline.nl/listen/classic_rock/radio128.mp3\n"
     "Mango Radio EN,https://mangoradio.stream.laut.fm/mangoradio\n"
     "NPR 24/7 News,https://npr-ice.streamguys1.com/live.mp3\n";
 

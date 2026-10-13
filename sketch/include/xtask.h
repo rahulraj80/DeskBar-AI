@@ -908,18 +908,6 @@ void audio_loop_task(void *param) {
         vTaskDelay(pdMS_TO_TICKS(10)); // idle yield saves CPU
       }
 
-      static uint32_t s_last_buf_telemetry_ms = 0;
-      if (audio.isRunning() && millis() - s_last_buf_telemetry_ms >= 1000) {
-        s_last_buf_telemetry_ms = millis();
-        extern uint32_t g_underflow_count;
-        extern uint32_t g_total_underflow_wait_ms;
-        log_i("[BUF_TELEMETRY] Filled: %u B (%u%% of %u B) | UFlows: %u | TotalWait: %ums",
-              (unsigned)audio.inBufferFilled(),
-              (unsigned)((uint64_t)audio.inBufferFilled() * 100 / (audio.getInBufferSize() ? audio.getInBufferSize() : 1)),
-              (unsigned)audio.getInBufferSize(),
-              (unsigned)g_underflow_count,
-              (unsigned)g_total_underflow_wait_ms);
-      }
 
       static bool s_wifi_sleep_disabled = false;
       if (audio.isRunning() || mediaType == 0 || mediaType == 1) {
