@@ -304,6 +304,13 @@ TuneBar features a unified media player engine that seamlessly handles both **Lo
 
 ## 🎙️ Autonomous AI Voice Assistant Pipeline &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
+> [!WARNING]
+> ### ⚠️ Complimentary Community AI Service Notice & Self-Hosting Guide
+> The pre-configured default AI endpoint (`https://autobots.my.to/ask.php`) is hosted as a **complimentary, personal maker service with limited server bandwidth and API quotas**.
+> 
+> * **Parallel Usage Slowdowns**: When multiple devices or users access the community endpoint simultaneously, response latencies may increase or requests may be throttled.
+> * **Recommended Solution**: Users and makers are **strongly encouraged to set up their own backend servers** by following our [Self-Hosted AI Assistant Guide](docs/AI_VOICE_ASSISTANT.md). Self-hosting provides 100% private data isolation, dedicated throughput, zero quota contention, and the freedom to select custom LLM models (Llama 3.3, Mistral, Claude, Gemini) and TTS engines.
+
 1. **Acoustic Front-End**:
    - Dual onboard MEMS microphones capture audio via the ES7210 4-channel ADC at 16 kHz / 16-bit mono.
    - Dynamic Voice Activity Detection (VAD) monitors energy levels and automatically terminates recording after speech pauses.
@@ -316,18 +323,18 @@ TuneBar features a unified media player engine that seamlessly handles both **Lo
    - Audio payload is uploaded via background HTTPS TLS to the assistant endpoint (`ask.php`). Requests are verified against a hardware device registry populated by initial telemetry ping-home, ensuring complimentary services are reserved for genuine TuneBar devices running verified firmware.
    - **Groq Whisper Large V3 Turbo** transcribes speech in <200ms.
    - **Llama 3.3 70B Versatile** generates concise, intelligent responses in <250ms.
-   - **Microsoft Edge-TTS** streams natural neural speech back to the ESP32-S3 over Wi-Fi.
+   - **Microsoft Edge-TTS / gTTS Fallback** streams natural neural speech back to the ESP32-S3 over Wi-Fi.
 
 ---
 
 <a id="privacy-telemetry"></a>
-## 🔒 Privacy, Multi-Tenant Telemetry & Decoupled Secrets &nbsp;&nbsp;[ [🔝 Index](#index) ]
+## 🔒 Privacy, First-Boot Consent & Decoupled Secrets &nbsp;&nbsp;[ [🔝 Index](#index) ]
 
-### 1. Zero-Leak Architecture & Decoupled Endpoints
-TuneBar is engineered with a strict **Privacy-by-Design** and **Decoupled Architecture**:
-- **Turnkey Community Cloud Defaults**: To provide an effortless out-of-the-box maker experience, public release binaries include pre-configured baked community defaults for the AI Voice Assistant (`autobots.my.to/ask.php`) and diagnostics telemetry (`autobots.my.to/myapi.php`).
-- **First-Boot Consent Modal**: On initial startup, TuneBar presents an explicit Community Cloud Notice dialog. Telemetry upload only proceeds after affirmative user consent.
-- **Overriding via `/secrets.ini`**: Users are strongly encouraged to self-host their own backend servers. By uploading a standard `/secrets.ini` file to LittleFS via the on-device Web Remote or USB Serial CLI, the firmware immediately overrides baked endpoints with user-defined self-hosted servers.
+TuneBar is engineered with a strict **Privacy-by-Design** and **Decoupled Architecture** (see [Consent & Telemetry Guide](docs/CONSENT_AND_TELEMETRY.md)):
+- **First-Boot Consent Modal**: On initial startup or after NVS erase, TuneBar displays a full-screen interactive consent modal. Background telemetry and AI cloud services remain dormant until explicit user approval.
+- **Master Security PIN Protection**: On first boot, users configure a 4-digit Master PIN (or the ESP32-S3 hardware TRNG generates one automatically). The PIN protects device settings, gates secrets access, and salts telemetry hashes.
+- **Overriding via `/secrets.ini`**: Users can override all baked endpoints by uploading a standard `/secrets.ini` file to LittleFS via the on-device Web Remote or USB Serial CLI.
+
 
 ```ini
 # /secrets.ini - Upload via Web Remote to override defaults

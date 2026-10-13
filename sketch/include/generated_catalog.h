@@ -19,10 +19,10 @@ struct CatalogItem {
 static const CatalogItem s_generated_catalog[15] = {
   // [0] v2.0.5
   {
-    "v2.0.5", "PATCH", 0x00FF88, "Oct 13, 2026", "4.01 MB",
+    "v2.0.5", "PATCH", 0x00FF88, "Oct 13, 2026", "4.08 MB",
     "• Fix throttled streams and standardize 64KB buffer",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.5.bin",
-    4200000
+    4283408
   },
   // [1] v2.0.4
   {
@@ -156,7 +156,7 @@ static const CatalogItem s_generated_catalog[15] = {
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.0.5\",\"type\":\"patch\",\"build\":32,\"date\":\"Oct 13, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Fix throttled streams and standardize 64KB buffer\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.5.bin\"},";
+  j += "{\"version\":\"2.0.5\",\"type\":\"patch\",\"build\":32,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix throttled streams and standardize 64KB buffer\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.5.bin\"},";
   j += "{\"version\":\"2.0.4\",\"type\":\"patch\",\"build\":31,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Add automated buffer underflow and recovery telemetry logging\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.4.bin\"},";
   j += "{\"version\":\"2.0.3\",\"type\":\"patch\",\"build\":30,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Increase webstream pre-buffering to 256KB in PSRAM to eliminate stutter on 256kbps radio stations\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.3.bin\"},";
   j += "{\"version\":\"2.0.2\",\"type\":\"patch\",\"build\":29,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Add gTTS speech fallback and eliminate UI freeze when TTS audio is empty or fails\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.2.bin\"},";
