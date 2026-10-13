@@ -3,6 +3,7 @@
 #include "updater/updater.h"
 #include "battery/battery.h"
 #include "version.h"
+#include "../../secrets/secrets_manager.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -428,6 +429,37 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_add_event_cb(btn_switch_repo, [](lv_event_t *e) {
     lv_obj_add_flag(s_panel_overview, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(s_panel_repos, LV_OBJ_FLAG_HIDDEN);
+  }, LV_EVENT_CLICKED, NULL);
+
+  // Reset Secrets & Cloud Identity Button
+  lv_obj_t *btn_reset_sec = lv_btn_create(s_panel_overview);
+  lv_obj_set_size(btn_reset_sec, 130, 26);
+  lv_obj_align(btn_reset_sec, LV_ALIGN_TOP_RIGHT, -10, 82);
+  lv_obj_set_style_bg_color(btn_reset_sec, lv_color_hex(0x3B1010), 0);
+  lv_obj_set_style_border_color(btn_reset_sec, lv_color_hex(0xEF4444), 0);
+  lv_obj_set_style_border_width(btn_reset_sec, 1, 0);
+  lv_obj_set_style_radius(btn_reset_sec, 4, 0);
+  lv_obj_t *lbl_rs = lv_label_create(btn_reset_sec);
+  lv_label_set_text(lbl_rs, LV_SYMBOL_TRASH " Reset Secrets");
+  lv_obj_set_style_text_color(lbl_rs, lv_color_hex(0xEF4444), 0);
+  lv_obj_set_style_text_font(lbl_rs, &lv_font_montserrat_10, 0);
+  lv_obj_center(lbl_rs);
+
+  static uint32_t s_confirm_reset_ms = 0;
+  lv_obj_add_event_cb(btn_reset_sec, [](lv_event_t *e) {
+    uint32_t now = millis();
+    lv_obj_t *btn = lv_event_get_target(e);
+    lv_obj_t *lbl = lv_obj_get_child(btn, 0);
+    if (now - s_confirm_reset_ms < 3500) {
+      lv_label_set_text(lbl, "Erasing...");
+      secrets_erase_all();
+      delay(250);
+      ESP.restart();
+    } else {
+      s_confirm_reset_ms = now;
+      lv_label_set_text(lbl, "Confirm Erase?");
+      lv_obj_set_style_bg_color(btn, lv_color_hex(0x991B1B), 0);
+    }
   }, LV_EVENT_CLICKED, NULL);
 
   // Bottom Navigation Buttons

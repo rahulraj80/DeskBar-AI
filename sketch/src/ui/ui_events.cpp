@@ -18,6 +18,7 @@ Preferences pref;
 #include <LittleFS.h>
 #include "lvgl_port/lvgl_port.h"
 #include "screens/ui_Screen_Consent.h"
+#include "../secrets/secrets_manager.h"
 
 #include "ESP32-audioI2S-master/Audio.h"
 #include "es7210/es7210.h"
@@ -96,15 +97,7 @@ void enter_clock_breathing(void) {
   breath_timer_ms = millis();
   uint8_t max_bl = (backlight_state == 0) ? 120 : ((backlight_state == 1) ? 180 : 250);
   log_i("[BREATH] Clock breathing active: 10s cycle (FadeIn: 1.5s, HoldHigh: 2.0s, FadeOut: 1.5s, FullBlack: 5.0s, Floor: 90, Max: %u)", (unsigned)max_bl);
-
-  // Wi-Fi off in clock mode if no audio stream is active over the network
-  if (!audio.isRunning() || mediaType >= 2) {
-    if (WiFi.getMode() != WIFI_OFF) {
-      WiFi.disconnect(true);
-      WiFi.mode(WIFI_OFF);
-      log_i("[BREATH] Wi-Fi powered OFF for clock mode power saving");
-    }
-  }
+  // Wi-Fi is preserved across all clock states for Web Remote, screenshots, and telemetry.
 }
 
 void exit_clock_breathing(void) {
@@ -168,6 +161,11 @@ extern "C" void on_clock_boot_button_pressed(void) {
 }
 
 void update_clock_breathing(void) {
+  // Never start breathing on first boot while PIN / Consent setup is undecided
+  if (!secrets_has_decided_consent()) {
+    return;
+  }
+
   uint32_t now = millis();
 
   // If we are on the Clock face (infoPageIndex == 0 on ui_Screen_Info) and breathing was paused due to interaction:
@@ -271,6 +269,7 @@ void init_main_menu_task(lv_timer_t *timer) {
   lv_scr_load(ui_Screen_Info);
   infoPageIndex = 0;
   updateInfoPanel(0);
+  ui_consent_modal_show_if_needed();
   static lv_timer_t *breath_timer = NULL;
   if (!breath_timer) {
     breath_timer = lv_timer_create([](lv_timer_t *t){ update_clock_breathing(); }, 30, NULL);
@@ -317,6 +316,12 @@ void init_main_menu_task(lv_timer_t *timer) {
   case 1: SCREEN_OFF_DELAY = 15000; break;
   case 2: SCREEN_OFF_DELAY = 30000; break;
   case 3: SCREEN_OFF_DELAY = 60000; break;
+  }
+  if (!secrets_has_decided_consent()) {
+    backlight_state = 1; // Default to Medium brightness on first boot
+    setBrightness(NULL);
+    SCREEN_OFF_DELAY = 120000; // 120s timeout
+    s_clock_interaction_ms = millis();
   }
   lv_dropdown_set_selected(ui_MainMenu_Dropdown_SleepTimer, timeout_index);
   playMode = pref.getUChar("playing_mode", 0); // playing mode

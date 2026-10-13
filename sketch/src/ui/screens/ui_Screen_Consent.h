@@ -10,6 +10,8 @@ extern "C" {
 void ui_consent_modal_init(lv_obj_t *parent);
 void ui_consent_modal_show_if_needed(void);
 void ui_consent_modal_force_show(void);
+void ui_consent_modal_set_pin(const char *pin);
+void ui_consent_modal_hide(void);
 
 #ifdef __cplusplus
 }

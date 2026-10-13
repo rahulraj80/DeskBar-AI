@@ -352,6 +352,102 @@ void serial_cli_task(void *param) {
                           volt, pct, (unsigned int)ESP.getFreeHeap(), (unsigned int)ESP.getFreePsram());
           } else if (cmd.equalsIgnoreCase("screen") || cmd.equalsIgnoreCase("screen status")) {
             Serial.printf("[CLI SCREEN] Active: %s\n", lvgl_port_get_active_screen_name());
+          } else if (cmd.equalsIgnoreCase("screenshot")) {
+            screenPowerOn();
+            lvgl_port_take_screenshot();
+            const uint16_t *fb = lvgl_port_get_framebuffer();
+            if (!fb) {
+              Serial.println("[CLI ERROR] Framebuffer unavailable");
+            } else {
+              const uint32_t width = WAVESHARE_349_LCD_H_RES;
+              const uint32_t height = WAVESHARE_349_LCD_V_RES;
+              const uint32_t row_stride = ((width * 3 + 3) / 4) * 4;
+              const uint32_t image_size = row_stride * height;
+              const uint32_t file_size = 54 + image_size;
+
+              uint8_t bmp_hdr[54];
+              memset(bmp_hdr, 0, sizeof(bmp_hdr));
+              bmp_hdr[0] = 'B'; bmp_hdr[1] = 'M';
+              bmp_hdr[2] = (uint8_t)(file_size);
+              bmp_hdr[3] = (uint8_t)(file_size >> 8);
+              bmp_hdr[4] = (uint8_t)(file_size >> 16);
+              bmp_hdr[5] = (uint8_t)(file_size >> 24);
+              bmp_hdr[10] = 54;
+              bmp_hdr[14] = 40;
+              bmp_hdr[18] = (uint8_t)(width);
+              bmp_hdr[19] = (uint8_t)(width >> 8);
+              bmp_hdr[20] = (uint8_t)(width >> 16);
+              bmp_hdr[21] = (uint8_t)(width >> 24);
+              bmp_hdr[22] = (uint8_t)(height);
+              bmp_hdr[23] = (uint8_t)(height >> 8);
+              bmp_hdr[24] = (uint8_t)(height >> 16);
+              bmp_hdr[25] = (uint8_t)(height >> 24);
+              bmp_hdr[26] = 1;
+              bmp_hdr[28] = 24;
+              bmp_hdr[34] = (uint8_t)(image_size);
+              bmp_hdr[35] = (uint8_t)(image_size >> 8);
+              bmp_hdr[36] = (uint8_t)(image_size >> 16);
+              bmp_hdr[37] = (uint8_t)(image_size >> 24);
+
+              Serial.printf("===BEGIN_BMP:%u===\n", file_size);
+              Serial.write(bmp_hdr, 54);
+
+              uint8_t *row_buf = (uint8_t *)heap_caps_malloc(row_stride, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+              if (!row_buf) {
+                Serial.println("\n[CLI ERROR] OOM row buffer");
+              } else {
+                const bool is_flipped = lvgl_port_is_inverted_landscape();
+                for (int y = (int)height - 1; y >= 0; y--) {
+                  int src_y = is_flipped ? ((int)height - 1 - y) : y;
+                  const uint16_t *src_row = fb + (src_y * width);
+                  uint8_t *dst = row_buf;
+                  for (uint32_t x = 0; x < width; x++) {
+                    uint32_t src_x = is_flipped ? (width - 1 - x) : x;
+                    uint16_t raw_c = src_row[src_x];
+#if LV_COLOR_16_SWAP
+                    uint16_t c = (uint16_t)((raw_c >> 8) | (raw_c << 8));
+#else
+                    uint16_t c = raw_c;
+#endif
+                    uint8_t r = ((c >> 11) & 0x1F) * 255 / 31;
+                    uint8_t g = ((c >> 5) & 0x3F) * 255 / 63;
+                    uint8_t b = (c & 0x1F) * 255 / 31;
+                    *dst++ = b; *dst++ = g; *dst++ = r;
+                  }
+                  while ((dst - row_buf) < (int)row_stride) *dst++ = 0;
+                  Serial.write(row_buf, row_stride);
+                }
+                heap_caps_free(row_buf);
+                Serial.println("\n===END_BMP===");
+              }
+            }
+          } else if (cmd.startsWith("pin ")) {
+            String p = cmd.substring(4);
+            p.trim();
+            if (p.length() == 4) {
+              extern void ui_consent_modal_set_pin(const char *pin);
+              if (lvgl_port_lock(200)) {
+                ui_consent_modal_set_pin(p.c_str());
+                lvgl_port_unlock();
+              }
+              Serial.printf("[CLI] Set PIN to %s\n", p.c_str());
+            } else {
+              Serial.println("[CLI ERROR] PIN must be exactly 4 digits");
+            }
+          } else if (cmd.equalsIgnoreCase("consent accept")) {
+            secrets_set_cloud_consent(true);
+            extern void ui_consent_modal_hide(void);
+            if (lvgl_port_lock(200)) {
+              ui_consent_modal_hide();
+              lvgl_port_unlock();
+            }
+            Serial.println("[CLI] Consent accepted & modal dismissed");
+          } else if (cmd.equalsIgnoreCase("secrets erase") || cmd.equalsIgnoreCase("secrets reset")) {
+            Serial.println("[CLI] Erasing all secrets & NVS credentials...");
+            secrets_erase_all();
+            Serial.println("[CLI] Erased. Rebooting...");
+            delay(200);
+            ESP.restart();
           } else if (cmd.equalsIgnoreCase("clock")) {
             log_i("[CLI] Switching to Clock Face...");
             screenPowerOn();
