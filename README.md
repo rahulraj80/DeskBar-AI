@@ -24,12 +24,14 @@
   * [8. Autonomous AI Voice Assistant](#8-autonomous-ai-voice-assistant)
   * [9. System Diagnostics, Hardware Utilities & Firmware OTA](#9-system-diagnostics)
   * [10. Comprehensive Device Settings & User Guide](#10-comprehensive-device-settings)
+  * [11. First-Boot Cloud Registration Modal & Master PIN Setup](#11-first-boot-cloud-registration-modal--master-pin-setup)
 * [⚖️ Key Architectural Differences vs Upstream](#key-architectural-differences)
 * [🛠️ Hardware Specifications & Pinout](#hardware-specifications)
 * [🌍 Multilingual Global Internet Radio](#multilingual-radio)
 * [🎵 Media Player Subsystem: SD Card & LAN Streaming](#media-player)
 * [🤖 Autonomous AI Voice Assistant Pipeline](#voice-assistant)
-* [🔒 Privacy, Multi-Tenant Telemetry & Decoupled Secrets](#privacy-telemetry)
+* [🔒 Privacy, First-Boot Consent & Decoupled Secrets](#privacy-telemetry)
+* [🚀 Self-Hosting the Backend APIs](#self-hosting)
 * [💡 Display, Brightness & Power Saving Architecture](#power-saving)
 * [🌐 Comprehensive Web Remote REST API](#rest-api)
 * [📐 6-Axis IMU, Spirit Level & Auto-Rotation (QMI8658)](#imu-orientation)
@@ -188,14 +190,31 @@ TuneBar runs on the 3.49-inch capacitive touch screen development board powered 
 
 ### 10. Comprehensive Device Settings Tabs
 ![Settings Wi-Fi](document/screen_settings_wifi.png)
-![Settings Screen](document/screen_settings_screen.png)
+![Settings Screen (Procedural Vector Themes)](document/screen_settings_screen.png)
 ![Settings Music](document/screen_settings_music.png)
 ![Settings Region](document/screen_settings_region.png)
 - **Wi-Fi Tab**: Scans local 2.4GHz Wi-Fi networks in real time; select an SSID from the dropdown and enter the password via on-screen keyboard. Automatically stores up to 10 networks in NVS.
-- **Screen Tab**: Set backlight brightness levels (Low, Medium, High), configure inactivity sleep timeouts (15s, 30s, 1m, 2m, 5m, 10m, or Never), and choose wallpaper themes.
+- **Screen Tab (Zero-Bitmap Vector Themes)**: Set backlight brightness levels (Low, Medium, High), configure inactivity sleep timeouts (15s, 30s, 1m, 2m, 5m, 10m, or Never), and choose from **7 procedural vector themes** (`Pure Dark`, `Cyberpunk`, `Deep Ocean`, `Emerald`, `Sunset`, `Carbon`, `Midnight Blue`) rendered via pure LVGL styling with zero flash footprint.
 - **Music Tab**: Toggle the default music startup source, trigger a recursive microSD audio track scan, or configure the LAN HTTP streaming server URL with full on-screen keyboard support.
 - **Region Tab**: Set geolocation coordinates, configure UTC timezone offsets via hour/minute roller wheels with instant PCF85063 RTC synchronization, and toggle between Celsius and Fahrenheit temperature units.
 - **Dismiss**: Tap the top-right **[X]** button on any tab to save changes to NVS flash and close the settings overlay.
+
+---
+
+### 11. First-Boot Cloud Registration Modal & Master PIN Setup
+<p align="center">
+  <img src="document/screen_consent_modal.png" alt="First-Boot Cloud Consent Notice" width="48%" />
+  <img src="document/screen_pin_setup.png" alt="Hardware TRNG Master PIN Setup" width="48%" />
+</p>
+
+- **What it is**: High-tech interactive registration modal presented on very first boot or after a clean NVS wipe before any cloud communication is initiated.
+- **Interactive Security PIN Setup**: Users configure a 4-digit Master PIN by tapping each digit to cycle 0–9. On fresh boards, the ESP32-S3 hardware True Random Number Generator (TRNG via `esp_random()`) automatically generates a random secure default.
+- **Masked Protection**: Configured PINs remain masked (`****`) to prevent shoulder surfing. Tapping any digit unmasks the field for interactive editing.
+- **Isolated Telemetry Target Hash**: Live status calculates the SHA256 target table hash in real time (`TB_<hash>`), proving full cryptographic isolation before you connect.
+- **Explicit Choice**:
+  - **`[ ✓ CONFIRM & CONNECT ]`**: Activates background telemetry and connects to community services.
+  - **`[ ⏻ STAY OFFLINE ]`**: Rejects cloud services; device runs 100% locally with zero background transmissions.
+
 
 ---
 
@@ -355,6 +374,37 @@ api_key=your_weatherapi_com_key
 [security]
 master_pin=1234
 ```
+
+---
+
+<a id="self-hosting"></a>
+## 🚀 Self-Hosting the Backend APIs (How to Deploy Your Own Servers) &nbsp;&nbsp;[ [🔝 Index](#index) ]
+
+TuneBar includes complete, self-contained reference servers in the [`backend/`](backend/) directory so anyone can host the backend on their own server, VPS, or Raspberry Pi with zero subscription fees:
+
+### 1. AI Voice Assistant Backend (`backend/ai_assistant_server.py`)
+A production-ready Python FastAPI server integrating:
+- **Groq Whisper Large V3 Turbo** for speech-to-text (~180 ms latency).
+- **Llama 3.3 70B Versatile** for concise conversational reasoning (~250 ms latency).
+- **Microsoft Edge-TTS** for natural neural speech streaming in MP3 format with zero subscription cost.
+
+#### Quick Start:
+```bash
+cd backend
+pip install fastapi uvicorn edge-tts groq python-multipart
+
+export GROQ_API_KEY="gsk_your_groq_api_key_here"
+python ai_assistant_server.py --port 8000
+```
+
+### 2. Distributed Telemetry Backend (`backend/telemetry_server.py`)
+An asynchronous FastAPI server with SQLite/PostgreSQL storage for TuneBar batch metrics:
+```bash
+cd backend
+python telemetry_server.py --port 8080
+```
+Database schema and table structures are provided in [`backend/schema.sql`](backend/schema.sql). Full deployment instructions (Nginx reverse proxy, SSL, and systemd service units) are detailed in [`backend/README.md`](backend/README.md) and [`docs/AI_VOICE_ASSISTANT.md`](docs/AI_VOICE_ASSISTANT.md).
+
 
 ### 2. Multi-Tenant Private Telemetry Isolation
 - **Hardware-Derived Table Hash**: Default telemetry is logged to an isolated database table: `TB_<device_hash>`. The 16-character hash is computed using $\text{SHA256}(\text{eFuse MAC} + \text{Master PIN})$, ensuring no user can deduce another user's table name or intercept diagnostics.
