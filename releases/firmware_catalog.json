@@ -2,6 +2,16 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.0.4",
+      "type": "patch",
+      "build": 31,
+      "date": "Oct 13, 2026",
+      "title": "TuneBar v2.0.4: Add automated buffer underflow and recovery telemetry logging",
+      "changelog": "\u2022 Add automated buffer underflow and recovery telemetry logging",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.4.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.0.3",
       "type": "patch",
       "build": 30,
@@ -9,7 +19,7 @@
       "title": "TuneBar v2.0.3: Increase webstream pre-buffering to 256KB in PSRAM to eliminate stutter on 256kbps radio stations",
       "changelog": "\u2022 Increase webstream pre-buffering to 256KB in PSRAM to eliminate stutter on 256kbps radio stations",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.3.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.0.2",
