@@ -2,6 +2,16 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.1.1",
+      "type": "patch",
+      "build": 40,
+      "date": "Oct 15, 2026",
+      "title": "TuneBar v2.1.1: Update brightness presets to 92, 120, 250 and fix ntp sync scope",
+      "changelog": "\u2022 Update brightness presets to 92, 120, 250 and fix ntp sync scope",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.1.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.1.0",
       "type": "minor",
       "build": 39,
@@ -9,7 +19,7 @@
       "title": "TuneBar v2.1.0: Power management suite: CPU 80MHz scaling, audio amp gating, duty-cycled WiFi, and breathing caps",
       "changelog": "\u2022 Power management suite: CPU 80MHz scaling, audio amp gating, duty-cycled WiFi, and breathing caps",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.0.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.0.7",

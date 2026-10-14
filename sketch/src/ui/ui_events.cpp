@@ -82,6 +82,7 @@ extern lv_obj_t  *last_active_screen;
 extern "C" void bsp_set_backlight_power(bool enable);
 static uint32_t s_clock_interaction_ms = 0;
 uint32_t g_last_user_interaction_ms = 0;
+bool g_boot_ntp_synced = false;
 extern uint8_t infoPageIndex;
 
 extern "C" void record_user_interaction(void) {
@@ -122,7 +123,7 @@ void enter_clock_breathing(void) {
     log_i("[POWER] CPU throttled to 80 MHz for clock standby");
   }
 
-  uint8_t max_bl = (backlight_state == 0) ? 105 : ((backlight_state == 1) ? 120 : 140);
+  uint8_t max_bl = (backlight_state == 0) ? 92 : ((backlight_state == 1) ? 120 : 250);
   log_i("[BREATH] Clock breathing active (Floor: 90, Max: %u, Inactivity-Tiered)", (unsigned)max_bl);
 }
 
@@ -214,9 +215,9 @@ void update_clock_breathing(void) {
   const uint8_t min_bl = 90; // Hardware floor: soft vacuum tube glow
   uint8_t max_bl;
   switch (backlight_state) {
-    case 0:  max_bl = 105; break; // LOW (was 120)
-    case 1:  max_bl = 120; break; // MED (was 180)
-    default: max_bl = 140; break; // HIGH (was 250)
+    case 0:  max_bl = 92; break;  // LOW (was 105/120)
+    case 1:  max_bl = 120; break; // MED (was 120/180)
+    default: max_bl = 250; break; // HIGH (was 140/250)
   }
 
   // Inactivity tiering: after 30 mins of no interaction, extend full black from 5.0s to 10.0s
@@ -279,8 +280,6 @@ void update_clock_breathing(void) {
       break;
   }
 }
-
-bool g_boot_ntp_synced = false;
 
 //wifi monitor call back from timer
 void lvgl_wifi_check_cb(lv_timer_t *t) {
