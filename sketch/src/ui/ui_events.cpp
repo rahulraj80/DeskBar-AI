@@ -245,10 +245,13 @@ void update_clock_breathing(void) {
   }
 }
 
+bool g_boot_ntp_synced = false;
+
 //wifi monitor call back from timer
 void lvgl_wifi_check_cb(lv_timer_t *t) {
-  if (clock_face_active && (!audio.isRunning() || mediaType >= 2)) {
-    return; // Keep WiFi OFF in clock mode when no network audio stream is playing
+  // Allow Wi-Fi to connect and sync NTP time upon startup/reset before suppressing it in clock mode
+  if (clock_face_active && g_boot_ntp_synced && (!audio.isRunning() || mediaType >= 2)) {
+    return; // Keep WiFi OFF in clock mode only AFTER initial boot NTP sync has completed
   }
   if (wifiEnable) {//if enable
     if (WiFi.status() != WL_CONNECTED && wifiTaskHandle == NULL) {//wifi disconnected
@@ -379,7 +382,8 @@ void init_main_menu_task(lv_timer_t *timer) {
 
   if (wifiEnable) {
     lv_obj_add_state(ui_MainMenu_Switch_Wifi, LV_STATE_CHECKED);
-    //wifiConnect();
+    wifi_need_connect = true;
+    wifiConnect();
     wifi_check_timer = lv_timer_create(lvgl_wifi_check_cb, WIFI_CHECK_INTERVAL, NULL);//wifi status check interval timer
 
   } else {//init wifi stack once to prevent Audio library crashed

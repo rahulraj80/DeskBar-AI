@@ -2,9 +2,19 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.0.6",
+      "type": "patch",
+      "build": 37,
+      "date": "Oct 14, 2026",
+      "title": "TuneBar v2.0.6: \\",
+      "changelog": "\u2022 \\",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.6.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.0.5",
       "type": "patch",
-      "build": 32,
+      "build": 36,
       "date": "Oct 13, 2026",
       "title": "TuneBar v2.0.5: Fix throttled streams and standardize 64KB buffer",
       "changelog": "\u2022 Fix throttled streams and standardize 64KB buffer",

@@ -372,8 +372,26 @@ void wifi_connect_task(void *param) {
             log_i("%s", connectedMsg);
             updateWiFiStatus(connectedMsg, 0x00FF00, 0x0000FF);
 
+            extern bool g_boot_ntp_synced;
+            extern QueueHandle_t ui_status_queue;
             rtc.ntp_sync(UTC_offset_hour[offset_hour_index], UTC_offset_minute[offset_minute_index]);
             rtc.calibratBySeconds(0, 0.0); // mode 0 (eery 2 second, diff_time/total_calibrate_time)
+            g_boot_ntp_synced = true;
+
+            // Immediately refresh on-screen clock with freshly synced NTP time
+            if (ui_status_queue != NULL) {
+              UIStatusPayload clk_msg = {
+                .type = STATUS_UPDATE_CLOCK,
+                .hour = now.hour,
+                .minute = now.minute,
+                .second = now.second,
+                .year = now.year,
+                .month = now.month,
+                .dayOfMonth = now.dayOfMonth,
+                .dayOfWeek = now.dayOfWeek
+              };
+              xQueueSend(ui_status_queue, &clk_msg, 100);
+            }
             // check if new firmware available
 
             if (!firmware_checked) {
