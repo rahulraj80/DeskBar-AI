@@ -2,6 +2,16 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.1.0",
+      "type": "minor",
+      "build": 39,
+      "date": "Oct 15, 2026",
+      "title": "TuneBar v2.1.0: Power management suite: CPU 80MHz scaling, audio amp gating, duty-cycled WiFi, and breathing caps",
+      "changelog": "\u2022 Power management suite: CPU 80MHz scaling, audio amp gating, duty-cycled WiFi, and breathing caps",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.0.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.0.7",
       "type": "patch",
       "build": 38,
@@ -9,7 +19,7 @@
       "title": "TuneBar v2.0.7: Calibrate battery curve to Run 2 and fix boot NTP sync",
       "changelog": "\u2022 Calibrate battery curve to Run 2 and fix boot NTP sync",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.7.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.0.6",

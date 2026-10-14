@@ -27,6 +27,7 @@
 extern Audio audio;
 extern Preferences pref;
 extern "C" void exit_clock_breathing(void);
+extern "C" void record_user_interaction(void);
 extern void screenPowerOn(void);
 extern void audioSetVolume(uint8_t vol);
 extern void updateInfoPanel(uint8_t pages);
@@ -1034,6 +1035,7 @@ pollImu();
 </html>)rawliteral";
 
 static void handle_root() {
+    record_user_interaction();
     server.send_P(200, "text/html", HTML_PAGE);
 }
 

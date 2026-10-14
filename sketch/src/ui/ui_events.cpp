@@ -81,10 +81,30 @@ static uint32_t   breath_timer_ms = 0;
 extern lv_obj_t  *last_active_screen;
 extern "C" void bsp_set_backlight_power(bool enable);
 static uint32_t s_clock_interaction_ms = 0;
+uint32_t g_last_user_interaction_ms = 0;
 extern uint8_t infoPageIndex;
+
+extern "C" void record_user_interaction(void) {
+  g_last_user_interaction_ms = millis();
+  if (getCpuFrequencyMhz() != 240) {
+    setCpuFrequencyMhz(240);
+    log_i("[POWER] User interaction -> CPU restored to 240 MHz");
+  }
+  if (wifiEnable && WiFi.getMode() == WIFI_OFF) {
+    WiFi.mode(WIFI_STA);
+    wifi_need_connect = true;
+    if (wifi_check_timer) lv_timer_resume(wifi_check_timer);
+    wifiConnect();
+    log_i("[POWER] User interaction -> Wi-Fi & Web Remote activated for 2 minutes");
+  }
+}
 
 extern "C" bool is_on_nixie_clock(void) {
   return (lv_scr_act() == ui_Screen_Info && infoPageIndex == 0);
+}
+
+extern "C" bool is_display_deep_black(void) {
+  return BL_OFF || (clock_face_active && breath_state == BREATH_FULL_BLACK);
 }
 
 void enter_clock_breathing(void) {
@@ -95,43 +115,39 @@ void enter_clock_breathing(void) {
   bsp_set_backlight_power(true);
   breath_state = BREATH_HOLD_HIGH;
   breath_timer_ms = millis();
-  uint8_t max_bl = (backlight_state == 0) ? 120 : ((backlight_state == 1) ? 180 : 250);
-  log_i("[BREATH] Clock breathing active: 10s cycle (FadeIn: 1.5s, HoldHigh: 2.0s, FadeOut: 1.5s, FullBlack: 5.0s, Floor: 90, Max: %u)", (unsigned)max_bl);
-  // Wi-Fi is preserved across all clock states for Web Remote, screenshots, and telemetry.
+
+  // Throttle CPU to 80 MHz in clock standby if audio is not running
+  if (!audio.isRunning() && getCpuFrequencyMhz() != 80) {
+    setCpuFrequencyMhz(80);
+    log_i("[POWER] CPU throttled to 80 MHz for clock standby");
+  }
+
+  uint8_t max_bl = (backlight_state == 0) ? 105 : ((backlight_state == 1) ? 120 : 140);
+  log_i("[BREATH] Clock breathing active (Floor: 90, Max: %u, Inactivity-Tiered)", (unsigned)max_bl);
 }
 
 void exit_clock_breathing(void) {
+  record_user_interaction();
   s_clock_interaction_ms = millis();
   if (!clock_face_active) return;
   clock_face_active = 0;
+
+  if (getCpuFrequencyMhz() != 240) {
+    setCpuFrequencyMhz(240);
+    log_i("[POWER] CPU restored to 240 MHz on exit breathing");
+  }
+
   bsp_set_backlight_power(true);
   screenPowerOn(); // Restores AP3032 boost rail and sets PWM duty according to backlight_state
-
-  // Re-enable WiFi if leaving clock mode and WiFi is enabled in settings
-  if (wifiEnable && WiFi.getMode() == WIFI_OFF) {
-    WiFi.mode(WIFI_STA);
-    wifi_need_connect = true;
-    if (wifi_check_timer) lv_timer_resume(wifi_check_timer);
-    wifiConnect();
-    log_i("[BREATH] Wi-Fi restored upon exiting clock mode");
-  }
 }
 
 extern "C" void on_clock_interaction_wake(void) {
+  record_user_interaction();
   s_clock_interaction_ms = millis();
   SCREEN_OFF_TIMER = millis();
   BL_OFF = false;
   bsp_set_backlight_power(true);
   screenPowerOn();
-
-  // Re-enable WiFi upon user interaction/rotation wake
-  if (wifiEnable && WiFi.getMode() == WIFI_OFF) {
-    WiFi.mode(WIFI_STA);
-    wifi_need_connect = true;
-    if (wifi_check_timer) lv_timer_resume(wifi_check_timer);
-    wifiConnect();
-    log_i("[BREATH] Wi-Fi restored upon user interaction wake");
-  }
 
   if (clock_face_active) {
     clock_face_active = 0;
@@ -184,21 +200,39 @@ void update_clock_breathing(void) {
     return;
   }
 
+  // Auto-off Wi-Fi and Web Remote after 2 minutes of inactivity in clock mode (if not playing audio)
+  if (clock_face_active && g_boot_ntp_synced && !audio.isRunning()) {
+    if (g_last_user_interaction_ms > 0 && (now - g_last_user_interaction_ms >= 120000UL)) {
+      if (WiFi.getMode() != WIFI_OFF) {
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+        log_i("[POWER] 2 min inactivity in clock mode -> Wi-Fi & Web Remote turned OFF");
+      }
+    }
+  }
+
   const uint8_t min_bl = 90; // Hardware floor: soft vacuum tube glow
   uint8_t max_bl;
   switch (backlight_state) {
-    case 0:  max_bl = 120; break;  // LOW
-    case 1:  max_bl = 180; break;  // MED
-    default: max_bl = 250; break;  // HIGH
+    case 0:  max_bl = 105; break; // LOW (was 120)
+    case 1:  max_bl = 120; break; // MED (was 180)
+    default: max_bl = 140; break; // HIGH (was 250)
+  }
+
+  // Inactivity tiering: after 30 mins of no interaction, extend full black from 5.0s to 10.0s
+  uint32_t full_black_ms = 5000;
+  if (g_last_user_interaction_ms > 0 && (now - g_last_user_interaction_ms >= 30 * 60 * 1000UL)) {
+    full_black_ms = 10000; // 10.0s full black
   }
 
   uint32_t elapsed = millis() - breath_timer_ms;
 
   switch (breath_state) {
     case BREATH_FULL_BLACK:
-      bsp_set_backlight_power(true);
+      bsp_set_backlight_power(false); // Cut AP3032 boost rail while dark!
       setUpduty(255); // 0% PWM duty -> 100% full black
-      if (elapsed >= 5000) { // 5.0s full black
+      if (elapsed >= full_black_ms) {
+        bsp_set_backlight_power(true); // Re-enable boost rail!
         breath_state    = BREATH_FADE_IN;
         breath_timer_ms = millis();
         log_i("[BREATH] State -> FADE_IN | From: %u -> To: %u (1.5s)", min_bl, max_bl);
@@ -237,9 +271,10 @@ void update_clock_breathing(void) {
         setUpduty(255 - current_val);
       } else {
         setUpduty(255); // 0% PWM duty -> drop to full black
+        bsp_set_backlight_power(false); // Cut AP3032 boost rail while dark!
         breath_state    = BREATH_FULL_BLACK;
         breath_timer_ms = millis();
-        log_i("[BREATH] State -> FULL_BLACK | 0 PWM (5.0s dark)");
+        log_i("[BREATH] State -> FULL_BLACK | 0 PWM (%u ms dark)", (unsigned)full_black_ms);
       }
       break;
   }
@@ -251,15 +286,23 @@ bool g_boot_ntp_synced = false;
 void lvgl_wifi_check_cb(lv_timer_t *t) {
   // Allow Wi-Fi to connect and sync NTP time upon startup/reset before suppressing it in clock mode
   if (clock_face_active && g_boot_ntp_synced && (!audio.isRunning() || mediaType >= 2)) {
-    return; // Keep WiFi OFF in clock mode only AFTER initial boot NTP sync has completed
+    // If 2 mins of inactivity reached in clock mode, keep Wi-Fi OFF
+    if (g_last_user_interaction_ms > 0 && (millis() - g_last_user_interaction_ms >= 120000UL)) {
+      if (WiFi.getMode() != WIFI_OFF) {
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+        log_i("[POWER] 2 min inactivity in clock mode -> Wi-Fi turned OFF");
+      }
+      return;
+    }
   }
   if (wifiEnable) {//if enable
-    if (WiFi.status() != WL_CONNECTED && wifiTaskHandle == NULL) {//wifi disconnected
+    if (WiFi.status() != WL_CONNECTED && wifiTaskHandle == NULL && WiFi.getMode() != WIFI_OFF) {//wifi disconnected
         wifi_need_connect = true;
         lv_timer_pause(wifi_check_timer);//pause the timer
         wifiConnect();  // create task ONCE
     }
-  }  
+  }
 }
 //----------- LOGO SCREEN EVENTS ------------
 void lv_create_delayed_task(lv_timer_cb_t callback, uint32_t delay_ms, void *user_data) {

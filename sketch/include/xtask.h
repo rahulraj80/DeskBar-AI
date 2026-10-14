@@ -76,6 +76,7 @@ void button_input_task(void *param) {
           boot_btn_prev = boot_btn_curr;
           continue;
         }
+        record_user_interaction();
         if (clock_face_active) {
           log_i("Button: Wake from Clock -> restore active usage");
           on_clock_boot_button_pressed();
@@ -123,7 +124,10 @@ void button_input_task(void *param) {
     static uint32_t last_imu_poll = 0;
     if (now - last_imu_poll >= 100) {
       last_imu_poll = now;
-      imu_sensor_poll();
+      extern bool is_display_deep_black(void);
+      if (!BL_OFF && !is_display_deep_black()) {
+        imu_sensor_poll();
+      }
     }
 
     vTaskDelay(pdMS_TO_TICKS(10)); // yield CPU
@@ -896,13 +900,27 @@ void audio_loop_task(void *param) {
 
     // 2. PLAYBACK MODE
     if (!is_mic_mode) {
+      static bool s_amp_powered = false;
       if (audio.isRunning()) {
+        if (!s_amp_powered) {
+          bsp_set_audio_amp_power(true);
+          s_amp_powered = true;
+          if (getCpuFrequencyMhz() != 240) {
+            setCpuFrequencyMhz(240);
+          }
+          log_i("[AUDIO] Audio playing -> Amplifier enabled, CPU 240 MHz");
+        }
         for (int i = 0; i < 6; i++) {
           audio.loop();
         }
         process_audio_cmd_que();
         vTaskDelay(pdMS_TO_TICKS(1)); // snappy 1ms yield prevents socket starvation
       } else {
+        if (s_amp_powered) {
+          bsp_set_audio_amp_power(false);
+          s_amp_powered = false;
+          log_i("[AUDIO] Audio stopped -> Amplifier disabled (power save)");
+        }
         audio.loop();
         process_audio_cmd_que();
         vTaskDelay(pdMS_TO_TICKS(10)); // idle yield saves CPU

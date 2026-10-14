@@ -190,9 +190,10 @@ void setup() {
   bsp_set_backlight_power(true); // Enable AP3032 boost rail
   lcd_bl_pwm_bsp_init(LCD_PWM_MODE_255); // max out the brightness
 
-  // power amp control (NS_MODE = 1) across V1 and V2 hardware
-  bsp_set_audio_amp_power(true);
-  log_i("Power Amp (NS_MODE on EXIO2/EXIO7) -> ON");
+  // power amp starts OFF in standby (dynamically enabled when audio plays)
+  bsp_set_audio_amp_power(false);
+  log_i("Power Amp (NS_MODE on EXIO2/EXIO7) -> Standby OFF (Dynamic Gating)");
+  g_last_user_interaction_ms = millis();
 
   // es8311 audio codec
   if (!speaker.begin()) {
@@ -283,10 +284,34 @@ void serial_debug_beacon_task(void *param) {
     // Flush batch every 5 minutes or when >= 5 records are buffered
     // Note: Audio playback does NOT starve telemetry anymore
     if ((millis() - last_telemetry_flush >= 300000 || telemetry_get_buffered_count() >= 5) &&
-        (WiFi.status() == WL_CONNECTED) &&
-        !ai_recording_active && !ai_upload_in_progress) {
+        !ai_recording_active && !ai_upload_in_progress &&
+        (secrets_has_cloud_consent() || secrets_has_custom_ini())) {
       last_telemetry_flush = millis();
-      telemetry_flush_batch();
+
+      bool temp_wifi_wake = false;
+      if (WiFi.status() != WL_CONNECTED && wifiEnable) {
+        log_i("[TELEMETRY] Waking Wi-Fi for 5-min batch flush...");
+        WiFi.mode(WIFI_STA);
+        wifiConnect();
+        uint32_t t0 = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - t0 < 8000) {
+          vTaskDelay(pdMS_TO_TICKS(200));
+        }
+        temp_wifi_wake = true;
+      }
+
+      if (WiFi.status() == WL_CONNECTED) {
+        telemetry_flush_batch();
+      }
+
+      // If this was a temporary wake for telemetry and user has not interacted recently, return to OFF
+      extern uint32_t g_last_user_interaction_ms;
+      if (temp_wifi_wake && clock_face_active && !audio.isRunning() &&
+          (millis() - g_last_user_interaction_ms >= 120000UL)) {
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+        log_i("[TELEMETRY] Flush complete -> Wi-Fi returned to OFF state");
+      }
     }
 
     vTaskDelay(pdMS_TO_TICKS(2000));
@@ -317,6 +342,7 @@ void serial_cli_task(void *param) {
       if (c == '\n' || c == '\r') {
         cmd.trim();
         if (cmd.length() > 0) {
+          record_user_interaction();
           log_i("[CLI CMD] '%s'", cmd.c_str());
           if (cmd.equalsIgnoreCase("ping")) {
             Serial.println("[CLI] PONG");

@@ -115,8 +115,18 @@ def main():
     ])
 
     run(["scp", "-O"] + SSH_OPTS + [
+        "auto:~/scripts/TuneBar/sketch/.pio/build/esp32-s3-devkitc1-n16r8/bootloader.bin",
+        os.path.join("build_phase1", "bootloader.bin")
+    ], check=False)
+
+    run(["scp", "-O"] + SSH_OPTS + [
         "auto:~/scripts/TuneBar/sketch/.pio/build/esp32-s3-devkitc1-n16r8/partitions.bin",
         os.path.join("build_phase1", "partitions.bin")
+    ], check=False)
+
+    run(["scp", "-O"] + SSH_OPTS + [
+        "auto:/home/ubuntu/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin",
+        os.path.join("build_phase1", "boot_app0.bin")
     ], check=False)
 
     bin_size = os.path.getsize(os.path.join(ROOT_DIR, "build_phase1", "firmware.bin"))

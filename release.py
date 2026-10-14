@@ -230,7 +230,7 @@ def main():
     print(f" SUCCESS: TuneBar {next_tag} (Build #{build_num}) released & compiled!", flush=True)
     print(f" Binary: build_phase1/firmware.bin", flush=True)
     print(f" Next steps:", flush=True)
-    print(f"   1. Flash to device: python -m esptool --chip esp32s3 -p COM11 write_flash 0x0 build_phase1/firmware.bin", flush=True)
+    print(f"   1. Flash to device: python -m esptool --chip esp32s3 -p COM11 -b 921600 --before default-reset --after hard-reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size detect 0x0000 build_phase1/bootloader.bin 0x8000 build_phase1/partitions.bin 0xe000 build_phase1/boot_app0.bin 0x10000 build_phase1/firmware.bin", flush=True)
     print(f"   2. Verify device features and screen behavior.", flush=True)
     print(f"   3. After testing, promote to OTA (retaining top 2 versions in git):", flush=True)
     print(f"      python scripts/publish_ota.py {next_tag}", flush=True)
