@@ -14,66 +14,39 @@ struct CatalogItem {
   uint32_t size_bytes;
 };
 
-#define GENERATED_CATALOG_COUNT 16
+#define GENERATED_CATALOG_COUNT 6
 
-static const CatalogItem s_generated_catalog[16] = {
-  // [0] v2.0.6
+static const CatalogItem s_generated_catalog[6] = {
+  // [0] v2.0.7
   {
-    "v2.0.6", "PATCH", 0x00FF88, "Oct 14, 2026", "4.01 MB",
-    "• \",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.6.bin",
+    "v2.0.7", "PATCH", 0x00FF88, "Oct 14, 2026", "4.01 MB",
+    "• Calibrate battery curve to Run 2 and fix boot NTP sync",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.7.bin",
     4200000
   },
-  // [1] v2.0.5
+  // [1] v2.0.6
+  {
+    "v2.0.6", "PATCH", 0x00FF88, "Oct 14, 2026", "4.08 MB",
+    "• Calibrate battery curve to Run 2 time-elapsed data\n"
+    "• Fix boot-time Wi-Fi connection and NTP synchronization",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.6.bin",
+    4283408
+  },
+  // [2] v2.0.5
   {
     "v2.0.5", "PATCH", 0x00FF88, "Oct 13, 2026", "4.08 MB",
     "• Fix throttled streams and standardize 64KB buffer",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.5.bin",
     4283408
   },
-  // [2] v2.0.4
-  {
-    "v2.0.4", "PATCH", 0x00FF88, "Oct 13, 2026", "4.08 MB",
-    "• Add automated buffer underflow and recovery telemetry logging",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.4.bin",
-    4283408
-  },
-  // [3] v2.0.3
-  {
-    "v2.0.3", "PATCH", 0x00FF88, "Oct 13, 2026", "4.08 MB",
-    "• Increase webstream pre-buffering to 256KB in PSRAM to eliminate stutter on 256kbps radio stations",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.3.bin",
-    4283408
-  },
-  // [4] v2.0.2
-  {
-    "v2.0.2", "PATCH", 0x00FF88, "Oct 13, 2026", "4.08 MB",
-    "• Add gTTS speech fallback and eliminate UI freeze when TTS audio is empty or fails",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.2.bin",
-    4283408
-  },
-  // [5] v2.0.1
-  {
-    "v2.0.1", "PATCH", 0x00FF88, "Oct 13, 2026", "4.08 MB",
-    "• Fix AI assistant device authentication headers and restricted status handling",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.1.bin",
-    4283408
-  },
-  // [6] v2.0.0
-  {
-    "v2.0.0", "MAJOR", 0xB388FF, "Oct 13, 2026", "4.08 MB",
-    "• Fix version numbering and major rewrites to security and accessibility features",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin",
-    4283408
-  },
-  // [7] v1.3.0
+  // [3] v1.3.0
   {
     "v1.3.0", "MINOR", 0x00B0FF, "Oct 13, 2026", "4.08 MB",
     "• Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin",
     4283408
   },
-  // [8] v1.2.9
+  // [4] v1.2.9
   {
     "v1.2.9", "PATCH", 0x00FF88, "Oct 12, 2026", "4.08 MB",
     "• Enforced First-Boot Registration & Cloud Notice modal on screen.\n"
@@ -85,7 +58,7 @@ static const CatalogItem s_generated_catalog[16] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.9.bin",
     4283408
   },
-  // [9] v1.2.8
+  // [5] v1.2.8
   {
     "v1.2.8", "PATCH", 0x00FF88, "Oct 12, 2026", "4.08 MB",
     "• Automated multi-tenant telemetry and device registration guard.\n"
@@ -95,90 +68,17 @@ static const CatalogItem s_generated_catalog[16] = {
     "• Clock breathing interaction wake fix.",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.8.bin",
     4283408
-  },
-  // [10] v1.2.7
-  {
-    "v1.2.7", "PATCH", 0x00FF88, "Oct 12, 2026", "4.08 MB",
-    "• Automated multi-tenant telemetry and device registration guard.\n"
-    "• 4-Row 3-State IMU posture panel with active/inverted tracking.\n"
-    "• High-precision shelf inclinometer and uphill air bubble physics.\n"
-    "• Dynamic isometric chassis diagram in calibration wizard.\n"
-    "• Clock breathing interaction wake fix.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.7.bin",
-    4283408
-  },
-  // [11] v1.2.6
-  {
-    "v1.2.6", "PATCH", 0x00FF88, "2026-10-12", "4.06 MB",
-    "• Procedural LVGL vector styles replace 8 heavy bitmaps: binary dropped from 6.44MB to 4.04MB (2.21MB flash freed).\n"
-    "• 3-Panel Spirit Level App with 2D bullseye dial, live IMU telemetry, and 8-step guided calibration wizard.\n"
-    "• Calibration saves sensor bias and custom tolerance to NVS flash.\n"
-    "• Enlarged 46x38px Close button matching Settings on OTA and Spirit Level.\n"
-    "• 10-second breathing cycle (5s black, 1.5s fade in, 2s hold high, 1.5s fade out).\n"
-    "• Wi-Fi power down in clock mode saving ~50mA quiescent current.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin",
-    4259536
-  },
-  // [12] v1.2.5
-  {
-    "v1.2.5", "PATCH", 0x00FF88, "2026-10-10", "6.03 MB",
-    "• Fixed AP3032 boost converter enable rail on EXIO1.\n"
-    "• Calibrated QMI8658 6-axis IMU orientation detection.\n"
-    "• Resolved 15-second screen timeout conflict on Nixie clock face.\n"
-    "• Improved touch responsiveness on 640x172 landscape display.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin",
-    6318400
-  },
-  // [13] v1.2.0
-  {
-    "v1.2.0", "MINOR", 0x00B0FF, "2026-10-05", "5.99 MB",
-    "• Web Remote controller with virtual touch canvas and D-pad.\n"
-    "• Real-time IMU SSE live sensor streaming at 10Hz.\n"
-    "• LAN MP3 / FLAC file indexer and high-throughput streaming.\n"
-    "• Multi-catalog Internet Radio station directory.\n"
-    "• System telemetry and DRAM/PSRAM diagnostics API.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin",
-    6280000
-  },
-  // [14] v1.1.0
-  {
-    "v1.1.0", "MINOR", 0x00B0FF, "2026-09-28", "5.87 MB",
-    "• ES7210 dual I2S microphone array driver integration.\n"
-    "• Groq Whisper audio pipeline with voice activity detection.\n"
-    "• Hardware acoustic echo cancellation calibration.\n"
-    "• Weather forecast voice responses with multi-day forecasts.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin",
-    6150000
-  },
-  // [15] v1.0.0
-  {
-    "v1.0.0", "MAJOR", 0xB388FF, "2026-09-01", "5.44 MB",
-    "• Initial commercial firmware release for TuneBar ESP32-S3.\n"
-    "• LVGL 8.3 graphics engine on ST7701 640x172 display.\n"
-    "• Internet Radio player, Clock, Alarm, and Weather apps.",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.0.0.bin",
-    5700000
   }
 };
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.0.6\",\"type\":\"patch\",\"build\":37,\"date\":\"Oct 14, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• \\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.6.bin\"},";
+  j += "{\"version\":\"2.0.7\",\"type\":\"patch\",\"build\":38,\"date\":\"Oct 14, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Calibrate battery curve to Run 2 and fix boot NTP sync\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.7.bin\"},";
+  j += "{\"version\":\"2.0.6\",\"type\":\"patch\",\"build\":37,\"date\":\"Oct 14, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Calibrate battery curve to Run 2 time-elapsed data • Fix boot-time Wi-Fi connection and NTP synchronization\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.6.bin\"},";
   j += "{\"version\":\"2.0.5\",\"type\":\"patch\",\"build\":36,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix throttled streams and standardize 64KB buffer\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.5.bin\"},";
-  j += "{\"version\":\"2.0.4\",\"type\":\"patch\",\"build\":31,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Add automated buffer underflow and recovery telemetry logging\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.4.bin\"},";
-  j += "{\"version\":\"2.0.3\",\"type\":\"patch\",\"build\":30,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Increase webstream pre-buffering to 256KB in PSRAM to eliminate stutter on 256kbps radio stations\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.3.bin\"},";
-  j += "{\"version\":\"2.0.2\",\"type\":\"patch\",\"build\":29,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Add gTTS speech fallback and eliminate UI freeze when TTS audio is empty or fails\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.2.bin\"},";
-  j += "{\"version\":\"2.0.1\",\"type\":\"patch\",\"build\":28,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix AI assistant device authentication headers and restricted status handling\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.1.bin\"},";
-  j += "{\"version\":\"2.0.0\",\"type\":\"major\",\"build\":27,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix version numbering and major rewrites to security and accessibility features\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin\"},";
   j += "{\"version\":\"1.3.0\",\"type\":\"minor\",\"build\":26,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin\"},";
   j += "{\"version\":\"1.2.9\",\"type\":\"patch\",\"build\":25,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Enforced First-Boot Registration & Cloud Notice modal on screen. • Immediate boot telemetry ping-home unblocked across Wi-Fi reconnects. • Removed audio-player starvation of telemetry upload batches. • Per-device table isolation (TB_<hash>) with dedicated telemetry.php dashboard. • Full Web Remote Secrets Manager card for /secrets.ini editing and endpoint override. • Server-side hardware authentication guard on AI Voice Assistant (ask.php).\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.9.bin\"},";
-  j += "{\"version\":\"1.2.8\",\"type\":\"patch\",\"build\":22,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.8.bin\"},";
-  j += "{\"version\":\"1.2.7\",\"type\":\"patch\",\"build\":21,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.7.bin\"},";
-  j += "{\"version\":\"1.2.6\",\"type\":\"patch\",\"build\":17,\"date\":\"2026-10-12\",\"size\":\"4.06 MB\",\"size_bytes\":4259536,\"changelog\":\"• Procedural LVGL vector styles replace 8 heavy bitmaps: binary dropped from 6.44MB to 4.04MB (2.21MB flash freed). • 3-Panel Spirit Level App with 2D bullseye dial, live IMU telemetry, and 8-step guided calibration wizard. • Calibration saves sensor bias and custom tolerance to NVS flash. • Enlarged 46x38px Close button matching Settings on OTA and Spirit Level. • 10-second breathing cycle (5s black, 1.5s fade in, 2s hold high, 1.5s fade out). • Wi-Fi power down in clock mode saving ~50mA quiescent current.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin\"},";
-  j += "{\"version\":\"1.2.5\",\"type\":\"patch\",\"build\":16,\"date\":\"2026-10-10\",\"size\":\"6.03 MB\",\"size_bytes\":6318400,\"changelog\":\"• Fixed AP3032 boost converter enable rail on EXIO1. • Calibrated QMI8658 6-axis IMU orientation detection. • Resolved 15-second screen timeout conflict on Nixie clock face. • Improved touch responsiveness on 640x172 landscape display.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin\"},";
-  j += "{\"version\":\"1.2.0\",\"type\":\"minor\",\"build\":14,\"date\":\"2026-10-05\",\"size\":\"5.99 MB\",\"size_bytes\":6280000,\"changelog\":\"• Web Remote controller with virtual touch canvas and D-pad. • Real-time IMU SSE live sensor streaming at 10Hz. • LAN MP3 / FLAC file indexer and high-throughput streaming. • Multi-catalog Internet Radio station directory. • System telemetry and DRAM/PSRAM diagnostics API.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin\"},";
-  j += "{\"version\":\"1.1.0\",\"type\":\"minor\",\"build\":10,\"date\":\"2026-09-28\",\"size\":\"5.87 MB\",\"size_bytes\":6150000,\"changelog\":\"• ES7210 dual I2S microphone array driver integration. • Groq Whisper audio pipeline with voice activity detection. • Hardware acoustic echo cancellation calibration. • Weather forecast voice responses with multi-day forecasts.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin\"},";
-  j += "{\"version\":\"1.0.0\",\"type\":\"major\",\"build\":1,\"date\":\"2026-09-01\",\"size\":\"5.44 MB\",\"size_bytes\":5700000,\"changelog\":\"• Initial commercial firmware release for TuneBar ESP32-S3. • LVGL 8.3 graphics engine on ST7701 640x172 display. • Internet Radio player, Clock, Alarm, and Weather apps.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.0.0.bin\"}";
+  j += "{\"version\":\"1.2.8\",\"type\":\"patch\",\"build\":22,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.8.bin\"}";
   j += "]}";
   return j;
 }

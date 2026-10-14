@@ -161,7 +161,7 @@ def main():
         sys.exit(1)
 
     bump_arg = sys.argv[1].strip()
-    message = sys.argv[2].strip()
+    message = sys.argv[2].strip().rstrip('\\').strip().replace('"', "'")
     no_build = "--no-build" in sys.argv
     no_push = "--no-push" in sys.argv
 
