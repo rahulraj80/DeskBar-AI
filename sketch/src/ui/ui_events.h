@@ -63,9 +63,12 @@ void exit_clock_breathing(void);
 void on_clock_touch_or_button(void);
 void on_clock_interaction_wake(void);
 bool is_on_nixie_clock(void);
+void record_user_interaction(void);
+bool is_display_deep_black(void);
 
 #ifdef __cplusplus
 } /*extern "C"*/
+extern uint32_t g_last_user_interaction_ms;
 #endif
 
 #endif
