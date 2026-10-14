@@ -17,7 +17,7 @@ build/
 build_phase1/
 sketch/build/
 *.bin
-releases/bin/
+!releases/bin/*.bin
 *.elf
 *.tar.gz
 sync_payload.tar.gz
@@ -38,6 +38,8 @@ __pycache__/
 # Root scratch scripts, logs, test files, and reverse-engineering references
 scratch/
 /*.py
+!/release.py
+!/sync_and_build.py
 /*.sh
 /*.diff
 /*.log
