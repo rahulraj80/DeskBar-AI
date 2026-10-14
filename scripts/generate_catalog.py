@@ -93,14 +93,30 @@ def main():
         except Exception:
             return [0, 0, 0]
 
-    releases.sort(key=lambda r: parse_semver(r.get("version", "0.0.0")), reverse=True)
+    # Apply Purging Policy: Max 3 latest releases per minor version stream (e.g. 2.0 keeps 3, 1.2 keeps 3)
+    stream_counts = {}
+    purged_releases = []
+    for r in releases:
+        v_parts = parse_semver(r.get("version", "0.0.0"))
+        stream_key = f"{v_parts[0]}.{v_parts[1]}"
+        count = stream_counts.get(stream_key, 0)
+        if count < 3:
+            stream_counts[stream_key] = count + 1
+            purged_releases.append(r)
+        else:
+            print(f"[PURGE] Pruning {r.get('version')} from active catalog (>3 in minor stream {stream_key})")
+
+    releases = purged_releases
     existing_catalog["releases"] = releases
 
     # 4. Save updated catalog JSON
     os.makedirs(os.path.dirname(CATALOG_JSON_PATH), exist_ok=True)
     with open(CATALOG_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(existing_catalog, f, indent=2)
-    print(f"[OK] Updated {CATALOG_JSON_PATH} with {len(releases)} releases.")
+    print(f"[OK] Updated {CATALOG_JSON_PATH} with {len(releases)} active releases.")
+
+    # On-device display: top 6 active releases
+    device_releases = releases[:6]
 
     # 5. Generate C header sketch/include/generated_catalog.h
     h_lines = [
@@ -120,12 +136,12 @@ def main():
         "  uint32_t size_bytes;",
         "};",
         "",
-        f"#define GENERATED_CATALOG_COUNT {len(releases)}",
+        f"#define GENERATED_CATALOG_COUNT {len(device_releases)}",
         "",
-        f"static const CatalogItem s_generated_catalog[{len(releases)}] = {{"
+        f"static const CatalogItem s_generated_catalog[{len(device_releases)}] = {{"
     ]
 
-    for idx, r in enumerate(releases):
+    for idx, r in enumerate(device_releases):
         v = r.get("version", "1.0.0")
         v_str = v if v.startswith("v") else f"v{v}"
         t_type = r.get("type", "patch").upper()
@@ -136,10 +152,11 @@ def main():
         else:
             color = "0x00FF88"
 
-        date_str = r.get("date", "Oct 12, 2026")
-        sz_bytes = r.get("size", 4280000)
+        date_str = r.get("date", "Oct 14, 2026")
+        sz_bytes = r.get("size", 4200000)
         sz_mb = f"{sz_bytes / (1024*1024):.2f} MB" if sz_bytes > 0 else "4.08 MB"
-        cl = r.get("changelog", "").replace("\\n", "\n").replace('"', '\\"').replace('\n', '\\n"\n    "')
+        raw_cl = r.get("changelog", "").strip().rstrip('\\').strip()
+        cl = raw_cl.replace("\\n", "\n").replace('"', '\\"').replace('\n', '\\n"\n    "')
         url = r.get("url", f"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-{v_str}.bin")
 
         h_lines.append(f"  // [{idx}] {v_str}")
@@ -148,7 +165,7 @@ def main():
         h_lines.append(f'    "{cl}",')
         h_lines.append(f'    "{url}",')
         h_lines.append(f'    {sz_bytes}')
-        h_lines.append("  }" + ("," if idx < len(releases) - 1 else ""))
+        h_lines.append("  }" + ("," if idx < len(device_releases) - 1 else ""))
 
     h_lines.append("};")
     h_lines.append("")
@@ -156,17 +173,17 @@ def main():
     # Helper function to generate JSON string for web_remote.cpp
     h_lines.append("static inline String get_generated_catalog_json(void) {")
     h_lines.append('  String j = "{\\\"repo_id\\\":\\\"official\\\",\\\"releases\\\":[";')
-    for idx, r in enumerate(releases):
+    for idx, r in enumerate(device_releases):
         v = r.get("version", "1.0.0")
         v_str = v.lstrip("v")
         t_type = r.get("type", "patch").lower()
         b_num = r.get("build", 20)
         d_str = r.get("date", "")
-        sz_bytes = r.get("size", 4280000)
+        sz_bytes = r.get("size", 4200000)
         sz_mb = f"{sz_bytes / (1024*1024):.2f} MB"
-        cl_clean = r.get("changelog", "").replace("\n", " ").replace('"', "'")
+        cl_clean = r.get("changelog", "").strip().rstrip('\\').replace("\n", " ").replace('"', "'").replace('\\', '')
         u_str = r.get("url", "")
-        comma_str = "," if idx < len(releases) - 1 else ""
+        comma_str = "," if idx < len(device_releases) - 1 else ""
         h_lines.append(f'  j += "{{\\\"version\\\":\\\"{v_str}\\\",\\\"type\\\":\\\"{t_type}\\\",\\\"build\\\":{b_num},\\\"date\\\":\\\"{d_str}\\\",\\\"size\\\":\\\"{sz_mb}\\\",\\\"size_bytes\\\":{sz_bytes},\\\"changelog\\\":\\\"{cl_clean}\\\",\\\"url\\\":\\\"{u_str}\\\"}}{comma_str}";')
     h_lines.append('  j += "]}";')
     h_lines.append("  return j;")
