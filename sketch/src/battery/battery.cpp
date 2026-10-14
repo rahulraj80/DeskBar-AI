@@ -1,15 +1,28 @@
 #include "battery.h"
 #include <Arduino.h>
 
+// 14-Point Empirical LiPo SOC Calibration Curve (Derived from hardware Run #2 time-elapsed)
+// Strictly monotonic (descending) for smooth piecewise linear interpolation
 static const float volt_table[] = {
-  4.20f, 4.10f, 4.00f, 3.90f, 3.80f,
-  3.70f, 3.60f, 3.50f, 3.40f, 3.30f, 3.20f
+  4.191f, // 100% time remaining (1397 mV ADC pin)
+  4.010f, //  95% time remaining (1337 mV ADC pin)
+  3.974f, //  90% time remaining (1325 mV ADC pin)
+  3.958f, //  85% time remaining (1323 mV ADC pin)
+  3.925f, //  80% time remaining (1308 mV ADC pin)
+  3.923f, //  70% time remaining (1308 mV ADC pin)
+  3.908f, //  60% time remaining (1302 mV ADC pin)
+  3.872f, //  50% time remaining (1290 mV ADC pin)
+  3.823f, //  40% time remaining (1274 mV ADC pin)
+  3.772f, //  30% time remaining (1257 mV ADC pin)
+  3.736f, //  20% time remaining (1246 mV ADC pin)
+  3.656f, //  10% time remaining (1219 mV ADC pin)
+  3.515f, //   5% time remaining (1172 mV ADC pin)
+  3.009f  //   0% time remaining (1003 mV ADC pin)
 };
 static const uint8_t pct_table[] = {
-  100,    90,    80,    70,    60,
-   50,    40,    30,    20,    10,    0
+  100, 95, 90, 85, 80, 70, 60, 50, 40, 30, 20, 10, 5, 0
 };
-#define CURVE_POINTS 11
+#define CURVE_POINTS 14
 
 // 10-second Exponential Moving Average state (8 bytes DRAM)
 static float s_smoothed_voltage = -1.0f;

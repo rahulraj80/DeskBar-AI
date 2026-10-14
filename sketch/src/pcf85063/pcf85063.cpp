@@ -235,13 +235,23 @@ void PCF85063::ntp_sync(int8_t utc_offset_hour,int8_t utc_offset_min) {
     UTC_OFFSET = (3600 * utc_offset_hour) + (60 * utc_offset_min);
   }
   
-  configTime(UTC_OFFSET, 0, NTP_SERVER);
-  delay(200);
+  // Configure resilient fallback NTP servers
+  configTime(UTC_OFFSET, 0, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
 
   struct tm timeinfo;
-  if (getLocalTime(&timeinfo)) {
+  bool synced = false;
+  for (int retry = 0; retry < 10; retry++) {
+    if (getLocalTime(&timeinfo, 1000)) {
+      synced = true;
+      break;
+    }
+    vTaskDelay(pdMS_TO_TICKS(500));
+  }
+
+  if (synced) {
+    uint8_t yr = (timeinfo.tm_year >= 100) ? (timeinfo.tm_year - 100) : timeinfo.tm_year;
     setDateTime(
-      timeinfo.tm_year - 100,     // YY
+      yr,                         // YY (e.g. 26 for 2026)
       timeinfo.tm_mon + 1,        // 1-12
       timeinfo.tm_mday,
       timeinfo.tm_hour,
@@ -249,13 +259,22 @@ void PCF85063::ntp_sync(int8_t utc_offset_hour,int8_t utc_offset_min) {
       timeinfo.tm_sec,
       timeinfo.tm_wday            // 0-6
     );
+    // Immediately synchronize in-memory RTC struct so UI and telemetry don't wait
+    now.year = yr;
+    now.month = timeinfo.tm_mon + 1;
+    now.dayOfMonth = timeinfo.tm_mday;
+    now.hour = timeinfo.tm_hour;
+    now.minute = timeinfo.tm_min;
+    now.second = timeinfo.tm_sec;
+    now.dayOfWeek = timeinfo.tm_wday;
+
     char buf[40];
     strftime(buf, sizeof(buf), "%a, %b %d %Y %H:%M:%S", &timeinfo);
-    log_i("NPT Synced time: %s", buf);
+    log_i("[NTP] Synced RTC time: %s (UTC offset: %+d:%02d)", buf, utc_offset_hour, utc_offset_min);
   } else {
-    log_w("Unable to setup RTC!");
+    log_w("[NTP] Unable to sync with NTP servers! RTC retained previous state.");
   }
-    startClock();
+  startClock();
 }
 
 //-------------- helper function for RTC--------------------------------
