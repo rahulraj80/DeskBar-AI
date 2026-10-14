@@ -17,21 +17,28 @@ struct CatalogItem {
 #define GENERATED_CATALOG_COUNT 6
 
 static const CatalogItem s_generated_catalog[6] = {
-  // [0] v2.1.0
+  // [0] v2.1.1
   {
-    "v2.1.0", "MINOR", 0x00B0FF, "Oct 15, 2026", "4.01 MB",
-    "• Power management suite: CPU 80MHz scaling, audio amp gating, duty-cycled WiFi, and breathing caps",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.0.bin",
+    "v2.1.1", "PATCH", 0x00FF88, "Oct 15, 2026", "4.01 MB",
+    "• Update brightness presets to 92, 120, 250 and fix ntp sync scope",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.1.bin",
     4200000
   },
-  // [1] v2.0.7
+  // [1] v2.1.0
+  {
+    "v2.1.0", "MINOR", 0x00B0FF, "Oct 15, 2026", "4.08 MB",
+    "• Power management suite: CPU 80MHz scaling, audio amp gating, duty-cycled WiFi, and breathing caps",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.0.bin",
+    4283408
+  },
+  // [2] v2.0.7
   {
     "v2.0.7", "PATCH", 0x00FF88, "Oct 14, 2026", "4.08 MB",
     "• Calibrate battery curve to Run 2 and fix boot NTP sync",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.7.bin",
     4283408
   },
-  // [2] v2.0.6
+  // [3] v2.0.6
   {
     "v2.0.6", "PATCH", 0x00FF88, "Oct 14, 2026", "4.08 MB",
     "• Calibrate battery curve to Run 2 time-elapsed data\n"
@@ -39,42 +46,30 @@ static const CatalogItem s_generated_catalog[6] = {
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.6.bin",
     4283408
   },
-  // [3] v2.0.5
+  // [4] v2.0.5
   {
     "v2.0.5", "PATCH", 0x00FF88, "Oct 13, 2026", "4.08 MB",
     "• Fix throttled streams and standardize 64KB buffer",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.5.bin",
     4283408
   },
-  // [4] v1.3.0
+  // [5] v1.3.0
   {
     "v1.3.0", "MINOR", 0x00B0FF, "Oct 13, 2026", "4.08 MB",
     "• Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin",
-    4283408
-  },
-  // [5] v1.2.9
-  {
-    "v1.2.9", "PATCH", 0x00FF88, "Oct 12, 2026", "4.08 MB",
-    "• Enforced First-Boot Registration & Cloud Notice modal on screen.\n"
-    "• Immediate boot telemetry ping-home unblocked across Wi-Fi reconnects.\n"
-    "• Removed audio-player starvation of telemetry upload batches.\n"
-    "• Per-device table isolation (TB_<hash>) with dedicated telemetry.php dashboard.\n"
-    "• Full Web Remote Secrets Manager card for /secrets.ini editing and endpoint override.\n"
-    "• Server-side hardware authentication guard on AI Voice Assistant (ask.php).",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.9.bin",
     4283408
   }
 };
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.1.0\",\"type\":\"minor\",\"build\":39,\"date\":\"Oct 15, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Power management suite: CPU 80MHz scaling, audio amp gating, duty-cycled WiFi, and breathing caps\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.0.bin\"},";
+  j += "{\"version\":\"2.1.1\",\"type\":\"patch\",\"build\":40,\"date\":\"Oct 15, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Update brightness presets to 92, 120, 250 and fix ntp sync scope\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.1.bin\"},";
+  j += "{\"version\":\"2.1.0\",\"type\":\"minor\",\"build\":39,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Power management suite: CPU 80MHz scaling, audio amp gating, duty-cycled WiFi, and breathing caps\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.0.bin\"},";
   j += "{\"version\":\"2.0.7\",\"type\":\"patch\",\"build\":38,\"date\":\"Oct 14, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Calibrate battery curve to Run 2 and fix boot NTP sync\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.7.bin\"},";
   j += "{\"version\":\"2.0.6\",\"type\":\"patch\",\"build\":37,\"date\":\"Oct 14, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Calibrate battery curve to Run 2 time-elapsed data • Fix boot-time Wi-Fi connection and NTP synchronization\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.6.bin\"},";
   j += "{\"version\":\"2.0.5\",\"type\":\"patch\",\"build\":36,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix throttled streams and standardize 64KB buffer\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.5.bin\"},";
-  j += "{\"version\":\"1.3.0\",\"type\":\"minor\",\"build\":26,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin\"},";
-  j += "{\"version\":\"1.2.9\",\"type\":\"patch\",\"build\":25,\"date\":\"Oct 12, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Enforced First-Boot Registration & Cloud Notice modal on screen. • Immediate boot telemetry ping-home unblocked across Wi-Fi reconnects. • Removed audio-player starvation of telemetry upload batches. • Per-device table isolation (TB_<hash>) with dedicated telemetry.php dashboard. • Full Web Remote Secrets Manager card for /secrets.ini editing and endpoint override. • Server-side hardware authentication guard on AI Voice Assistant (ask.php).\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.9.bin\"}";
+  j += "{\"version\":\"1.3.0\",\"type\":\"minor\",\"build\":26,\"date\":\"Oct 13, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Interactive security PIN setup, randomized TRNG defaults, masked protection, and OTA secrets erase\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.3.0.bin\"}";
   j += "]}";
   return j;
 }
