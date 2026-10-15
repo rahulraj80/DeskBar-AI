@@ -17,59 +17,58 @@ struct CatalogItem {
 #define GENERATED_CATALOG_COUNT 6
 
 static const CatalogItem s_generated_catalog[6] = {
-  // [0] v2.2.1
+  // [0] v2.2.2
   {
-    "v2.2.1", "PATCH", 0x00FF88, "Oct 15, 2026", "4.01 MB",
-    "•",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.1.bin",
+    "v2.2.2", "PATCH", 0x00FF88, "Oct 15, 2026", "4.01 MB",
+    "• Fix spirit level calibration finish exit, mutual exclusivity for tilted/normal landscape, and OTA 6-release carousel with archive panel",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.2.bin",
     4200000
   },
-  // [1] v2.2.0
+  // [1] v2.2.1
+  {
+    "v2.2.1", "PATCH", 0x00FF88, "Oct 15, 2026", "4.08 MB",
+    "•",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.1.bin",
+    4283408
+  },
+  // [2] v2.2.0
   {
     "v2.2.0", "MINOR", 0x00B0FF, "Oct 15, 2026", "4.08 MB",
     "•",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.0.bin",
     4283408
   },
-  // [2] v2.1.1
+  // [3] v2.1.1
   {
     "v2.1.1", "PATCH", 0x00FF88, "Oct 15, 2026", "4.08 MB",
     "• Update brightness presets to 92, 120, 250 and fix ntp sync scope",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.1.bin",
     4283408
   },
-  // [3] v2.1.0
+  // [4] v2.1.0
   {
     "v2.1.0", "MINOR", 0x00B0FF, "Oct 15, 2026", "4.08 MB",
     "• Power management suite: CPU 80MHz scaling, audio amp gating, duty-cycled WiFi, and breathing caps",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.0.bin",
     4283408
   },
-  // [4] v2.0.7
+  // [5] v2.0.7
   {
     "v2.0.7", "PATCH", 0x00FF88, "Oct 14, 2026", "4.08 MB",
     "• Calibrate battery curve to Run 2 and fix boot NTP sync",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.7.bin",
-    4283408
-  },
-  // [5] v2.0.6
-  {
-    "v2.0.6", "PATCH", 0x00FF88, "Oct 14, 2026", "4.08 MB",
-    "• Calibrate battery curve to Run 2 time-elapsed data\n"
-    "• Fix boot-time Wi-Fi connection and NTP synchronization",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.6.bin",
     4283408
   }
 };
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.2.1\",\"type\":\"patch\",\"build\":42,\"date\":\"Oct 15, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"•\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.1.bin\"},";
+  j += "{\"version\":\"2.2.2\",\"type\":\"patch\",\"build\":45,\"date\":\"Oct 15, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Fix spirit level calibration finish exit, mutual exclusivity for tilted/normal landscape, and OTA 6-release carousel with archive panel\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.2.bin\"},";
+  j += "{\"version\":\"2.2.1\",\"type\":\"patch\",\"build\":44,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"•\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.1.bin\"},";
   j += "{\"version\":\"2.2.0\",\"type\":\"minor\",\"build\":41,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"•\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.0.bin\"},";
   j += "{\"version\":\"2.1.1\",\"type\":\"patch\",\"build\":40,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Update brightness presets to 92, 120, 250 and fix ntp sync scope\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.1.bin\"},";
   j += "{\"version\":\"2.1.0\",\"type\":\"minor\",\"build\":39,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Power management suite: CPU 80MHz scaling, audio amp gating, duty-cycled WiFi, and breathing caps\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.0.bin\"},";
-  j += "{\"version\":\"2.0.7\",\"type\":\"patch\",\"build\":38,\"date\":\"Oct 14, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Calibrate battery curve to Run 2 and fix boot NTP sync\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.7.bin\"},";
-  j += "{\"version\":\"2.0.6\",\"type\":\"patch\",\"build\":37,\"date\":\"Oct 14, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Calibrate battery curve to Run 2 time-elapsed data • Fix boot-time Wi-Fi connection and NTP synchronization\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.6.bin\"}";
+  j += "{\"version\":\"2.0.7\",\"type\":\"patch\",\"build\":38,\"date\":\"Oct 14, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Calibrate battery curve to Run 2 and fix boot NTP sync\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.7.bin\"}";
   j += "]}";
   return j;
 }

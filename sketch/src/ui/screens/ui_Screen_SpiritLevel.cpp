@@ -128,6 +128,7 @@ static CalPose s_cal_poses[8] = {
 };
 
 static int s_cal_step = 0; // 0 to 7
+static bool s_cal_completed = false;
 static uint32_t s_cal_delay_until_ms = 0;
 static bool s_is_delaying = false;
 static bool s_is_sampling = false;
@@ -377,6 +378,13 @@ static void update_cal_ui_step(void) {
 
 static void cal_save_click_cb(lv_event_t * e) {
     SCREEN_OFF_TIMER = millis();
+    if (s_cal_completed) {
+        s_cal_completed = false;
+        s_cal_step = 0;
+        update_cal_ui_step();
+        switch_tab(1); // Return to Tab 1: Spirit Level
+        return;
+    }
     if (!s_is_delaying && !s_is_sampling) {
         // Enforce 0.5s stabilization delay so user has time to release hands & position device
         s_is_delaying = true;
@@ -390,6 +398,7 @@ static void cal_save_click_cb(lv_event_t * e) {
 
 static void cal_prev_click_cb(lv_event_t * e) {
     SCREEN_OFF_TIMER = millis();
+    s_cal_completed = false;
     if (s_cal_step > 0) {
         s_cal_step--;
         update_cal_ui_step();
@@ -398,6 +407,7 @@ static void cal_prev_click_cb(lv_event_t * e) {
 
 static void cal_next_click_cb(lv_event_t * e) {
     SCREEN_OFF_TIMER = millis();
+    s_cal_completed = false;
     if (s_cal_step < 7) {
         s_cal_step++;
         update_cal_ui_step();
@@ -407,6 +417,7 @@ static void cal_next_click_cb(lv_event_t * e) {
 static void cal_reset_click_cb(lv_event_t * e) {
     SCREEN_OFF_TIMER = millis();
     s_cal_step = 0;
+    s_cal_completed = false;
     for (int i = 0; i < 8; i++) {
         s_cal_poses[i].recorded = false;
     }
@@ -484,13 +495,13 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
             enum OriState { ST_IDLE, ST_ACTIVE, ST_INVERTED };
             OriState st = ST_IDLE;
 
-            if (i == 0) { // Normal Landscape: Power buttons UP, USB RIGHT
-                if (imu.ay < -0.55f && fabsf(imu.ax) < 0.45f && imu.az < 0.55f) st = ST_ACTIVE;
-                else if (imu.ay > 0.55f && fabsf(imu.ax) < 0.45f) st = ST_INVERTED;
+            if (i == 0) { // Normal Landscape: Power buttons UP, USB RIGHT (Screen vertical/upright: |az| < 0.30g)
+                if (imu.ay < -0.55f && fabsf(imu.ax) < 0.45f && fabsf(imu.az) < 0.30f) st = ST_ACTIVE;
+                else if (imu.ay > 0.55f && fabsf(imu.ax) < 0.45f && fabsf(imu.az) < 0.30f) st = ST_INVERTED;
             }
-            else if (i == 1) { // Tilted Landscape
-                if (imu.ay < -0.30f && imu.az > 0.30f && fabsf(imu.ax) < 0.45f) st = ST_ACTIVE;
-                else if ((imu.ay > 0.30f && imu.az > 0.30f) || (imu.ay < -0.30f && imu.az < -0.30f)) st = ST_INVERTED;
+            else if (i == 1) { // Tilted Landscape (Screen leaning back/tilted: |az| >= 0.30g)
+                if (imu.ay < -0.40f && imu.az >= 0.30f && fabsf(imu.ax) < 0.45f) st = ST_ACTIVE;
+                else if (((imu.ay > 0.40f && imu.az >= 0.30f) || (imu.ay < -0.40f && imu.az <= -0.30f)) && fabsf(imu.ax) < 0.45f) st = ST_INVERTED;
             }
             else if (i == 2) { // Portrait
                 if (imu.ax > 0.60f && fabsf(imu.ay) < 0.45f) st = ST_ACTIVE; // USB Top
@@ -684,9 +695,10 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
                         }
                         save_calibration_to_nvs();
 
+                        s_cal_completed = true;
                         if (s_cal_header_label) lv_label_set_text(s_cal_header_label, "CALIBRATION STATUS: COMPLETE (8/8 SAVED)");
                         if (s_lbl_save_cal) {
-                            lv_label_set_text(s_lbl_save_cal, "[SAVED OK]");
+                            lv_label_set_text(s_lbl_save_cal, "[SAVED OK - EXIT]");
                             lv_obj_set_style_text_color(s_lbl_save_cal, lv_color_hex(0x00FF88), LV_PART_MAIN);
                         }
                     }

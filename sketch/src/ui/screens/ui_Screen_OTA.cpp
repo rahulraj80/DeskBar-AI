@@ -26,12 +26,13 @@ struct ReleaseItem {
 
 #include "generated_catalog.h"
 
-#define MAX_CATALOG_ITEMS 16
+#define MAX_CURATED_RELEASES 6
+#define MAX_CATALOG_ITEMS 8
 static ReleaseItem s_catalog[MAX_CATALOG_ITEMS];
 static int s_catalog_count = 0;
 
 static void init_catalog_from_generated(void) {
-  s_catalog_count = (GENERATED_CATALOG_COUNT < MAX_CATALOG_ITEMS) ? GENERATED_CATALOG_COUNT : MAX_CATALOG_ITEMS;
+  s_catalog_count = (GENERATED_CATALOG_COUNT < MAX_CURATED_RELEASES) ? GENERATED_CATALOG_COUNT : MAX_CURATED_RELEASES;
   for (int i = 0; i < s_catalog_count; i++) {
     snprintf(s_catalog[i].version, sizeof(s_catalog[i].version), "%s", s_generated_catalog[i].version);
     snprintf(s_catalog[i].type_name, sizeof(s_catalog[i].type_name), "%s", s_generated_catalog[i].type_name);
@@ -88,6 +89,7 @@ static lv_obj_t *s_panel_repos       = NULL;
 
 // Overview Elements
 static lv_obj_t *s_lbl_overview_info = NULL;
+static lv_obj_t *s_lbl_btn_browse    = NULL;
 
 // Carousel Elements
 static int       s_active_card_idx   = 0;
@@ -96,6 +98,7 @@ static lv_obj_t *s_lbl_ver           = NULL;
 static lv_obj_t *s_lbl_meta          = NULL;
 static lv_obj_t *s_lbl_batt_check    = NULL;
 static lv_obj_t *s_btn_flash         = NULL;
+static lv_obj_t *s_lbl_btn_flash     = NULL;
 static lv_obj_t *s_obj_scroll_box    = NULL;
 static lv_obj_t *s_lbl_changelog     = NULL;
 static lv_obj_t *s_lbl_card_counter  = NULL;
@@ -183,7 +186,7 @@ void ui_ota_fetch_live_catalog(void) {
         JsonArray arr = doc["releases"].as<JsonArray>();
         int count = 0;
         for (JsonObject r : arr) {
-          if (count >= MAX_CATALOG_ITEMS) break;
+          if (count >= MAX_CURATED_RELEASES) break;
           const char *v = r["version"] | "";
           const char *t = r["type"] | "patch";
           const char *d = r["date"] | "";
@@ -260,6 +263,12 @@ static void refresh_overview_text(void) {
            wifi_ok ? "Live Catalog" : "Cached",
            latest_sz);
   lv_label_set_text(s_lbl_overview_info, ibuf);
+
+  if (s_lbl_btn_browse) {
+    char bbuf[48];
+    snprintf(bbuf, sizeof(bbuf), LV_SYMBOL_LIST " Browse Releases (%d)", s_catalog_count);
+    lv_label_set_text(s_lbl_btn_browse, bbuf);
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -299,48 +308,101 @@ static void autoscroll_timer_cb(lv_timer_t *t) {
 // Update Carousel Card Contents
 // ----------------------------------------------------------------------------
 static void update_carousel_card(int idx) {
+  int total_cards = s_catalog_count + 1; // 6 curated releases + 1 Archives panel
   if (idx < 0) idx = 0;
-  if (idx >= s_catalog_count) idx = s_catalog_count - 1;
+  if (idx >= total_cards) idx = total_cards - 1;
   s_active_card_idx = idx;
 
-  const ReleaseItem *item = &s_catalog[idx];
-
-  // 1. Update Stationary Left Section
-  if (s_lbl_badge) {
-    lv_label_set_text(s_lbl_badge, item->type_name);
-    lv_obj_set_style_bg_color(s_lbl_badge, lv_color_hex(item->color_hex), 0);
-  }
-  if (s_lbl_ver) {
-    lv_label_set_text(s_lbl_ver, item->version);
-  }
-  if (s_lbl_meta) {
-    char mbuf[64];
-    snprintf(mbuf, sizeof(mbuf), "Date: %s\nSize: %s", item->date, item->size_str);
-    lv_label_set_text(s_lbl_meta, mbuf);
-  }
-
-  uint8_t bp = 0; float bv = 0;
-  bool ok = ota_check_battery_allowed(&bp, &bv);
-  if (s_lbl_batt_check) {
-    char bbuf[48];
-    if (ok) {
-      snprintf(bbuf, sizeof(bbuf), "Batt: %u%% [Safe to Flash]", (unsigned)bp);
-      lv_obj_set_style_text_color(s_lbl_batt_check, lv_color_hex(0x00FF88), 0);
-    } else {
-      snprintf(bbuf, sizeof(bbuf), "Batt: %u%% [Plug Charger]", (unsigned)bp);
-      lv_obj_set_style_text_color(s_lbl_batt_check, lv_color_hex(0xFFA500), 0);
+  if (idx >= s_catalog_count) {
+    // -------------------------------------------------------------
+    // CARD 7: GITHUB RELEASE ARCHIVES PANEL
+    // -------------------------------------------------------------
+    if (s_lbl_badge) {
+      lv_label_set_text(s_lbl_badge, "ARCHIVE");
+      lv_obj_set_style_bg_color(s_lbl_badge, lv_color_hex(0xFFA500), 0);
     }
-    lv_label_set_text(s_lbl_batt_check, bbuf);
-  }
+    if (s_lbl_ver) {
+      lv_label_set_text(s_lbl_ver, "Archives");
+    }
+    if (s_lbl_meta) {
+      lv_label_set_text(s_lbl_meta, "GitHub Releases\nOlder Versions");
+    }
+    if (s_lbl_batt_check) {
+      lv_label_set_text(s_lbl_batt_check, "Use Stepper ->");
+      lv_obj_set_style_text_color(s_lbl_batt_check, lv_color_hex(0x00E5FF), 0);
+    }
+    if (s_btn_flash) {
+      lv_obj_set_style_bg_color(s_btn_flash, lv_color_hex(0x005588), 0);
+    }
+    if (s_lbl_btn_flash) {
+      lv_label_set_text(s_lbl_btn_flash, LV_SYMBOL_SETTINGS " Open Stepper");
+    }
+    if (s_lbl_card_counter) {
+      char cbuf[32];
+      snprintf(cbuf, sizeof(cbuf), "Card %d of %d: Archives", total_cards, total_cards);
+      lv_label_set_text(s_lbl_card_counter, cbuf);
+    }
+    if (s_lbl_changelog) {
+      lv_label_set_text(s_lbl_changelog,
+        "📦 GitHub Release Archives\n"
+        "────────────────────────────\n"
+        "You have reached the end of the 6 curated releases.\n\n"
+        "Older builds (v1.0.0 through v2.0.5) are preserved in the GitHub archives.\n\n"
+        "To install an older archive release:\n"
+        "1. Tap [Open Stepper] on the left to dial any version (e.g. v1.2.9, v1.0.0).\n"
+        "2. Tap [Find on GitHub] to verify and pull the binary directly.\n\n"
+        "Repository:\n"
+        "https://github.com/rahulraj80/TuneBar/releases"
+      );
+    }
+  } else {
+    // -------------------------------------------------------------
+    // CURATED RELEASE CARDS (1 to 6)
+    // -------------------------------------------------------------
+    const ReleaseItem *item = &s_catalog[idx];
 
-  // 2. Update Counter & Changelog Right Section
-  if (s_lbl_card_counter) {
-    char cbuf[32];
-    snprintf(cbuf, sizeof(cbuf), "Release %d of %d", idx + 1, s_catalog_count);
-    lv_label_set_text(s_lbl_card_counter, cbuf);
-  }
-  if (s_lbl_changelog) {
-    lv_label_set_text(s_lbl_changelog, item->changelog);
+    if (s_lbl_badge) {
+      lv_label_set_text(s_lbl_badge, item->type_name);
+      lv_obj_set_style_bg_color(s_lbl_badge, lv_color_hex(item->color_hex), 0);
+    }
+    if (s_lbl_ver) {
+      lv_label_set_text(s_lbl_ver, item->version);
+    }
+    if (s_lbl_meta) {
+      char mbuf[64];
+      snprintf(mbuf, sizeof(mbuf), "Date: %s\nSize: %s", item->date, item->size_str);
+      lv_label_set_text(s_lbl_meta, mbuf);
+    }
+
+    uint8_t bp = 0; float bv = 0;
+    bool ok = ota_check_battery_allowed(&bp, &bv);
+    if (s_lbl_batt_check) {
+      char bbuf[48];
+      if (ok) {
+        snprintf(bbuf, sizeof(bbuf), "Batt: %u%% [Safe to Flash]", (unsigned)bp);
+        lv_obj_set_style_text_color(s_lbl_batt_check, lv_color_hex(0x00FF88), 0);
+      } else {
+        snprintf(bbuf, sizeof(bbuf), "Batt: %u%% [Plug Charger]", (unsigned)bp);
+        lv_obj_set_style_text_color(s_lbl_batt_check, lv_color_hex(0xFFA500), 0);
+      }
+      lv_label_set_text(s_lbl_batt_check, bbuf);
+    }
+
+    if (s_btn_flash) {
+      lv_obj_set_style_bg_color(s_btn_flash, lv_color_hex(0x008855), 0);
+    }
+    if (s_lbl_btn_flash) {
+      lv_label_set_text(s_lbl_btn_flash, LV_SYMBOL_DOWNLOAD " Flash This");
+    }
+
+    if (s_lbl_card_counter) {
+      char cbuf[32];
+      snprintf(cbuf, sizeof(cbuf), "Release %d of %d", idx + 1, s_catalog_count);
+      lv_label_set_text(s_lbl_card_counter, cbuf);
+    }
+    if (s_lbl_changelog) {
+      lv_label_set_text(s_lbl_changelog, item->changelog);
+    }
   }
 
   // Reset scroll to top
@@ -467,10 +529,10 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_set_size(btn_browse, 185, 36);
   lv_obj_align(btn_browse, LV_ALIGN_BOTTOM_LEFT, 16, -12);
   lv_obj_set_style_bg_color(btn_browse, lv_color_hex(0x005588), 0);
-  lv_obj_t *lbl_bb = lv_label_create(btn_browse);
-  lv_label_set_text(lbl_bb, LV_SYMBOL_LIST " Browse Releases (6)");
-  lv_obj_set_style_text_font(lbl_bb, &lv_font_montserrat_12, 0);
-  lv_obj_center(lbl_bb);
+  s_lbl_btn_browse = lv_label_create(btn_browse);
+  lv_label_set_text(s_lbl_btn_browse, LV_SYMBOL_LIST " Browse Releases (6)");
+  lv_obj_set_style_text_font(s_lbl_btn_browse, &lv_font_montserrat_12, 0);
+  lv_obj_center(s_lbl_btn_browse);
   lv_obj_add_event_cb(btn_browse, [](lv_event_t *e) {
     lv_obj_add_flag(s_panel_overview, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(s_panel_carousel, LV_OBJ_FLAG_HIDDEN);
@@ -543,7 +605,8 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_set_style_text_font(lbl_nx, &lv_font_montserrat_12, 0);
   lv_obj_center(lbl_nx);
   lv_obj_add_event_cb(btn_next, [](lv_event_t *e) {
-    if (s_active_card_idx < s_catalog_count - 1) update_carousel_card(s_active_card_idx + 1);
+    int total_cards = s_catalog_count + 1;
+    if (s_active_card_idx < total_cards - 1) update_carousel_card(s_active_card_idx + 1);
   }, LV_EVENT_CLICKED, NULL);
 
   lv_obj_t *btn_back_car = lv_btn_create(s_panel_carousel);
@@ -603,11 +666,17 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_set_size(s_btn_flash, 180, 32);
   lv_obj_align(s_btn_flash, LV_ALIGN_BOTTOM_MID, 0, 0);
   lv_obj_set_style_bg_color(s_btn_flash, lv_color_hex(0x008855), 0);
-  lv_obj_t *lbl_fl = lv_label_create(s_btn_flash);
-  lv_label_set_text(lbl_fl, LV_SYMBOL_DOWNLOAD " Flash This");
-  lv_obj_set_style_text_font(lbl_fl, &lv_font_montserrat_12, 0);
-  lv_obj_center(lbl_fl);
+  s_lbl_btn_flash = lv_label_create(s_btn_flash);
+  lv_label_set_text(s_lbl_btn_flash, LV_SYMBOL_DOWNLOAD " Flash This");
+  lv_obj_set_style_text_font(s_lbl_btn_flash, &lv_font_montserrat_12, 0);
+  lv_obj_center(s_lbl_btn_flash);
   lv_obj_add_event_cb(s_btn_flash, [](lv_event_t *e) {
+    if (s_active_card_idx >= s_catalog_count) {
+      // Archives Card: Open Version Stepper to query older releases
+      lv_obj_add_flag(s_panel_carousel, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_clear_flag(s_panel_stepper, LV_OBJ_FLAG_HIDDEN);
+      return;
+    }
     const ReleaseItem *item = &s_catalog[s_active_card_idx];
     trigger_flash_action(item->version, item->bin_url);
   }, LV_EVENT_CLICKED, NULL);
