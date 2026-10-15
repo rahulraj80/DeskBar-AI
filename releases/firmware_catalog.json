@@ -9,7 +9,7 @@
       "title": "TuneBar v2.2.5: Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry",
       "changelog": "\u2022 Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.5.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.2.4",
