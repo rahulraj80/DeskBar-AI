@@ -9,7 +9,7 @@
       "title": "TuneBar v2.2.2: Fix spirit level calibration finish exit, mutual exclusivity for tilted/normal landscape, and OTA 6-release carousel with archive panel",
       "changelog": "\u2022 Fix spirit level calibration finish exit, mutual exclusivity for tilted/normal landscape, and OTA 6-release carousel with archive panel",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.2.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.2.1",
