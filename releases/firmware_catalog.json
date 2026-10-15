@@ -2,6 +2,16 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.2.5",
+      "type": "patch",
+      "build": 50,
+      "date": "Oct 15, 2026",
+      "title": "TuneBar v2.2.5: Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry",
+      "changelog": "\u2022 Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.5.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.2.4",
       "type": "patch",
       "build": 49,
@@ -9,7 +19,7 @@
       "title": "TuneBar v2.2.4: Duty-cycled Wi-Fi burst telemetry in clock mode and USB charger auto-detect",
       "changelog": "\u2022 Duty-cycled Wi-Fi burst telemetry in clock mode and USB charger auto-detect",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.4.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.2.3",
@@ -19,16 +29,6 @@
       "title": "TuneBar v2.2.3: ",
       "changelog": "\u2022 ",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.3.bin",
-      "size": 4283408
-    },
-    {
-      "version": "2.2.2",
-      "type": "patch",
-      "build": 47,
-      "date": "Oct 15, 2026",
-      "title": "TuneBar v2.2.2: Fix spirit level calibration finish exit, mutual exclusivity for tilted/normal landscape, and OTA 6-release carousel with archive panel",
-      "changelog": "\u2022 Fix spirit level calibration finish exit, mutual exclusivity for tilted/normal landscape, and OTA 6-release carousel with archive panel",
-      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.2.bin",
       "size": 4283408
     },
     {
