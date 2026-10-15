@@ -10,3 +10,4 @@ float readRawBatteryVoltage();
 float readBatteryVoltage();
 uint8_t voltageToBatteryPercent(float voltage);
 void getBatteryStatus(float *voltage_out, uint8_t *percent_out);
+bool bsp_is_battery_charging(void);

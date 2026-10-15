@@ -260,7 +260,24 @@ void update_clock_breathing(void) {
 }
 
 //wifi monitor call back from timer
+extern bool telemetry_is_flushing(void);
+
 void lvgl_wifi_check_cb(lv_timer_t *t) {
+  // If telemetry burst upload is in progress, do not disconnect Wi-Fi
+  if (telemetry_is_flushing()) return;
+
+  // If connected to USB charger, keep Wi-Fi connected continuously
+  if (bsp_is_battery_charging()) {
+    if (wifiEnable) {
+      if (WiFi.status() != WL_CONNECTED && wifiTaskHandle == NULL && WiFi.getMode() != WIFI_OFF) {
+        wifi_need_connect = true;
+        lv_timer_pause(wifi_check_timer);
+        wifiConnect();
+      }
+    }
+    return;
+  }
+
   // Allow Wi-Fi to connect and sync NTP time upon startup/reset before suppressing it in clock mode
   if (clock_face_active && g_boot_ntp_synced && (!audio.isRunning() || mediaType >= 2)) {
     // If 2 mins of inactivity reached in clock mode, keep Wi-Fi OFF
