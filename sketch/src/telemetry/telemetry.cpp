@@ -17,7 +17,7 @@
 
 extern Audio audio;
 extern bool ai_recording_active;
-extern bool is_display_deep_black(void);
+extern "C" bool is_display_deep_black(void);
 extern uint32_t g_last_user_interaction_ms;
 
 static TelemetrySnapshot *telemetry_ring_buf = nullptr;
