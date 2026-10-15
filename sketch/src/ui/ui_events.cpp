@@ -117,14 +117,8 @@ void enter_clock_breathing(void) {
   breath_state = BREATH_HOLD_HIGH;
   breath_timer_ms = millis();
 
-  // Throttle CPU to 80 MHz in clock standby if audio is not running
-  if (!audio.isRunning() && getCpuFrequencyMhz() != 80) {
-    setCpuFrequencyMhz(80);
-    log_i("[POWER] CPU throttled to 80 MHz for clock standby");
-  }
-
-  uint8_t max_bl = (backlight_state == 0) ? 92 : ((backlight_state == 1) ? 120 : 250);
-  log_i("[BREATH] Clock breathing active (Floor: 90, Max: %u, Inactivity-Tiered)", (unsigned)max_bl);
+  uint8_t max_bl = (backlight_state == 0) ? 105 : ((backlight_state == 1) ? 120 : 150);
+  log_i("[BREATH] Clock breathing active (Floor: 91, Max: %u, Inactivity-Tiered)", (unsigned)max_bl);
 }
 
 void exit_clock_breathing(void) {
@@ -132,11 +126,6 @@ void exit_clock_breathing(void) {
   s_clock_interaction_ms = millis();
   if (!clock_face_active) return;
   clock_face_active = 0;
-
-  if (getCpuFrequencyMhz() != 240) {
-    setCpuFrequencyMhz(240);
-    log_i("[POWER] CPU restored to 240 MHz on exit breathing");
-  }
 
   bsp_set_backlight_power(true);
   screenPowerOn(); // Restores AP3032 boost rail and sets PWM duty according to backlight_state
@@ -201,23 +190,12 @@ void update_clock_breathing(void) {
     return;
   }
 
-  // Auto-off Wi-Fi and Web Remote after 2 minutes of inactivity in clock mode (if not playing audio)
-  if (clock_face_active && g_boot_ntp_synced && !audio.isRunning()) {
-    if (g_last_user_interaction_ms > 0 && (now - g_last_user_interaction_ms >= 120000UL)) {
-      if (WiFi.getMode() != WIFI_OFF) {
-        WiFi.disconnect(true);
-        WiFi.mode(WIFI_OFF);
-        log_i("[POWER] 2 min inactivity in clock mode -> Wi-Fi & Web Remote turned OFF");
-      }
-    }
-  }
-
-  const uint8_t min_bl = 90; // Hardware floor: soft vacuum tube glow
+  const uint8_t min_bl = 91; // Hardware floor: soft vacuum tube glow
   uint8_t max_bl;
   switch (backlight_state) {
-    case 0:  max_bl = 92; break;  // LOW (was 105/120)
-    case 1:  max_bl = 120; break; // MED (was 120/180)
-    default: max_bl = 250; break; // HIGH (was 140/250)
+    case 0:  max_bl = 105; break; // LOW breathing ceiling
+    case 1:  max_bl = 120; break; // MED breathing ceiling
+    default: max_bl = 150; break; // HIGH breathing ceiling
   }
 
   // Inactivity tiering: after 30 mins of no interaction, extend full black from 5.0s to 10.0s
@@ -352,10 +330,10 @@ void init_main_menu_task(lv_timer_t *timer) {
 
   // load configuration
   pref.begin("config", true); // read only
-  backlight_state = pref.getUChar("bl_state", 2); // brightness
+  backlight_state = pref.getUChar("bl_state", 1); // brightness (Default 1 = Medium)
   lv_dropdown_set_selected(ui_MainMenu_Dropdown_Brightness, backlight_state);
   setBrightness(NULL);
-  timeout_index = pref.getUChar("scroffdelay", 0); // screen off delay
+  timeout_index = pref.getUChar("scroffdelay", 3); // screen off delay (Default 3 = 60s)
   switch (timeout_index) {
   case 0: SCREEN_OFF_DELAY = 0; break;
   case 1: SCREEN_OFF_DELAY = 15000; break;

@@ -57,8 +57,28 @@ bool imu_sensor_init(void) {
     }
 }
 
+static bool s_imu_sleeping = false;
+
 bool imu_sensor_is_available(void) {
     return s_imu_available;
+}
+
+void imu_sensor_sleep(void) {
+    if (!s_imu_available || s_imu_sleeping) return;
+    qmi8658_write_register(&s_qmi_dev, QMI8658_CTRL7, QMI8658_DISABLE_ALL);
+    s_imu_sleeping = true;
+    ESP_LOGI(TAG, "QMI8658 entered hardware low-power sleep mode");
+}
+
+void imu_sensor_wake(void) {
+    if (!s_imu_available || !s_imu_sleeping) return;
+    qmi8658_write_register(&s_qmi_dev, QMI8658_CTRL7, QMI8658_ENABLE_ACCEL | QMI8658_ENABLE_GYRO);
+    s_imu_sleeping = false;
+    ESP_LOGI(TAG, "QMI8658 woke up from low-power sleep mode");
+}
+
+bool imu_sensor_is_sleeping(void) {
+    return s_imu_sleeping;
 }
 
 bool imu_sensor_poll(void) {

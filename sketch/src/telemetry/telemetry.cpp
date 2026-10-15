@@ -10,13 +10,70 @@
 #include "../secrets/secrets_manager.h"
 #include "ESP32-audioI2S-master/Audio.h"
 #include "pcf85063/pcf85063.h"
+#include "../tca9554/tca9554.h"
+#include "../imu/imu_service.h"
+#include "../lvgl_port/lvgl_port.h"
 #include <time.h>
 
 extern Audio audio;
+extern bool ai_recording_active;
+extern bool is_display_deep_black(void);
+extern uint32_t g_last_user_interaction_ms;
 
 static TelemetrySnapshot *telemetry_ring_buf = nullptr;
 static uint16_t telemetry_count = 0;
 static const char *s_telemetry_endpoint = TELEMETRY_ENDPOINT;
+
+// 5-second survey accumulators (0 to 60 counts per 5-minute cycle)
+static uint8_t s_surv_cpu_240m = 0;
+static uint8_t s_surv_cpu_160m = 0;
+static uint8_t s_surv_cpu_80m  = 0;
+static uint8_t s_surv_cpu_low  = 0;
+static uint8_t s_surv_bl_on    = 0;
+static uint8_t s_surv_bl_dark  = 0;
+static uint8_t s_surv_bl_boost = 0;
+static uint8_t s_surv_disp_30hz= 0;
+static uint8_t s_surv_disp_act = 0;
+static uint8_t s_surv_audio_act= 0;
+static uint8_t s_surv_audio_amp= 0;
+static uint8_t s_surv_mic_act  = 0;
+static uint8_t s_surv_wifi_conn= 0;
+static uint8_t s_surv_wifi_off = 0;
+static uint8_t s_surv_imu_act  = 0;
+static uint8_t s_surv_imu_sleep= 0;
+static uint8_t s_surv_user_act = 0;
+static uint8_t s_surv_breath   = 0;
+
+void telemetry_survey_tick_5s(void) {
+    uint32_t freq = getCpuFrequencyMhz();
+    if (freq == 240) s_surv_cpu_240m++;
+    else if (freq == 160) s_surv_cpu_160m++;
+    else if (freq == 80) s_surv_cpu_80m++;
+    else s_surv_cpu_low++;
+
+    bool is_dark = (BL_OFF || is_display_deep_black());
+    if (is_dark) s_surv_bl_dark++;
+    else s_surv_bl_on++;
+
+    if (bsp_get_backlight_power()) s_surv_bl_boost++;
+    if (bsp_get_audio_amp_power()) s_surv_audio_amp++;
+
+    if (lvgl_port_is_30hz_mode()) s_surv_disp_30hz++;
+    if (!BL_OFF) s_surv_disp_act++;
+
+    if (audio.isRunning()) s_surv_audio_act++;
+    if (ai_recording_active) s_surv_mic_act++;
+
+    if (WiFi.status() == WL_CONNECTED) s_surv_wifi_conn++;
+    if (WiFi.getMode() == WIFI_OFF) s_surv_wifi_off++;
+
+    if (imu_sensor_is_sleeping()) s_surv_imu_sleep++;
+    else s_surv_imu_act++;
+
+    if (millis() - g_last_user_interaction_ms <= 60000UL) s_surv_user_act++;
+
+    if (clock_face_active) s_surv_breath++;
+}
 
 void telemetry_init(void) {
     if (!telemetry_ring_buf) {
@@ -75,6 +132,35 @@ void telemetry_collect_snapshot(void) {
     snap.audio_playing = audio.isRunning() ? 1 : 0;
     snap.screen_state = BL_OFF ? 0 : 1;
     snap.reset_reason = (uint8_t)esp_reset_reason();
+
+    // 5-second survey counts
+    snap.cpu_240m_cnt   = s_surv_cpu_240m;
+    snap.cpu_160m_cnt   = s_surv_cpu_160m;
+    snap.cpu_80m_cnt    = s_surv_cpu_80m;
+    snap.cpu_low_cnt    = s_surv_cpu_low;
+    snap.bl_on_cnt      = s_surv_bl_on;
+    snap.bl_dark_cnt    = s_surv_bl_dark;
+    snap.bl_boost_cnt   = s_surv_bl_boost;
+    snap.disp_30hz_cnt  = s_surv_disp_30hz;
+    snap.disp_active_cnt= s_surv_disp_act;
+    snap.audio_active_cnt = s_surv_audio_act;
+    snap.audio_amp_cnt  = s_surv_audio_amp;
+    snap.mic_active_cnt = s_surv_mic_act;
+    snap.wifi_conn_cnt  = s_surv_wifi_conn;
+    snap.wifi_off_cnt   = s_surv_wifi_off;
+    snap.imu_active_cnt = s_surv_imu_act;
+    snap.imu_sleep_cnt  = s_surv_imu_sleep;
+    snap.user_active_cnt= s_surv_user_act;
+    snap.breathing_cnt  = s_surv_breath;
+
+    // Reset accumulators for next 5-min cycle
+    s_surv_cpu_240m = 0; s_surv_cpu_160m = 0; s_surv_cpu_80m = 0; s_surv_cpu_low = 0;
+    s_surv_bl_on = 0; s_surv_bl_dark = 0; s_surv_bl_boost = 0;
+    s_surv_disp_30hz = 0; s_surv_disp_act = 0;
+    s_surv_audio_act = 0; s_surv_audio_amp = 0; s_surv_mic_act = 0;
+    s_surv_wifi_conn = 0; s_surv_wifi_off = 0;
+    s_surv_imu_act = 0; s_surv_imu_sleep = 0;
+    s_surv_user_act = 0; s_surv_breath = 0;
 
     if (now.year > 0 && now.month >= 1 && now.month <= 12) {
         snprintf(snap.capture_time, sizeof(snap.capture_time), "%04d-%02d-%02d %02d:%02d:%02d",
@@ -139,11 +225,17 @@ static void telemetry_worker_task(void *pvParameters) {
         int written = snprintf(
             json_buf + offset,
             json_capacity - offset,
-            "%s{\"capture_time\":\"%s\",\"uptime_s\":%u,\"dram_free_kb\":%u,\"dram_used_pct\":%u,\"sram_total_kb\":%u,\"psram_free_kb\":%u,\"psram_used_pct\":%u,\"batt_mv\":%u,\"batt_pct\":%u,\"rssi\":%d,\"audio\":%u,\"screen\":%u,\"reset_reason\":%u}",
+            "%s{\"capture_time\":\"%s\",\"uptime_s\":%u,\"dram_free_kb\":%u,\"dram_used_pct\":%u,\"sram_total_kb\":%u,\"psram_free_kb\":%u,\"psram_used_pct\":%u,\"batt_mv\":%u,\"batt_pct\":%u,\"rssi\":%d,\"audio\":%u,\"screen\":%u,\"reset_reason\":%u,"
+            "\"cpu_240m_cnt\":%u,\"cpu_160m_cnt\":%u,\"cpu_80m_cnt\":%u,\"cpu_low_cnt\":%u,\"bl_on_cnt\":%u,\"bl_dark_cnt\":%u,\"bl_boost_cnt\":%u,\"disp_30hz_cnt\":%u,\"disp_active_cnt\":%u,\"audio_active_cnt\":%u,\"audio_amp_cnt\":%u,\"mic_active_cnt\":%u,\"wifi_conn_cnt\":%u,\"wifi_off_cnt\":%u,\"imu_active_cnt\":%u,\"imu_sleep_cnt\":%u,\"user_active_cnt\":%u,\"breathing_cnt\":%u}",
             (i > 0 ? "," : ""),
             s.capture_time, s.uptime_s, s.dram_free_kb, s.dram_used_pct, s.sram_total_kb,
             s.psram_free_kb, s.psram_used_pct, s.batt_mv, s.batt_pct, (int)s.rssi,
-            s.audio_playing, s.screen_state, s.reset_reason
+            s.audio_playing, s.screen_state, s.reset_reason,
+            s.cpu_240m_cnt, s.cpu_160m_cnt, s.cpu_80m_cnt, s.cpu_low_cnt,
+            s.bl_on_cnt, s.bl_dark_cnt, s.bl_boost_cnt, s.disp_30hz_cnt, s.disp_active_cnt,
+            s.audio_active_cnt, s.audio_amp_cnt, s.mic_active_cnt,
+            s.wifi_conn_cnt, s.wifi_off_cnt, s.imu_active_cnt, s.imu_sleep_cnt,
+            s.user_active_cnt, s.breathing_cnt
         );
         if (written < 0 || (offset + written >= (int)json_capacity - 10)) {
             log_w("[TELEMETRY] JSON buffer capacity reached at item %d", i);

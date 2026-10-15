@@ -22,6 +22,7 @@ void lvgl_port_set_inverted_landscape(bool inverted);
 bool lvgl_port_is_inverted_landscape(void);
 void lvgl_port_set_autorotate_enabled(bool enabled);
 bool lvgl_port_is_autorotate_enabled(void);
+bool lvgl_port_is_30hz_mode(void);
 
 #ifdef __cplusplus
 }

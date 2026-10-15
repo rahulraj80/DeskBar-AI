@@ -37,7 +37,9 @@ extern "C" {
 #endif
 void bsp_lcd_reset(void);
 void bsp_set_backlight_power(bool enable);
+bool bsp_get_backlight_power(void);
 void bsp_set_audio_amp_power(bool enable);
+bool bsp_get_audio_amp_power(void);
 #ifdef __cplusplus
 }
 #endif
