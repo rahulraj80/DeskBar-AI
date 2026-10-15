@@ -19,10 +19,10 @@ struct CatalogItem {
 static const CatalogItem s_generated_catalog[6] = {
   // [0] v2.2.5
   {
-    "v2.2.5", "PATCH", 0x00FF88, "Oct 15, 2026", "4.01 MB",
+    "v2.2.5", "PATCH", 0x00FF88, "Oct 15, 2026", "4.08 MB",
     "• Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.5.bin",
-    4200000
+    4283408
   },
   // [1] v2.2.4
   {
@@ -63,7 +63,7 @@ static const CatalogItem s_generated_catalog[6] = {
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.2.5\",\"type\":\"patch\",\"build\":50,\"date\":\"Oct 15, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.5.bin\"},";
+  j += "{\"version\":\"2.2.5\",\"type\":\"patch\",\"build\":50,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.5.bin\"},";
   j += "{\"version\":\"2.2.4\",\"type\":\"patch\",\"build\":49,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Duty-cycled Wi-Fi burst telemetry in clock mode and USB charger auto-detect\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.4.bin\"},";
   j += "{\"version\":\"2.2.3\",\"type\":\"patch\",\"build\":48,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"•\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.3.bin\"},";
   j += "{\"version\":\"2.1.1\",\"type\":\"patch\",\"build\":40,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Update brightness presets to 92, 120, 250 and fix ntp sync scope\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.1.1.bin\"},";
