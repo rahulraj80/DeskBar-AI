@@ -20,7 +20,6 @@ extern bool ai_recording_active;
 extern "C" bool is_display_deep_black(void);
 extern uint32_t g_last_user_interaction_ms;
 extern bool wifiEnable;
-extern uint8_t clock_face_active;
 extern uint8_t mediaType;
 
 static TelemetrySnapshot *telemetry_ring_buf = nullptr;
