@@ -2,6 +2,16 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.2.1",
+      "type": "patch",
+      "build": 42,
+      "date": "Oct 15, 2026",
+      "title": "TuneBar v2.2.1: ",
+      "changelog": "\u2022 ",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.1.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.2.0",
       "type": "minor",
       "build": 41,
@@ -9,7 +19,7 @@
       "title": "TuneBar v2.2.0: ",
       "changelog": "\u2022 ",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.0.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.1.1",
