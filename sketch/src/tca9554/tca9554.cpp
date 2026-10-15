@@ -84,10 +84,18 @@ extern "C" void bsp_set_backlight_power(bool enable) {
     }
 }
 
+extern "C" bool bsp_get_backlight_power(void) {
+    return io ? ((io->outputState & EXIO1_BIT) != 0) : true;
+}
+
 extern "C" void bsp_set_audio_amp_power(bool enable) {
     if (io) {
         // Assert NS_MODE on both Bit 2 (V2 hardware) and Bit 7 (V1 hardware)
         io->setPinMode(EXIO2_BIT | EXIO7_BIT, 0); // 0 = OUTPUT
         io->digitalWrite(EXIO2_BIT | EXIO7_BIT, enable ? 1 : 0);
     }
+}
+
+extern "C" bool bsp_get_audio_amp_power(void) {
+    return io ? ((io->outputState & (EXIO2_BIT | EXIO7_BIT)) != 0) : true;
 }

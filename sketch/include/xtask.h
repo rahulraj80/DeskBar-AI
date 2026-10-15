@@ -84,7 +84,6 @@ void button_input_task(void *param) {
           if (BL_OFF) {
             log_i("Button: Unlock Screen");
             screenPowerOn();
-            bsp_set_audio_amp_power(true);
             ui_msg.type = STATUS_SCREEN_UNLOCK;
             xQueueSend(ui_status_queue, &ui_msg, 100);
           } else {
@@ -92,9 +91,6 @@ void button_input_task(void *param) {
             ui_msg.type = STATUS_SCREEN_LOCK;
             xQueueSend(ui_status_queue, &ui_msg, 100);
             screenPowerOff();
-            if (!audio.isRunning()) {
-              bsp_set_audio_amp_power(false);
-            }
           }
         }
         while (digitalRead(BOOT) == LOW) {
@@ -115,17 +111,17 @@ void button_input_task(void *param) {
         xQueueSend(ui_status_queue, &ui_msg, 100);
 
         screenPowerOff();
-        if (!audio.isRunning()) {
-          bsp_set_audio_amp_power(false);
-        }
       }
     }
 
-    static uint32_t last_imu_poll = 0;
-    if (now - last_imu_poll >= 100) {
-      last_imu_poll = now;
-      extern bool is_display_deep_black(void);
-      if (!BL_OFF && !is_display_deep_black()) {
+    extern bool is_display_deep_black(void);
+    if (BL_OFF || is_display_deep_black()) {
+      imu_sensor_sleep();
+    } else {
+      imu_sensor_wake();
+      static uint32_t last_imu_poll = 0;
+      if (now - last_imu_poll >= 100) {
+        last_imu_poll = now;
         imu_sensor_poll();
       }
     }
@@ -900,27 +896,13 @@ void audio_loop_task(void *param) {
 
     // 2. PLAYBACK MODE
     if (!is_mic_mode) {
-      static bool s_amp_powered = false;
       if (audio.isRunning()) {
-        if (!s_amp_powered) {
-          bsp_set_audio_amp_power(true);
-          s_amp_powered = true;
-          if (getCpuFrequencyMhz() != 240) {
-            setCpuFrequencyMhz(240);
-          }
-          log_i("[AUDIO] Audio playing -> Amplifier enabled, CPU 240 MHz");
-        }
         for (int i = 0; i < 6; i++) {
           audio.loop();
         }
         process_audio_cmd_que();
         vTaskDelay(pdMS_TO_TICKS(1)); // snappy 1ms yield prevents socket starvation
       } else {
-        if (s_amp_powered) {
-          bsp_set_audio_amp_power(false);
-          s_amp_powered = false;
-          log_i("[AUDIO] Audio stopped -> Amplifier disabled (power save)");
-        }
         audio.loop();
         process_audio_cmd_que();
         vTaskDelay(pdMS_TO_TICKS(10)); // idle yield saves CPU

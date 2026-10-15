@@ -20,6 +20,9 @@ typedef struct {
 // Lifecycle
 bool imu_sensor_init(void);
 bool imu_sensor_poll(void);
+void imu_sensor_sleep(void);
+void imu_sensor_wake(void);
+bool imu_sensor_is_sleeping(void);
 
 // Data Access
 bool imu_sensor_get_latest(imu_reading_t *out);

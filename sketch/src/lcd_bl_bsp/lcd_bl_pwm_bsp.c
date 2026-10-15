@@ -9,8 +9,8 @@
 
 volatile uint8_t BL_OFF = false;
 volatile uint8_t clock_face_active = false;
-volatile uint8_t backlight_state = 2;
-volatile uint32_t SCREEN_OFF_DELAY = 0;   // ms
+volatile uint8_t backlight_state = 1;      // Default to 1 (Medium = 180)
+volatile uint32_t SCREEN_OFF_DELAY = 60000; // Default to 60s timeout
 volatile uint32_t SCREEN_OFF_TIMER = 0;   // ms timestamp
 
 

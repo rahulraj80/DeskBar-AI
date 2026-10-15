@@ -355,13 +355,17 @@ void WAVESHARE_349_lvgl_port_task(void *arg)
     }
     if (task_delay_ms > WAVESHARE_349_LVGL_TASK_MAX_DELAY_MS) {
       task_delay_ms = WAVESHARE_349_LVGL_TASK_MAX_DELAY_MS;
-    } else if (task_delay_ms < 10) {
-      task_delay_ms = 10;
+    } else if (task_delay_ms < 33) {
+      task_delay_ms = 33; // 30 Hz refresh rate mode to reduce QSPI bus traffic and power
     }
     uint32_t delay_ticks = pdMS_TO_TICKS(task_delay_ms);
     if (delay_ticks == 0) delay_ticks = 1;
     vTaskDelay(delay_ticks);
   }
+}
+
+extern "C" bool lvgl_port_is_30hz_mode(void) {
+  return true;
 }
 
 
