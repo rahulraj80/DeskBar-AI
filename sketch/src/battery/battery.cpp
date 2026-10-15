@@ -74,3 +74,8 @@ void getBatteryStatus(float *voltage_out, uint8_t *percent_out) {
   *voltage_out = readBatteryVoltage();
   *percent_out = voltageToBatteryPercent(*voltage_out);
 }
+
+bool bsp_is_battery_charging(void) {
+  // When connected to USB power, charging IC holds battery rail at charge voltage (>= 1340 mV at ADC pin)
+  return (analogReadMilliVolts(BATTERY_ADC_PIN) >= 1340);
+}

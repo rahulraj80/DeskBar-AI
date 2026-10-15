@@ -19,6 +19,9 @@ extern Audio audio;
 extern bool ai_recording_active;
 extern "C" bool is_display_deep_black(void);
 extern uint32_t g_last_user_interaction_ms;
+extern bool wifiEnable;
+extern uint8_t clock_face_active;
+extern uint8_t mediaType;
 
 static TelemetrySnapshot *telemetry_ring_buf = nullptr;
 static uint16_t telemetry_count = 0;
@@ -192,12 +195,6 @@ static void telemetry_worker_task(void *pvParameters) {
         vTaskDelete(NULL);
         return;
     }
-    if (WiFi.status() != WL_CONNECTED) {
-        log_w("[TELEMETRY] WiFi not connected, retaining %d buffered records", telemetry_count);
-        is_flushing = false;
-        vTaskDelete(NULL);
-        return;
-    }
 
     if (!secrets_has_cloud_consent() && !secrets_has_custom_ini()) {
         log_i("[TELEMETRY] Cloud consent not granted, retaining %d buffered records", telemetry_count);
@@ -206,11 +203,38 @@ static void telemetry_worker_task(void *pvParameters) {
         return;
     }
 
+    bool was_wifi_off = (WiFi.status() != WL_CONNECTED || WiFi.getMode() == WIFI_OFF);
+    if (WiFi.status() != WL_CONNECTED) {
+        log_i("[TELEMETRY] Burst wake: bringing Wi-Fi up for telemetry flush...");
+        if (WiFi.getMode() == WIFI_OFF) {
+            WiFi.mode(WIFI_STA);
+        }
+        WiFi.begin();
+
+        uint32_t wait_start = millis();
+        while (WiFi.status() != WL_CONNECTED && (millis() - wait_start < 8000)) {
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+
+        if (WiFi.status() != WL_CONNECTED) {
+            log_w("[TELEMETRY] Burst Wi-Fi reconnect timed out (8s), retaining %d records", telemetry_count);
+            if (was_wifi_off && clock_face_active && !bsp_is_battery_charging() &&
+                (g_last_user_interaction_ms == 0 || millis() - g_last_user_interaction_ms >= 120000UL)) {
+                WiFi.disconnect(true);
+                WiFi.mode(WIFI_OFF);
+            }
+            is_flushing = false;
+            vTaskDelete(NULL);
+            return;
+        }
+        log_i("[TELEMETRY] Burst Wi-Fi connected in %ums", (unsigned)(millis() - wait_start));
+    }
+
     const char *endpoint = secrets_get_telemetry_endpoint();
     const char *table_name = secrets_get_telemetry_table();
 
-    // Allocate JSON construction buffer in PSRAM (16KB)
-    const size_t json_capacity = 16384;
+    // Allocate JSON construction buffer in PSRAM (48KB - easily fits 60+ snapshots)
+    const size_t json_capacity = 49152;
     char *json_buf = (char *)heap_caps_malloc(json_capacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!json_buf) {
         log_e("[TELEMETRY] Failed to allocate JSON buffer in PSRAM");
@@ -219,6 +243,7 @@ static void telemetry_worker_task(void *pvParameters) {
         return;
     }
 
+    uint16_t sent_records = 0;
     int offset = snprintf(json_buf, json_capacity, "{\"table\":\"%s\",\"rows\":[", table_name);
     for (uint16_t i = 0; i < telemetry_count; i++) {
         const TelemetrySnapshot &s = telemetry_ring_buf[i];
@@ -242,11 +267,12 @@ static void telemetry_worker_task(void *pvParameters) {
             break;
         }
         offset += written;
+        sent_records++;
     }
     offset += snprintf(json_buf + offset, json_capacity - offset, "]}");
 
     log_i("[TELEMETRY] Flushing %d rows (%d bytes) to %s (Table %s)...",
-          telemetry_count, offset, endpoint, table_name);
+          sent_records, offset, endpoint, table_name);
 
     {
         WiFiClientSecure client;
@@ -262,8 +288,14 @@ static void telemetry_worker_task(void *pvParameters) {
             String resp = http.getString();
             log_i("[TELEMETRY] HTTP %d: %s", httpCode, resp.c_str());
             if (httpCode == 200 && resp.indexOf("\"status\":\"ok\"") >= 0) {
-                log_i("[TELEMETRY] Batch upload SUCCESS. Clearing %d records.", telemetry_count);
-                telemetry_count = 0;
+                log_i("[TELEMETRY] Batch upload SUCCESS (%u records sent).", sent_records);
+                if (sent_records >= telemetry_count) {
+                    telemetry_count = 0;
+                } else {
+                    memmove(&telemetry_ring_buf[0], &telemetry_ring_buf[sent_records],
+                            sizeof(TelemetrySnapshot) * (telemetry_count - sent_records));
+                    telemetry_count -= sent_records;
+                }
             } else {
                 log_w("[TELEMETRY] Upload rejected: %s", resp.c_str());
             }
@@ -276,6 +308,23 @@ static void telemetry_worker_task(void *pvParameters) {
     }
 
     heap_caps_free(json_buf);
+
+    // Return Wi-Fi to low-power sleep IF:
+    // 1. Wi-Fi was off prior to burst
+    // 2. Running on battery (not charging via USB)
+    // 3. User has not interacted within last 2 minutes
+    // 4. Audio is not playing
+    // 5. Clock face is active
+    if (was_wifi_off && clock_face_active && (!audio.isRunning() || mediaType >= 2) &&
+        !bsp_is_battery_charging() &&
+        (g_last_user_interaction_ms == 0 || millis() - g_last_user_interaction_ms >= 120000UL)) {
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+        log_i("[TELEMETRY] Duty cycle burst complete -> Wi-Fi returned to low-power sleep");
+    } else {
+        log_i("[TELEMETRY] Wi-Fi remaining active (charging, playing, or user interactive)");
+    }
+
     is_flushing = false;
     vTaskDelete(NULL);
 }
@@ -296,8 +345,8 @@ bool telemetry_flush_batch(void) {
     if (telemetry_count == 0) {
         return false;
     }
-    if (WiFi.status() != WL_CONNECTED) {
-        log_w("[TELEMETRY] WiFi not connected, cannot flush");
+    if (!wifiEnable) {
+        log_w("[TELEMETRY] WiFi disabled in settings, cannot flush");
         return false;
     }
 

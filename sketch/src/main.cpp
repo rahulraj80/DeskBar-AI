@@ -294,7 +294,7 @@ void serial_debug_beacon_task(void *param) {
         (secrets_has_cloud_consent() || secrets_has_custom_ini())) {
       last_telemetry_flush = millis();
 
-      if (WiFi.status() == WL_CONNECTED) {
+      if (wifiEnable) {
         telemetry_flush_batch();
       }
     }
