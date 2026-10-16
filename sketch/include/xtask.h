@@ -138,21 +138,22 @@ void batt_level_read_task(void *param) {
   vTaskDelay(pdMS_TO_TICKS(5000)); // delay to wait lvgl ready
   for (;;) {
 
-    int rawValue = analogReadMilliVolts(ADC_BATT);
-    float vbat = rawValue * 3.0f / 1000.0f;
+    float vbat = 0.0f;
+    uint8_t pct = 0;
+    getBatteryStatus(&vbat, &pct);
 
-    if (vbat >= 4.10)
+    if (pct >= 80)
       bat_state = 4;
-    else if (vbat >= 3.95)
+    else if (pct >= 55)
       bat_state = 3;
-    else if (vbat >= 3.80)
+    else if (pct >= 30)
       bat_state = 2;
-    else if (vbat >= 3.60)
+    else if (pct >= 10)
       bat_state = 1;
     else
       bat_state = 0;
 
-    log_d("ADC: %d | Vbat: %.2fV | State: %d,%d", rawValue, vbat, bat_state, last_state);
+    log_d("[BATT_TASK] Vbat: %.2fV (%u%%) | State: %d,%d", vbat, (unsigned)pct, bat_state, last_state);
     if (bat_state != last_state) {
       last_state = bat_state;
       UIStatusPayload msg = {// prepare mesasge

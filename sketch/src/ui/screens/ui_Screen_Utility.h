@@ -30,6 +30,9 @@ extern lv_obj_t * ui_Utility_Button_SpiritLevel;
 extern void ui_event_Utility_Button_FirmwareOTA(lv_event_t * e);
 extern lv_obj_t * ui_Utility_Button_FirmwareOTA;
 
+extern void ui_event_Utility_Button_PowerProfile(lv_event_t * e);
+extern lv_obj_t * ui_Utility_Button_PowerProfile;
+
 // Sub-Panels
 extern lv_obj_t * ui_Utility_Panel_Torch;
 extern lv_obj_t * ui_Utility_Label_Label26;

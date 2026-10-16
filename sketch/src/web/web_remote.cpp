@@ -23,6 +23,7 @@
 #include "updater/updater.h"
 #include "version.h"
 #include "generated_catalog.h"
+#include "power/power_profile.h"
 
 extern Audio audio;
 extern Preferences pref;
@@ -1730,6 +1731,86 @@ static void handle_update_upload(void) {
     }
 }
 
+static void handle_power_profile_get() {
+    const power_profile_t *pwr = power_profile_get();
+    float volts[BATTERY_CURVE_PTS];
+    uint8_t pcts[BATTERY_CURVE_PTS];
+    uint8_t count = 0;
+    battery_get_curve_points(volts, pcts, &count);
+
+    String json = "{";
+    json += "\"status\":\"ok\",";
+    json += "\"bl_start\":" + String(pwr->bl_start) + ",";
+    json += "\"bl_end\":" + String(pwr->bl_end) + ",";
+    json += "\"bl_black\":" + String(pwr->bl_black) + ",";
+    json += "\"ramp_up_ms\":" + String(pwr->ramp_up_ms) + ",";
+    json += "\"hold_high_ms\":" + String(pwr->hold_high_ms) + ",";
+    json += "\"ramp_down_ms\":" + String(pwr->ramp_down_ms) + ",";
+    json += "\"hold_dark_ms\":" + String(pwr->hold_dark_ms) + ",";
+    json += "\"inactivity_tier\":" + String(pwr->inactivity_tier ? "true" : "false") + ",";
+    json += "\"gate_wifi\":" + String(pwr->gate_wifi ? "true" : "false") + ",";
+    json += "\"gate_audio\":" + String(pwr->gate_audio ? "true" : "false") + ",";
+    json += "\"gate_sensors\":" + String(pwr->gate_sensors ? "true" : "false") + ",";
+    json += "\"cal_source\":\"" + String(battery_get_cal_source()) + "\",";
+    json += "\"volts\":[";
+    for (int i = 0; i < count; i++) {
+        json += String(volts[i], 3) + (i < count - 1 ? "," : "");
+    }
+    json += "],\"pcts\":[";
+    for (int i = 0; i < count; i++) {
+        json += String(pcts[i]) + (i < count - 1 ? "," : "");
+    }
+    json += "]}";
+
+    server.send(200, "application/json", json);
+}
+
+static void handle_power_profile_post() {
+    power_profile_t pwr = *power_profile_get();
+
+    if (server.hasArg("plain")) {
+        DynamicJsonDocument doc(1024);
+        DeserializationError err = deserializeJson(doc, server.arg("plain"));
+        if (!err) {
+            if (doc.containsKey("bl_start")) pwr.bl_start = doc["bl_start"];
+            if (doc.containsKey("bl_end")) pwr.bl_end = doc["bl_end"];
+            if (doc.containsKey("bl_black")) pwr.bl_black = doc["bl_black"];
+            if (doc.containsKey("ramp_up_ms")) pwr.ramp_up_ms = doc["ramp_up_ms"];
+            if (doc.containsKey("hold_high_ms")) pwr.hold_high_ms = doc["hold_high_ms"];
+            if (doc.containsKey("ramp_down_ms")) pwr.ramp_down_ms = doc["ramp_down_ms"];
+            if (doc.containsKey("hold_dark_ms")) pwr.hold_dark_ms = doc["hold_dark_ms"];
+            if (doc.containsKey("inactivity_tier")) pwr.inactivity_tier = doc["inactivity_tier"];
+            if (doc.containsKey("gate_wifi")) pwr.gate_wifi = doc["gate_wifi"];
+            if (doc.containsKey("gate_audio")) pwr.gate_audio = doc["gate_audio"];
+            if (doc.containsKey("gate_sensors")) pwr.gate_sensors = doc["gate_sensors"];
+        }
+    } else {
+        if (server.hasArg("bl_start")) pwr.bl_start = server.arg("bl_start").toInt();
+        if (server.hasArg("bl_end")) pwr.bl_end = server.arg("bl_end").toInt();
+        if (server.hasArg("bl_black")) pwr.bl_black = server.arg("bl_black").toInt();
+        if (server.hasArg("ramp_up_ms")) pwr.ramp_up_ms = server.arg("ramp_up_ms").toInt();
+        if (server.hasArg("hold_high_ms")) pwr.hold_high_ms = server.arg("hold_high_ms").toInt();
+        if (server.hasArg("ramp_down_ms")) pwr.ramp_down_ms = server.arg("ramp_down_ms").toInt();
+        if (server.hasArg("hold_dark_ms")) pwr.hold_dark_ms = server.arg("hold_dark_ms").toInt();
+        if (server.hasArg("inactivity_tier")) pwr.inactivity_tier = (server.arg("inactivity_tier") == "1" || server.arg("inactivity_tier") == "true");
+        if (server.hasArg("gate_wifi")) pwr.gate_wifi = (server.arg("gate_wifi") == "1" || server.arg("gate_wifi") == "true");
+        if (server.hasArg("gate_audio")) pwr.gate_audio = (server.arg("gate_audio") == "1" || server.arg("gate_audio") == "true");
+        if (server.hasArg("gate_sensors")) pwr.gate_sensors = (server.arg("gate_sensors") == "1" || server.arg("gate_sensors") == "true");
+    }
+
+    power_profile_set(&pwr);
+    handle_power_profile_get();
+}
+
+static void handle_battery_sync_cal() {
+    bool ok = battery_sync_from_cloud(NULL);
+    if (ok) {
+        handle_power_profile_get();
+    } else {
+        server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to sync battery curve from cloud\"}");
+    }
+}
+
 void web_remote_init(void) {
     if (server_running) return;
 
@@ -1778,6 +1859,9 @@ void web_remote_init(void) {
     server.on("/api/imu", HTTP_GET, handle_imu);
     server.on("/api/imu", HTTP_POST, handle_imu);
     server.on("/api/imu/stream", HTTP_GET, handle_imu_stream);
+    server.on("/api/power_profile", HTTP_GET, handle_power_profile_get);
+    server.on("/api/power_profile", HTTP_POST, handle_power_profile_post);
+    server.on("/api/battery/sync_cal", HTTP_POST, handle_battery_sync_cal);
 
     server.enableCORS(true);
     server.begin();

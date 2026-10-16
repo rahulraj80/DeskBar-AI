@@ -32,6 +32,7 @@ extern "C" {
 #include "screens/ui_Screen_Info.h"
 #include "screens/ui_Screen_Player.h"
 #include "screens/ui_Screen_Utility.h"
+#include "screens/ui_Screen_PowerProfile.h"
 
 ///////////////////// VARIABLES ////////////////////
 

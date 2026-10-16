@@ -7,12 +7,14 @@
 #include "ui_Screen_OTA.h"
 #include "ui_Screen_SpiritLevel.h"
 #include "ui_Screen_Consent.h"
+#include "ui_Screen_PowerProfile.h"
 
 lv_obj_t * ui_Screen_Utility = NULL;
 lv_obj_t * ui_Utility_Image_TorchButton = NULL;
 lv_obj_t * ui_Utility_Image_SystemInfoButton = NULL;
 lv_obj_t * ui_Utility_Button_SpiritLevel = NULL;
 lv_obj_t * ui_Utility_Button_FirmwareOTA = NULL;
+lv_obj_t * ui_Utility_Button_PowerProfile = NULL;
 lv_obj_t * ui_Utility_Button_Privacy = NULL;
 
 lv_obj_t * ui_Utility_Panel_Torch = NULL;
@@ -86,6 +88,14 @@ void ui_event_Utility_Button_FirmwareOTA(lv_event_t * e)
 {
     if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
         ui_ota_open_manager();
+        _ui_flag_modify(ui_Utility_Button_returnMenu, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
+    }
+}
+
+void ui_event_Utility_Button_PowerProfile(lv_event_t * e)
+{
+    if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        ui_power_profile_open();
         _ui_flag_modify(ui_Utility_Button_returnMenu, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
     }
 }
@@ -173,10 +183,10 @@ void ui_Screen_Utility_screen_init(void)
     lv_obj_set_style_text_font(ui_Screen_Utility, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     // =========================================================================
-    // 4 UTILITY APPS ACROSS 640px DISPLAY (x = -240, -80, +80, +240)
+    // 5 UTILITY APPS ACROSS 640px DISPLAY (x = -240, -120, 0, +120, +240)
     // =========================================================================
 
-    // 1. Torch
+    // 1. Torch (-240)
     ui_Utility_Image_TorchButton = lv_img_create(ui_Screen_Utility);
     lv_img_set_src(ui_Utility_Image_TorchButton, &ui_img_utility_torch_png);
     lv_obj_set_width(ui_Utility_Image_TorchButton, LV_SIZE_CONTENT);
@@ -195,12 +205,12 @@ void ui_Screen_Utility_screen_init(void)
     lv_obj_set_style_text_font(lbl_t_text, &lv_font_montserrat_12, 0);
     lv_obj_align(lbl_t_text, LV_ALIGN_CENTER, -240, 46);
 
-    // 2. System Info
+    // 2. System Info (-120)
     ui_Utility_Image_SystemInfoButton = lv_img_create(ui_Screen_Utility);
     lv_img_set_src(ui_Utility_Image_SystemInfoButton, &ui_img_utility_systeminfo_png);
     lv_obj_set_width(ui_Utility_Image_SystemInfoButton, LV_SIZE_CONTENT);
     lv_obj_set_height(ui_Utility_Image_SystemInfoButton, LV_SIZE_CONTENT);
-    lv_obj_set_x(ui_Utility_Image_SystemInfoButton, -80);
+    lv_obj_set_x(ui_Utility_Image_SystemInfoButton, -120);
     lv_obj_set_y(ui_Utility_Image_SystemInfoButton, -10);
     lv_obj_set_align(ui_Utility_Image_SystemInfoButton, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_Utility_Image_SystemInfoButton, LV_OBJ_FLAG_CLICKABLE);
@@ -212,14 +222,14 @@ void ui_Screen_Utility_screen_init(void)
     lv_label_set_text(lbl_si_text, "System Info");
     lv_obj_set_style_text_color(lbl_si_text, lv_color_hex(0xCCCCCC), 0);
     lv_obj_set_style_text_font(lbl_si_text, &lv_font_montserrat_12, 0);
-    lv_obj_align(lbl_si_text, LV_ALIGN_CENTER, -80, 46);
+    lv_obj_align(lbl_si_text, LV_ALIGN_CENTER, -120, 46);
 
-    // 3. Spirit Level Placeholder Button
+    // 3. Spirit Level (0)
     ui_Utility_Button_SpiritLevel = lv_img_create(ui_Screen_Utility);
     lv_img_set_src(ui_Utility_Button_SpiritLevel, &ui_img_utility_spirit_level_png);
     lv_obj_set_width(ui_Utility_Button_SpiritLevel, LV_SIZE_CONTENT);
     lv_obj_set_height(ui_Utility_Button_SpiritLevel, LV_SIZE_CONTENT);
-    lv_obj_set_x(ui_Utility_Button_SpiritLevel, 80);
+    lv_obj_set_x(ui_Utility_Button_SpiritLevel, 0);
     lv_obj_set_y(ui_Utility_Button_SpiritLevel, -10);
     lv_obj_set_align(ui_Utility_Button_SpiritLevel, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_Utility_Button_SpiritLevel, LV_OBJ_FLAG_CLICKABLE);
@@ -232,14 +242,14 @@ void ui_Screen_Utility_screen_init(void)
     lv_label_set_text(lbl_sl_text, "Spirit Level");
     lv_obj_set_style_text_color(lbl_sl_text, lv_color_hex(0xCCCCCC), 0);
     lv_obj_set_style_text_font(lbl_sl_text, &lv_font_montserrat_12, 0);
-    lv_obj_align(lbl_sl_text, LV_ALIGN_CENTER, 80, 46);
+    lv_obj_align(lbl_sl_text, LV_ALIGN_CENTER, 0, 46);
 
-    // 4. Firmware OTA Button
+    // 4. Firmware OTA Button (+120)
     ui_Utility_Button_FirmwareOTA = lv_img_create(ui_Screen_Utility);
     lv_img_set_src(ui_Utility_Button_FirmwareOTA, &ui_img_utility_firmware_ota_png);
     lv_obj_set_width(ui_Utility_Button_FirmwareOTA, LV_SIZE_CONTENT);
     lv_obj_set_height(ui_Utility_Button_FirmwareOTA, LV_SIZE_CONTENT);
-    lv_obj_set_x(ui_Utility_Button_FirmwareOTA, 240);
+    lv_obj_set_x(ui_Utility_Button_FirmwareOTA, 120);
     lv_obj_set_y(ui_Utility_Button_FirmwareOTA, -10);
     lv_obj_set_align(ui_Utility_Button_FirmwareOTA, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_Utility_Button_FirmwareOTA, LV_OBJ_FLAG_CLICKABLE);
@@ -252,7 +262,35 @@ void ui_Screen_Utility_screen_init(void)
     lv_label_set_text(lbl_ota_text, "Firmware OTA");
     lv_obj_set_style_text_color(lbl_ota_text, lv_color_hex(0x00E5FF), 0);
     lv_obj_set_style_text_font(lbl_ota_text, &lv_font_montserrat_12, 0);
-    lv_obj_align(lbl_ota_text, LV_ALIGN_CENTER, 240, 46);
+    lv_obj_align(lbl_ota_text, LV_ALIGN_CENTER, 120, 46);
+
+    // 5. Power & Breathing Profile Button (+240)
+    ui_Utility_Button_PowerProfile = lv_btn_create(ui_Screen_Utility);
+    lv_obj_set_size(ui_Utility_Button_PowerProfile, 52, 52);
+    lv_obj_set_x(ui_Utility_Button_PowerProfile, 240);
+    lv_obj_set_y(ui_Utility_Button_PowerProfile, -10);
+    lv_obj_set_align(ui_Utility_Button_PowerProfile, LV_ALIGN_CENTER);
+    lv_obj_set_style_bg_color(ui_Utility_Button_PowerProfile, lv_color_hex(0x161C28), 0);
+    lv_obj_set_style_border_color(ui_Utility_Button_PowerProfile, lv_color_hex(0x00F0FF), 0);
+    lv_obj_set_style_border_width(ui_Utility_Button_PowerProfile, 2, 0);
+    lv_obj_set_style_radius(ui_Utility_Button_PowerProfile, 26, 0);
+    lv_obj_add_flag(ui_Utility_Button_PowerProfile, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_clear_flag(ui_Utility_Button_PowerProfile,
+                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE |
+                      LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_event_cb(ui_Utility_Button_PowerProfile, ui_event_Utility_Button_PowerProfile, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *lbl_pp_icon = lv_label_create(ui_Utility_Button_PowerProfile);
+    lv_label_set_text(lbl_pp_icon, LV_SYMBOL_CHARGE);
+    lv_obj_center(lbl_pp_icon);
+    lv_obj_set_style_text_color(lbl_pp_icon, lv_color_hex(0x00F0FF), 0);
+    lv_obj_set_style_text_font(lbl_pp_icon, &lv_font_montserrat_20, 0);
+
+    lv_obj_t *lbl_pp_text = lv_label_create(ui_Screen_Utility);
+    lv_label_set_text(lbl_pp_text, "Power Profile");
+    lv_obj_set_style_text_color(lbl_pp_text, lv_color_hex(0x00F0FF), 0);
+    lv_obj_set_style_text_font(lbl_pp_text, &lv_font_montserrat_12, 0);
+    lv_obj_align(lbl_pp_text, LV_ALIGN_CENTER, 240, 46);
 
     // =========================================================================
     // SUB-PANELS
@@ -449,6 +487,9 @@ void ui_Screen_Utility_screen_init(void)
 
     // Initialize 3-Panel Spirit Level App
     ui_spirit_level_init(ui_Screen_Utility);
+
+    // Initialize Scrollable Power & Breathing Profile App
+    ui_power_profile_init(ui_Screen_Utility);
 }
 
 void ui_Screen_Utility_screen_destroy(void)
@@ -460,6 +501,7 @@ void ui_Screen_Utility_screen_destroy(void)
     ui_Utility_Image_SystemInfoButton = NULL;
     ui_Utility_Button_SpiritLevel = NULL;
     ui_Utility_Button_FirmwareOTA = NULL;
+    ui_Utility_Button_PowerProfile = NULL;
     ui_Utility_Panel_Torch = NULL;
     ui_Utility_Panel_SpiritLevel = NULL;
     ui_Utility_Label_Label26 = NULL;
