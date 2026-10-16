@@ -178,3 +178,17 @@ For makers looking to replicate this device:
 * Advanced Audio Engineering, ES7210 driver fixes, DRAM optimization, power saving architecture, multilingual radio expansion, and AI Voice Assistant by **Rahul Raj** ([@rahulraj80](https://github.com/rahulraj80)).
 
 This software and firmware codebase is licensed under the **GNU General Public License v3.0 (GPL-3.0)** (see [`LICENSE`](LICENSE)). Any hardware designs, UI assets, and media components derived from upstream TuneBar remain licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/) license. Attribution to original author Va&Cob and contributing author Rahul Raj is required on all derivative distributions.
+
+---
+
+## ☕ Support TuneBar
+
+TuneBar is free and open-source. If it is useful to you — or just fun to tinker with — consider supporting its ongoing development. Every little bit helps keep the project active and maintained.
+
+<p align="center">
+  <a href="https://razorpay.me/@rahulraj593" target="_blank" rel="noopener noreferrer">
+    <img src="assets/support.svg" alt="Support TuneBar — pay via UPI QR (GPay / PhonePe / Paytm) or Razorpay for international cards / PayPal" width="760" />
+  </a>
+</p>
+
+*International supporters: click the card above to pay by card or PayPal via Razorpay. In India: scan the UPI QR in the card, or pay to **`rahul.raj@okicici`**.*
