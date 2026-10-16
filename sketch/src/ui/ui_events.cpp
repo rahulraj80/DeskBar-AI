@@ -189,7 +189,7 @@ void update_clock_breathing(void) {
   static uint32_t s_last_active_sample_ms = 0;
   if (!clock_face_active) {
     if (now - s_last_active_sample_ms >= 10000UL) {
-      uint16_t raw_adc = (uint16_t)analogReadMilliVolts(BATTERY_ADC_PIN);
+      uint16_t raw_adc = (uint16_t)battery_read_adc_mv_safe();
       battery_accumulate_sample(raw_adc, true /* screen on */);
       s_last_active_sample_ms = now;
     }
@@ -229,13 +229,7 @@ void update_clock_breathing(void) {
 
   switch (breath_state) {
     case BREATH_FULL_BLACK:
-      if (bl_black == 0) {
-        bsp_set_backlight_power(false); // Cut AP3032 boost rail while dark!
-        setUpduty(255); // 0% PWM duty -> 100% full black
-      } else {
-        bsp_set_backlight_power(true);
-        setUpduty(255 - bl_black);
-      }
+      setUpduty(255 - bl_black);
 
       // Dark Service Gating
       if (pwr->gate_sensors && !imu_sensor_is_sleeping()) {
@@ -247,13 +241,12 @@ void update_clock_breathing(void) {
 
       // Point 2: 2.0s after screen turned dark (stable Vrest)
       if (elapsed >= 2000 && !s_sampled_dark) {
-        uint16_t raw_adc = (uint16_t)analogReadMilliVolts(BATTERY_ADC_PIN);
+        uint16_t raw_adc = (uint16_t)battery_read_adc_mv_safe();
         battery_accumulate_sample(raw_adc, false /* screen off */);
         s_sampled_dark = true;
       }
 
       if (elapsed >= full_black_ms) {
-        bsp_set_backlight_power(true); // Re-enable boost rail!
         if (pwr->gate_sensors && imu_sensor_is_sleeping()) {
           imu_sensor_wake();
         }
@@ -268,7 +261,6 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_FADE_IN:
-      bsp_set_backlight_power(true);
       if (elapsed < ramp_up) {
         float progress = (float)elapsed / (float)ramp_up;
         uint8_t current_val = min_bl + (uint8_t)(progress * (float)(max_bl - min_bl));
@@ -283,12 +275,11 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_HOLD_HIGH:
-      bsp_set_backlight_power(true);
       setUpduty(255 - max_bl);
 
       // Point 1: 2.0s after screen turned on (fade-in + 500ms into hold_high = 2.0s loaded)
       if (elapsed >= 500 && !s_sampled_high) {
-        uint16_t raw_adc = (uint16_t)analogReadMilliVolts(BATTERY_ADC_PIN);
+        uint16_t raw_adc = (uint16_t)battery_read_adc_mv_safe();
         battery_accumulate_sample(raw_adc, true /* screen on */);
         s_sampled_high = true;
       }
@@ -301,16 +292,12 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_FADE_OUT:
-      bsp_set_backlight_power(true);
       if (elapsed < ramp_down) {
         float progress = (float)elapsed / (float)ramp_down;
         uint8_t current_val = max_bl - (uint8_t)(progress * (float)(max_bl - min_bl));
         setUpduty(255 - current_val);
       } else {
-        setUpduty(255);
-        if (bl_black == 0) {
-          bsp_set_backlight_power(false); // Cut AP3032 boost rail while dark!
-        }
+        setUpduty(255 - bl_black);
         breath_state    = BREATH_FULL_BLACK;
         breath_timer_ms = millis();
         s_sampled_dark  = false;

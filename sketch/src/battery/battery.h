@@ -18,6 +18,7 @@ float readBatteryVoltage(void);
 uint8_t voltageToBatteryPercent(float voltage);
 void getBatteryStatus(float *voltage_out, uint8_t *percent_out);
 bool bsp_is_battery_charging(void);
+uint32_t battery_read_adc_mv_safe(void);
 
 // 2-Point Breathing Sampling Accumulator
 void battery_accumulate_sample(uint16_t raw_adc_mv, bool screen_is_on);
