@@ -57,8 +57,22 @@ void battery_init(void) {
         pref.end();
     }
 
+static SemaphoreHandle_t s_adc_mutex = NULL;
+
+uint32_t battery_read_adc_mv_safe(void) {
+    if (!s_adc_mutex) {
+        s_adc_mutex = xSemaphoreCreateMutex();
+    }
+    if (s_adc_mutex && xSemaphoreTake(s_adc_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        uint32_t mv = analogReadMilliVolts(BATTERY_ADC_PIN);
+        xSemaphoreGive(s_adc_mutex);
+        return mv;
+    }
+    return 0;
+}
+
     // Seed initial reading
-    uint32_t initial_raw = analogReadMilliVolts(BATTERY_ADC_PIN);
+    uint32_t initial_raw = battery_read_adc_mv_safe();
     if (initial_raw > 0) {
         s_rolling_adc_mv = (float)initial_raw;
     }
@@ -66,7 +80,7 @@ void battery_init(void) {
 }
 
 float readRawBatteryVoltage(void) {
-    uint32_t mv = analogReadMilliVolts(BATTERY_ADC_PIN);
+    uint32_t mv = battery_read_adc_mv_safe();
     if (mv > 0) {
         return (mv * BATTERY_VDIV) / 1000.0f;
     }
@@ -78,7 +92,7 @@ float readBatteryVoltage(void) {
     if (!s_initialized) battery_init();
 
     if (s_rolling_adc_mv <= 0.0f) {
-        uint32_t raw = analogReadMilliVolts(BATTERY_ADC_PIN);
+        uint32_t raw = battery_read_adc_mv_safe();
         s_rolling_adc_mv = (raw > 0) ? (float)raw : 1330.0f;
     }
     return (s_rolling_adc_mv * BATTERY_VDIV) / 1000.0f;
@@ -127,7 +141,7 @@ void getBatteryStatus(float *voltage_out, uint8_t *percent_out) {
 
 bool bsp_is_battery_charging(void) {
     // When connected to USB power, charging IC holds battery rail at charge voltage (>= 1340 mV at ADC pin)
-    return (analogReadMilliVolts(BATTERY_ADC_PIN) >= 1340);
+    return (battery_read_adc_mv_safe() >= 1340);
 }
 
 // ----------------------------------------------------------------------------

@@ -17,25 +17,25 @@ struct CatalogItem {
 #define GENERATED_CATALOG_COUNT 6
 
 static const CatalogItem s_generated_catalog[6] = {
-  // [0] v2.3.5
+  // [0] v2.3.6
   {
-    "v2.3.5", "PATCH", 0x00FF88, "Oct 16, 2026", "4.01 MB",
-    "• Async cloud battery calibration sync in dedicated background task",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.5.bin",
+    "v2.3.6", "PATCH", 0x00FF88, "Oct 16, 2026", "4.01 MB",
+    "• Fix audio cutting during clock breathing and resolve SD card playback crash",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.6.bin",
     4200000
   },
-  // [1] v2.3.4
+  // [1] v2.3.5
+  {
+    "v2.3.5", "PATCH", 0x00FF88, "Oct 16, 2026", "4.08 MB",
+    "• Async cloud battery calibration sync in dedicated background task",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.5.bin",
+    4283408
+  },
+  // [2] v2.3.4
   {
     "v2.3.4", "PATCH", 0x00FF88, "Oct 16, 2026", "4.08 MB",
     "• Refine utility app icon, fine-grained BL stepping under 100, full-screen scrollable layout, and 1s cloud sync visual feedback",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.4.bin",
-    4283408
-  },
-  // [2] v2.3.3
-  {
-    "v2.3.3", "PATCH", 0x00FF88, "Oct 16, 2026", "4.08 MB",
-    "• Add power_profile programmatic scrolling and live cloud sync feedback",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.3.bin",
     4283408
   },
   // [3] v2.2.5
@@ -63,9 +63,9 @@ static const CatalogItem s_generated_catalog[6] = {
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.3.5\",\"type\":\"patch\",\"build\":65,\"date\":\"Oct 16, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Async cloud battery calibration sync in dedicated background task\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.5.bin\"},";
+  j += "{\"version\":\"2.3.6\",\"type\":\"patch\",\"build\":66,\"date\":\"Oct 16, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Fix audio cutting during clock breathing and resolve SD card playback crash\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.6.bin\"},";
+  j += "{\"version\":\"2.3.5\",\"type\":\"patch\",\"build\":65,\"date\":\"Oct 16, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Async cloud battery calibration sync in dedicated background task\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.5.bin\"},";
   j += "{\"version\":\"2.3.4\",\"type\":\"patch\",\"build\":64,\"date\":\"Oct 16, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Refine utility app icon, fine-grained BL stepping under 100, full-screen scrollable layout, and 1s cloud sync visual feedback\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.4.bin\"},";
-  j += "{\"version\":\"2.3.3\",\"type\":\"patch\",\"build\":63,\"date\":\"Oct 16, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Add power_profile programmatic scrolling and live cloud sync feedback\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.3.bin\"},";
   j += "{\"version\":\"2.2.5\",\"type\":\"patch\",\"build\":51,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.5.bin\"},";
   j += "{\"version\":\"2.2.4\",\"type\":\"patch\",\"build\":49,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Duty-cycled Wi-Fi burst telemetry in clock mode and USB charger auto-detect\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.4.bin\"},";
   j += "{\"version\":\"2.2.3\",\"type\":\"patch\",\"build\":48,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"•\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.3.bin\"}";

@@ -356,7 +356,14 @@ void process_audio_cmd_que() {
           .type = STATUS_UPDATE_TRACK_DESC_SET,
       };
       switch (msg.source) {
-      case 0: ok = audio.connecttoFS(SD, msg.url_filename); break;
+      case 0:
+        if (SD.cardType() == CARD_NONE) {
+          log_w("SD Card absent or unmounted");
+          ok = false;
+        } else {
+          ok = audio.connecttoFS(SD, msg.url_filename);
+        }
+        break;
       case 1: ok = audio.connecttoFS(LittleFS, msg.url_filename); break;
       } // switch (msg.source)
       if (!ok) {

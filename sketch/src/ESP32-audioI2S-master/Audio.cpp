@@ -966,6 +966,10 @@ bool Audio::connecttoFS(fs::FS& fs, const char* path, int32_t fileStartTime) {
     }
     info(*this, evt_info, "Reading file: \"%s\"", c_path.get());
     m_audiofile = fs.open(c_path.get());
+    if (!m_audiofile) {
+        AUDIO_LOG_ERROR("Failed to open file: %s", c_path.get());
+        goto exit;
+    }
     m_dataMode = AUDIO_LOCALFILE;
     m_audioFileSize = m_audiofile.size();
     m_f_running = true;
@@ -5636,9 +5640,13 @@ int32_t Audio::audioFileRead(uint8_t* buff, size_t len) {
         uint32_t t = millis();
         while (len > 0) {
             if (m_dataMode == AUDIO_LOCALFILE) {
-                readed_bytes = m_audiofile.read(buff + offset, len);
+                // DRAM bounce buffer for DMA-safe SPI reads (ESP32-S3 SPI DMA cannot directly target PSRAM)
+                static uint8_t dram_bounce[2048] __attribute__((aligned(4)));
+                size_t to_read = (len < sizeof(dram_bounce)) ? len : sizeof(dram_bounce);
+                readed_bytes = m_audiofile.read(dram_bounce, to_read);
 
-                if (readed_bytes >= 0) {
+                if (readed_bytes > 0) {
+                    memcpy(buff + offset, dram_bounce, readed_bytes);
                     m_audioFilePosition += readed_bytes;
                     len -= readed_bytes;
                     offset += readed_bytes;
