@@ -18,6 +18,7 @@
 * [📚 Detailed Technical Documentation](#-detailed-technical-documentation)
 * [🛒 Where to Buy Genuine Hardware](#-where-to-buy)
 * [📜 Credits & License](#-credits--license)
+* [☕ Support the Development](#-support-tunebar-advanced-ai-edition)
 
 ---
 
