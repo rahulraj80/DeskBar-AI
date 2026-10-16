@@ -181,7 +181,7 @@ This software and firmware codebase is licensed under the **GNU General Public L
 
 ---
 
-## ☕ Support TuneBar
+## ☕ Support TuneBar (Advanced AI Edition)
 
 TuneBar is free and open-source. If it is useful to you — or just fun to tinker with — consider supporting its ongoing development. Every little bit helps keep the project active and maintained.
 
