@@ -29,6 +29,19 @@ static uint8_t s_last_discharged_pct = 100;
 static uint32_t s_accum_sum_mv = 0;
 static uint16_t s_accum_count = 0;
 static float    s_rolling_adc_mv = -1.0f;
+static SemaphoreHandle_t s_adc_mutex = NULL;
+
+uint32_t battery_read_adc_mv_safe(void) {
+    if (!s_adc_mutex) {
+        s_adc_mutex = xSemaphoreCreateMutex();
+    }
+    if (s_adc_mutex && xSemaphoreTake(s_adc_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        uint32_t mv = analogReadMilliVolts(BATTERY_ADC_PIN);
+        xSemaphoreGive(s_adc_mutex);
+        return mv;
+    }
+    return 0;
+}
 
 void battery_init(void) {
     if (s_initialized) return;
@@ -56,20 +69,6 @@ void battery_init(void) {
         }
         pref.end();
     }
-
-static SemaphoreHandle_t s_adc_mutex = NULL;
-
-uint32_t battery_read_adc_mv_safe(void) {
-    if (!s_adc_mutex) {
-        s_adc_mutex = xSemaphoreCreateMutex();
-    }
-    if (s_adc_mutex && xSemaphoreTake(s_adc_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        uint32_t mv = analogReadMilliVolts(BATTERY_ADC_PIN);
-        xSemaphoreGive(s_adc_mutex);
-        return mv;
-    }
-    return 0;
-}
 
     // Seed initial reading
     uint32_t initial_raw = battery_read_adc_mv_safe();
@@ -271,7 +270,7 @@ bool battery_sync_from_cloud(const char *table_override) {
     String payload = http.getString();
     http.end();
 
-    DynamicJsonDocument doc(4096);
+    JsonDocument doc;
     DeserializationError err = deserializeJson(doc, payload);
     if (err) {
         log_e("[BATT_CAL] JSON parsing error: %s", err.c_str());

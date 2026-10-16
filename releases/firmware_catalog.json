@@ -2,6 +2,16 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.3.7",
+      "type": "patch",
+      "build": 67,
+      "date": "Oct 16, 2026",
+      "title": "TuneBar v2.3.7: Fix audio cutting during clock breathing and resolve SD card playback crash",
+      "changelog": "\u2022 Fix audio cutting during clock breathing and resolve SD card playback crash",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.7.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.3.6",
       "type": "patch",
       "build": 66,
@@ -9,7 +19,7 @@
       "title": "TuneBar v2.3.6: Fix audio cutting during clock breathing and resolve SD card playback crash",
       "changelog": "\u2022 Fix audio cutting during clock breathing and resolve SD card playback crash",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.6.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.3.5",
@@ -19,16 +29,6 @@
       "title": "TuneBar v2.3.5: Async cloud battery calibration sync in dedicated background task",
       "changelog": "\u2022 Async cloud battery calibration sync in dedicated background task",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.5.bin",
-      "size": 4283408
-    },
-    {
-      "version": "2.3.4",
-      "type": "patch",
-      "build": 64,
-      "date": "Oct 16, 2026",
-      "title": "TuneBar v2.3.4: Refine utility app icon, fine-grained BL stepping under 100, full-screen scrollable layout, and 1s cloud sync visual feedback",
-      "changelog": "\u2022 Refine utility app icon, fine-grained BL stepping under 100, full-screen scrollable layout, and 1s cloud sync visual feedback",
-      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.4.bin",
       "size": 4283408
     },
     {
