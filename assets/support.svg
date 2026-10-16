@@ -24,9 +24,13 @@
   <!-- Section Title -->
   <g transform="translate(440, 48)">
     <text class="title" text-anchor="middle">Support TuneBar (Advanced AI Edition) </text>
-    <g transform="translate(120, 0)">
+    <g transform="translate(130, 0)">
       <!-- Coffee Icon beside Title -->
-      <path d="M102 -14 h22 a4 4 0 0 1 4 4 v6 a6 6 0 0 1 -6 6 h-20 v-16 z m20 12 a3 3 0 0 0 3 -3 v-4 a2 2 0 0 0 -2 -2 h-18 v9 h17 z" fill="#8c6d58" />
+      <path
+        transform="translate(102 0) scale(0.65 1) translate(-102 0)"
+        d="M102 -14 h22 a4 4 0 0 1 4 4 v6 a6 6 0 0 1 -6 6 h-20 v-16 z m20 12 a3 3 0 0 0 3 -3 v-4 a2 2 0 0 0 -2 -2 h-18 v9 h17 z"
+        fill="#8c6d58"
+      />
       <path d="M86 -15 h20 v14 a9 9 0 0 1 -9 9 h-2 a9 9 0 0 1 -9 -9 v-14 z" fill="#b08968" />
       <path d="M82 10 h28 a2 2 0 0 1 0 4 h-28 a2 2 0 0 1 0 -4 z" fill="#7f5539" />
     </g>
