@@ -6,6 +6,8 @@
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include "../secrets/secrets_manager.h"
+#include "pcf85063/pcf85063.h"
+extern PCF85063 rtc;
 
 // Factory Golden Baseline SOC Curve (14-point piecewise linear)
 static const float FACTORY_VOLTS[BATTERY_CURVE_PTS] = {
@@ -19,6 +21,7 @@ static const uint8_t FACTORY_PCTS[BATTERY_CURVE_PTS] = {
 static float   s_active_volts[BATTERY_CURVE_PTS];
 static uint8_t s_active_pcts[BATTERY_CURVE_PTS];
 static char    s_cal_source[32] = "factory_baseline";
+static char    s_cal_timestamp[32] = "Never";
 static bool    s_initialized = false;
 static uint8_t s_last_discharged_pct = 100;
 
@@ -34,6 +37,7 @@ void battery_init(void) {
     memcpy(s_active_volts, FACTORY_VOLTS, sizeof(s_active_volts));
     memcpy(s_active_pcts, FACTORY_PCTS, sizeof(s_active_pcts));
     strncpy(s_cal_source, "factory_baseline", sizeof(s_cal_source));
+    strncpy(s_cal_timestamp, "Factory", sizeof(s_cal_timestamp));
 
     Preferences pref;
     if (pref.begin("tb_batt", true)) {
@@ -44,8 +48,10 @@ void battery_init(void) {
                 pref.getBytes("pcts", s_active_pcts, p_len) == p_len) {
                 String src = pref.getString("source", "nvs_cached");
                 strncpy(s_cal_source, src.c_str(), sizeof(s_cal_source) - 1);
-                log_i("[BATT] Loaded calibrated curve from NVS (Source: %s, 100%%=%.3fV, 0%%=%.3fV)",
-                      s_cal_source, s_active_volts[0], s_active_volts[BATTERY_CURVE_PTS - 1]);
+                String t = pref.getString("cal_time", "Unknown");
+                strncpy(s_cal_timestamp, t.c_str(), sizeof(s_cal_timestamp) - 1);
+                log_i("[BATT] Loaded calibrated curve from NVS (Source: %s, Time: %s, 100%%=%.3fV, 0%%=%.3fV)",
+                      s_cal_source, s_cal_timestamp, s_active_volts[0], s_active_volts[BATTERY_CURVE_PTS - 1]);
             }
         }
         pref.end();
@@ -176,6 +182,17 @@ const char* battery_get_cal_source(void) {
     return s_cal_source;
 }
 
+const char* battery_get_cal_source_label(void) {
+    if (strcmp(s_cal_source, "device_history") == 0) return "This Device";
+    if (strcmp(s_cal_source, "fleet_average") == 0 || strcmp(s_cal_source, "crowd_sourced") == 0) return "Crowd Sourced";
+    if (strcmp(s_cal_source, "factory_baseline") == 0) return "Factory Baseline";
+    return s_cal_source;
+}
+
+const char* battery_get_cal_timestamp(void) {
+    return s_cal_timestamp;
+}
+
 void battery_get_curve_points(float *out_volts, uint8_t *out_pcts, uint8_t *out_count) {
     if (!s_initialized) battery_init();
     if (out_count) *out_count = BATTERY_CURVE_PTS;
@@ -186,18 +203,28 @@ void battery_get_curve_points(float *out_volts, uint8_t *out_pcts, uint8_t *out_
 bool battery_save_nvs_curve(const float *volts, const uint8_t *pcts, uint8_t count, const char *source) {
     if (!volts || !pcts || count != BATTERY_CURVE_PTS) return false;
 
+    // Capture RTC timestamp
+    rtc.getDateTime();
+    if (now.year > 0 && now.month >= 1 && now.month <= 12) {
+        snprintf(s_cal_timestamp, sizeof(s_cal_timestamp), "%04d-%02d-%02d %02d:%02d:%02d",
+                 2000 + now.year, now.month, now.dayOfMonth, now.hour, now.minute, now.second);
+    } else {
+        snprintf(s_cal_timestamp, sizeof(s_cal_timestamp), "Uptime %lus", millis() / 1000);
+    }
+
     Preferences pref;
     if (pref.begin("tb_batt", false)) {
         pref.putBool("valid", true);
         pref.putBytes("volts", volts, sizeof(float) * count);
         pref.putBytes("pcts", pcts, sizeof(uint8_t) * count);
         pref.putString("source", source ? source : "custom");
+        pref.putString("cal_time", s_cal_timestamp);
         pref.end();
 
         memcpy(s_active_volts, volts, sizeof(s_active_volts));
         memcpy(s_active_pcts, pcts, sizeof(s_active_pcts));
         strncpy(s_cal_source, source ? source : "custom", sizeof(s_cal_source) - 1);
-        log_i("[BATT] Saved new battery calibration to NVS (Source: %s)", s_cal_source);
+        log_i("[BATT] Saved new battery calibration to NVS (Source: %s, Time: %s)", s_cal_source, s_cal_timestamp);
         return true;
     }
     return false;

@@ -27,6 +27,8 @@ static lv_obj_t * s_sw_gate_audio = NULL;
 static lv_obj_t * s_sw_gate_sensors = NULL;
 
 static lv_obj_t * s_lbl_cal_status = NULL;
+static lv_obj_t * s_lbl_cal_source = NULL;
+static lv_obj_t * s_lbl_cal_time = NULL;
 static lv_obj_t * s_btn_sync_cal = NULL;
 
 static power_profile_t s_local_cfg;
@@ -78,9 +80,20 @@ static void update_all_labels(void) {
         uint8_t count = 0;
         battery_get_curve_points(volts, pcts, &count);
         char cbuf[96];
-        snprintf(cbuf, sizeof(cbuf), "Curve: %s | 100%%=%.2fV, 0%%=%.2fV",
-                 battery_get_cal_source(), volts[0], volts[count - 1]);
+        snprintf(cbuf, sizeof(cbuf), "Curve: 100%%=%.2fV | 0%%=%.2fV (%u pts)",
+                 volts[0], volts[count - 1], count);
         lv_label_set_text(s_lbl_cal_status, cbuf);
+        lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0x00E5FF), 0);
+    }
+    if (s_lbl_cal_source) {
+        char sbuf[64];
+        snprintf(sbuf, sizeof(sbuf), "Source: %s", battery_get_cal_source_label());
+        lv_label_set_text(s_lbl_cal_source, sbuf);
+    }
+    if (s_lbl_cal_time) {
+        char tbuf[64];
+        snprintf(tbuf, sizeof(tbuf), "Last Pull: %s", battery_get_cal_timestamp());
+        lv_label_set_text(s_lbl_cal_time, tbuf);
     }
 }
 
@@ -93,19 +106,23 @@ static void on_sync_cal_click(lv_event_t * e) {
     SCREEN_OFF_TIMER = millis();
     if (s_lbl_cal_status) {
         lv_label_set_text(s_lbl_cal_status, "Syncing calibration from cloud...");
+        lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0x00E5FF), 0);
     }
     bool ok = battery_sync_from_cloud(NULL);
-    if (s_lbl_cal_status) {
-        if (ok) {
+    if (ok) {
+        update_all_labels();
+        if (s_lbl_cal_status) {
             float volts[BATTERY_CURVE_PTS];
             uint8_t count = 0;
             battery_get_curve_points(volts, NULL, &count);
             char cbuf[96];
-            snprintf(cbuf, sizeof(cbuf), "Synced: %s | 100%%=%.2fV, 0%%=%.2fV",
-                     battery_get_cal_source(), volts[0], volts[count - 1]);
+            snprintf(cbuf, sizeof(cbuf), "Synced: 100%%=%.2fV | 0%%=%.2fV (%u pts)",
+                     volts[0], volts[count - 1], count);
             lv_label_set_text(s_lbl_cal_status, cbuf);
             lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0x00FF88), 0);
-        } else {
+        }
+    } else {
+        if (s_lbl_cal_status) {
             lv_label_set_text(s_lbl_cal_status, "Sync failed! Check Wi-Fi connection.");
             lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0xFF5555), 0);
         }
@@ -398,9 +415,23 @@ void ui_power_profile_init(lv_obj_t *parent_screen) {
     lv_obj_set_style_text_font(s_lbl_cal_status, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_lbl_cal_status, "Battery Calibration: Loading...");
 
+    // Left info labels: Source & Last Pull Timestamp
+    s_lbl_cal_source = lv_label_create(cal_card);
+    lv_obj_align(s_lbl_cal_source, LV_ALIGN_TOP_LEFT, 6, 26);
+    lv_obj_set_style_text_color(s_lbl_cal_source, lv_color_hex(0x00FF88), 0);
+    lv_obj_set_style_text_font(s_lbl_cal_source, &lv_font_montserrat_12, 0);
+    lv_label_set_text(s_lbl_cal_source, "Source: Loading...");
+
+    s_lbl_cal_time = lv_label_create(cal_card);
+    lv_obj_align(s_lbl_cal_time, LV_ALIGN_TOP_LEFT, 6, 48);
+    lv_obj_set_style_text_color(s_lbl_cal_time, lv_color_hex(0xAAAAAA), 0);
+    lv_obj_set_style_text_font(s_lbl_cal_time, &lv_font_montserrat_12, 0);
+    lv_label_set_text(s_lbl_cal_time, "Last Pull: Never");
+
+    // Right action button: Shorter Sync Button
     s_btn_sync_cal = lv_btn_create(cal_card);
-    lv_obj_set_size(s_btn_sync_cal, 320, 38);
-    lv_obj_align(s_btn_sync_cal, LV_ALIGN_BOTTOM_MID, 0, -4);
+    lv_obj_set_size(s_btn_sync_cal, 170, 42);
+    lv_obj_align(s_btn_sync_cal, LV_ALIGN_BOTTOM_RIGHT, -8, -6);
     lv_obj_set_style_bg_color(s_btn_sync_cal, lv_color_hex(0x008855), 0);
     lv_obj_set_style_border_color(s_btn_sync_cal, lv_color_hex(0x00FF88), 0);
     lv_obj_set_style_border_width(s_btn_sync_cal, 1, 0);
@@ -408,7 +439,7 @@ void ui_power_profile_init(lv_obj_t *parent_screen) {
     lv_obj_add_event_cb(s_btn_sync_cal, on_sync_cal_click, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *sync_lbl = lv_label_create(s_btn_sync_cal);
-    lv_label_set_text(sync_lbl, LV_SYMBOL_DOWNLOAD " Sync Curve from Cloud");
+    lv_label_set_text(sync_lbl, LV_SYMBOL_DOWNLOAD " Sync Cloud");
     lv_obj_center(sync_lbl);
     lv_obj_set_style_text_color(sync_lbl, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_font(sync_lbl, &lv_font_montserrat_14, 0);

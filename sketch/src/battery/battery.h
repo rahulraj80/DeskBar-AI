@@ -27,6 +27,8 @@ uint16_t battery_get_rolling_average_mv(void);
 // Dynamic Server-Assisted Battery Discharge Calibration
 bool battery_sync_from_cloud(const char *table_override);
 const char* battery_get_cal_source(void);
+const char* battery_get_cal_source_label(void);
+const char* battery_get_cal_timestamp(void);
 void battery_get_curve_points(float *out_volts, uint8_t *out_pcts, uint8_t *out_count);
 bool battery_save_nvs_curve(const float *volts, const uint8_t *pcts, uint8_t count, const char *source);
 
