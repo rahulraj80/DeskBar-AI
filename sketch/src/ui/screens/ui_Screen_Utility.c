@@ -265,30 +265,22 @@ void ui_Screen_Utility_screen_init(void)
     lv_obj_align(lbl_ota_text, LV_ALIGN_CENTER, 120, 46);
 
     // 5. Power & Breathing Profile Button (+240)
-    ui_Utility_Button_PowerProfile = lv_btn_create(ui_Screen_Utility);
-    lv_obj_set_size(ui_Utility_Button_PowerProfile, 52, 52);
+    ui_Utility_Button_PowerProfile = lv_img_create(ui_Screen_Utility);
+    lv_img_set_src(ui_Utility_Button_PowerProfile, &ui_img_utility_power_profile_png);
+    lv_obj_set_width(ui_Utility_Button_PowerProfile, LV_SIZE_CONTENT);
+    lv_obj_set_height(ui_Utility_Button_PowerProfile, LV_SIZE_CONTENT);
     lv_obj_set_x(ui_Utility_Button_PowerProfile, 240);
     lv_obj_set_y(ui_Utility_Button_PowerProfile, -10);
     lv_obj_set_align(ui_Utility_Button_PowerProfile, LV_ALIGN_CENTER);
-    lv_obj_set_style_bg_color(ui_Utility_Button_PowerProfile, lv_color_hex(0x161C28), 0);
-    lv_obj_set_style_border_color(ui_Utility_Button_PowerProfile, lv_color_hex(0x00F0FF), 0);
-    lv_obj_set_style_border_width(ui_Utility_Button_PowerProfile, 2, 0);
-    lv_obj_set_style_radius(ui_Utility_Button_PowerProfile, 26, 0);
     lv_obj_add_flag(ui_Utility_Button_PowerProfile, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_clear_flag(ui_Utility_Button_PowerProfile,
                       LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE |
                       LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_event_cb(ui_Utility_Button_PowerProfile, ui_event_Utility_Button_PowerProfile, LV_EVENT_CLICKED, NULL);
 
-    lv_obj_t *lbl_pp_icon = lv_label_create(ui_Utility_Button_PowerProfile);
-    lv_label_set_text(lbl_pp_icon, LV_SYMBOL_CHARGE);
-    lv_obj_center(lbl_pp_icon);
-    lv_obj_set_style_text_color(lbl_pp_icon, lv_color_hex(0x00F0FF), 0);
-    lv_obj_set_style_text_font(lbl_pp_icon, &lv_font_montserrat_20, 0);
-
     lv_obj_t *lbl_pp_text = lv_label_create(ui_Screen_Utility);
     lv_label_set_text(lbl_pp_text, "Power Profile");
-    lv_obj_set_style_text_color(lbl_pp_text, lv_color_hex(0x00F0FF), 0);
+    lv_obj_set_style_text_color(lbl_pp_text, lv_color_hex(0xCCCCCC), 0);
     lv_obj_set_style_text_font(lbl_pp_text, &lv_font_montserrat_12, 0);
     lv_obj_align(lbl_pp_text, LV_ALIGN_CENTER, 240, 46);
 

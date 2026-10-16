@@ -17,25 +17,25 @@ struct CatalogItem {
 #define GENERATED_CATALOG_COUNT 6
 
 static const CatalogItem s_generated_catalog[6] = {
-  // [0] v2.3.3
+  // [0] v2.3.4
   {
-    "v2.3.3", "PATCH", 0x00FF88, "Oct 16, 2026", "4.01 MB",
-    "• Add power_profile programmatic scrolling and live cloud sync feedback",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.3.bin",
+    "v2.3.4", "PATCH", 0x00FF88, "Oct 16, 2026", "4.01 MB",
+    "• Refine utility app icon, fine-grained BL stepping under 100, full-screen scrollable layout, and 1s cloud sync visual feedback",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.4.bin",
     4200000
   },
-  // [1] v2.3.2
+  // [1] v2.3.3
+  {
+    "v2.3.3", "PATCH", 0x00FF88, "Oct 16, 2026", "4.08 MB",
+    "• Add power_profile programmatic scrolling and live cloud sync feedback",
+    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.3.bin",
+    4283408
+  },
+  // [2] v2.3.2
   {
     "v2.3.2", "PATCH", 0x00FF88, "Oct 16, 2026", "4.08 MB",
     "• Shorten cloud sync button and add live source and pull timestamp feedback",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.2.bin",
-    4283408
-  },
-  // [2] v2.3.1
-  {
-    "v2.3.1", "PATCH", 0x00FF88, "Oct 16, 2026", "4.08 MB",
-    "• Fix ArduinoJson header in web_remote.cpp and build Power Profile release v2.3.1",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.1.bin",
     4283408
   },
   // [3] v2.2.5
@@ -63,9 +63,9 @@ static const CatalogItem s_generated_catalog[6] = {
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.3.3\",\"type\":\"patch\",\"build\":55,\"date\":\"Oct 16, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Add power_profile programmatic scrolling and live cloud sync feedback\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.3.bin\"},";
+  j += "{\"version\":\"2.3.4\",\"type\":\"patch\",\"build\":64,\"date\":\"Oct 16, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Refine utility app icon, fine-grained BL stepping under 100, full-screen scrollable layout, and 1s cloud sync visual feedback\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.4.bin\"},";
+  j += "{\"version\":\"2.3.3\",\"type\":\"patch\",\"build\":63,\"date\":\"Oct 16, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Add power_profile programmatic scrolling and live cloud sync feedback\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.3.bin\"},";
   j += "{\"version\":\"2.3.2\",\"type\":\"patch\",\"build\":54,\"date\":\"Oct 16, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Shorten cloud sync button and add live source and pull timestamp feedback\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.2.bin\"},";
-  j += "{\"version\":\"2.3.1\",\"type\":\"patch\",\"build\":53,\"date\":\"Oct 16, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix ArduinoJson header in web_remote.cpp and build Power Profile release v2.3.1\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.1.bin\"},";
   j += "{\"version\":\"2.2.5\",\"type\":\"patch\",\"build\":51,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.5.bin\"},";
   j += "{\"version\":\"2.2.4\",\"type\":\"patch\",\"build\":49,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Duty-cycled Wi-Fi burst telemetry in clock mode and USB charger auto-detect\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.4.bin\"},";
   j += "{\"version\":\"2.2.3\",\"type\":\"patch\",\"build\":48,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"•\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.3.bin\"}";

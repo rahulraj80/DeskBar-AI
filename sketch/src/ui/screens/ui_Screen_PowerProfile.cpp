@@ -30,6 +30,7 @@ static lv_obj_t * s_lbl_cal_status = NULL;
 static lv_obj_t * s_lbl_cal_source = NULL;
 static lv_obj_t * s_lbl_cal_time = NULL;
 static lv_obj_t * s_btn_sync_cal = NULL;
+static lv_obj_t * s_lbl_sync_btn = NULL;
 
 static power_profile_t s_local_cfg;
 
@@ -104,13 +105,35 @@ static void on_close_click(lv_event_t * e) {
 
 static void on_sync_cal_click(lv_event_t * e) {
     SCREEN_OFF_TIMER = millis();
+
+    // 1. Change button appearance to Syncing (warm amber)
+    if (s_btn_sync_cal) {
+        lv_obj_set_style_bg_color(s_btn_sync_cal, lv_color_hex(0x996600), 0);
+        lv_obj_set_style_border_color(s_btn_sync_cal, lv_color_hex(0xFFAA00), 0);
+    }
+    if (s_lbl_sync_btn) {
+        lv_label_set_text(s_lbl_sync_btn, LV_SYMBOL_REFRESH " Syncing...");
+    }
     if (s_lbl_cal_status) {
         lv_label_set_text(s_lbl_cal_status, "Syncing calibration from cloud...");
-        lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0x00E5FF), 0);
+        lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0xFFAA00), 0);
     }
+
+    // Force immediate redraw so user sees the "Syncing..." state
+    lv_refr_now(NULL);
+
+    uint32_t t_start = millis();
     bool ok = battery_sync_from_cloud(NULL);
+
+    // Keep "Syncing..." visual feedback for at least 1.0 second
+    uint32_t elapsed = millis() - t_start;
+    if (elapsed < 1000) {
+        delay(1000 - elapsed);
+    }
+
+    update_all_labels();
+
     if (ok) {
-        update_all_labels();
         if (s_lbl_cal_status) {
             float volts[BATTERY_CURVE_PTS];
             uint8_t count = 0;
@@ -127,6 +150,16 @@ static void on_sync_cal_click(lv_event_t * e) {
             lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0xFF5555), 0);
         }
     }
+
+    // Restore button appearance back to normal
+    if (s_btn_sync_cal) {
+        lv_obj_set_style_bg_color(s_btn_sync_cal, lv_color_hex(0x008855), 0);
+        lv_obj_set_style_border_color(s_btn_sync_cal, lv_color_hex(0x00FF88), 0);
+    }
+    if (s_lbl_sync_btn) {
+        lv_label_set_text(s_lbl_sync_btn, LV_SYMBOL_DOWNLOAD " Sync Cloud");
+    }
+    lv_refr_now(NULL);
 }
 
 // Stepper Helper: creates [Label] [ - ] [ Value ] [ + ]
@@ -221,23 +254,45 @@ static lv_obj_t* create_switch_row(lv_obj_t *parent, const char *title, lv_obj_t
 
 // Event callbacks for steppers
 static void cb_bl_start_minus(lv_event_t * e) {
-    if (s_local_cfg.bl_start > 5) s_local_cfg.bl_start -= 5;
+    uint8_t step = (s_local_cfg.bl_start <= 100) ? 1 : 5;
+    if (s_local_cfg.bl_start > step) {
+        s_local_cfg.bl_start -= step;
+    } else if (s_local_cfg.bl_start > 1) {
+        s_local_cfg.bl_start = 1;
+    }
     power_profile_set(&s_local_cfg);
     update_all_labels();
 }
+
 static void cb_bl_start_plus(lv_event_t * e) {
-    if (s_local_cfg.bl_start < s_local_cfg.bl_end - 5) s_local_cfg.bl_start += 5;
+    uint8_t step = (s_local_cfg.bl_start < 100) ? 1 : 5;
+    if (s_local_cfg.bl_start + step < s_local_cfg.bl_end) {
+        s_local_cfg.bl_start += step;
+    } else if (s_local_cfg.bl_start + 1 < s_local_cfg.bl_end) {
+        s_local_cfg.bl_start += 1;
+    }
     power_profile_set(&s_local_cfg);
     update_all_labels();
 }
 
 static void cb_bl_end_minus(lv_event_t * e) {
-    if (s_local_cfg.bl_end > s_local_cfg.bl_start + 5) s_local_cfg.bl_end -= 5;
+    uint8_t step = (s_local_cfg.bl_end <= 100) ? 1 : 5;
+    if (s_local_cfg.bl_end > s_local_cfg.bl_start + step) {
+        s_local_cfg.bl_end -= step;
+    } else if (s_local_cfg.bl_end > s_local_cfg.bl_start + 1) {
+        s_local_cfg.bl_end -= 1;
+    }
     power_profile_set(&s_local_cfg);
     update_all_labels();
 }
+
 static void cb_bl_end_plus(lv_event_t * e) {
-    if (s_local_cfg.bl_end < 255) s_local_cfg.bl_end += 5;
+    uint8_t step = (s_local_cfg.bl_end < 100) ? 1 : 5;
+    if ((int)s_local_cfg.bl_end + step <= 255) {
+        s_local_cfg.bl_end += step;
+    } else {
+        s_local_cfg.bl_end = 255;
+    }
     power_profile_set(&s_local_cfg);
     update_all_labels();
 }
@@ -329,33 +384,10 @@ void ui_power_profile_init(lv_obj_t *parent_screen) {
     lv_obj_add_flag(s_root_container, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(s_root_container, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Header Title
-    lv_obj_t *title = lv_label_create(s_root_container);
-    lv_label_set_text(title, "Power & Breathing Profile");
-    lv_obj_set_style_text_color(title, lv_color_hex(0x00F0FF), 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
-    lv_obj_set_pos(title, 14, 10);
-
-    // Floating Close Button [X] matching Settings standard
-    lv_obj_t *close_btn = lv_btn_create(s_root_container);
-    lv_obj_set_size(close_btn, 48, 32);
-    lv_obj_set_pos(close_btn, 582, 4);
-    lv_obj_set_style_bg_color(close_btn, lv_color_hex(0x1B2338), 0);
-    lv_obj_set_style_border_color(close_btn, lv_color_hex(0x00F0FF), 0);
-    lv_obj_set_style_border_width(close_btn, 1, 0);
-    lv_obj_set_style_radius(close_btn, 4, 0);
-    lv_obj_add_event_cb(close_btn, on_close_click, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *close_lbl = lv_label_create(close_btn);
-    lv_label_set_text(close_lbl, "X");
-    lv_obj_center(close_lbl);
-    lv_obj_set_style_text_color(close_lbl, lv_color_hex(0x00F0FF), 0);
-    lv_obj_set_style_text_font(close_lbl, &lv_font_montserrat_16, 0);
-
-    // Scrollable Box for touch controls
+    // Scrollable Box for touch controls (utilizes full 640x172 screen)
     s_scroll_box = lv_obj_create(s_root_container);
-    lv_obj_set_size(s_scroll_box, 640, 132);
-    lv_obj_set_pos(s_scroll_box, 0, 40);
+    lv_obj_set_size(s_scroll_box, 640, 172);
+    lv_obj_set_pos(s_scroll_box, 0, 0);
     lv_obj_set_style_bg_opa(s_scroll_box, 0, 0);
     lv_obj_set_style_border_width(s_scroll_box, 0, 0);
     lv_obj_set_style_radius(s_scroll_box, 0, 0);
@@ -365,6 +397,15 @@ void ui_power_profile_init(lv_obj_t *parent_screen) {
     lv_obj_set_flex_flow(s_scroll_box, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_scroll_dir(s_scroll_box, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(s_scroll_box, LV_SCROLLBAR_MODE_AUTO);
+
+    // Header Title inside scroll box (scrolls away cleanly to maximize card area)
+    lv_obj_t *title = lv_label_create(s_scroll_box);
+    lv_label_set_text(title, "Power & Breathing Profile");
+    lv_obj_set_style_text_color(title, lv_color_hex(0x00F0FF), 0);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_pad_top(title, 2, 0);
+    lv_obj_set_style_pad_bottom(title, 2, 0);
+    lv_obj_set_style_pad_left(title, 4, 0);
 
     // 1. Min Brightness Floor (BL Start)
     create_stepper_row(s_scroll_box, "BL Start (Floor)", &s_lbl_bl_start_val, cb_bl_start_minus, cb_bl_start_plus);
@@ -438,11 +479,28 @@ void ui_power_profile_init(lv_obj_t *parent_screen) {
     lv_obj_set_style_radius(s_btn_sync_cal, 6, 0);
     lv_obj_add_event_cb(s_btn_sync_cal, on_sync_cal_click, LV_EVENT_CLICKED, NULL);
 
-    lv_obj_t *sync_lbl = lv_label_create(s_btn_sync_cal);
-    lv_label_set_text(sync_lbl, LV_SYMBOL_DOWNLOAD " Sync Cloud");
-    lv_obj_center(sync_lbl);
-    lv_obj_set_style_text_color(sync_lbl, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_text_font(sync_lbl, &lv_font_montserrat_14, 0);
+    s_lbl_sync_btn = lv_label_create(s_btn_sync_cal);
+    lv_label_set_text(s_lbl_sync_btn, LV_SYMBOL_DOWNLOAD " Sync Cloud");
+    lv_obj_center(s_lbl_sync_btn);
+    lv_obj_set_style_text_color(s_lbl_sync_btn, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_font(s_lbl_sync_btn, &lv_font_montserrat_14, 0);
+
+    // Floating Close Button [X] pinned above scrolling content
+    lv_obj_t *close_btn = lv_btn_create(s_root_container);
+    lv_obj_set_size(close_btn, 44, 30);
+    lv_obj_set_pos(close_btn, 584, 6);
+    lv_obj_set_style_bg_color(close_btn, lv_color_hex(0x1B2338), 0);
+    lv_obj_set_style_bg_opa(close_btn, 240, 0);
+    lv_obj_set_style_border_color(close_btn, lv_color_hex(0x00F0FF), 0);
+    lv_obj_set_style_border_width(close_btn, 1, 0);
+    lv_obj_set_style_radius(close_btn, 4, 0);
+    lv_obj_add_event_cb(close_btn, on_close_click, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *close_lbl = lv_label_create(close_btn);
+    lv_label_set_text(close_lbl, "X");
+    lv_obj_center(close_lbl);
+    lv_obj_set_style_text_color(close_lbl, lv_color_hex(0x00F0FF), 0);
+    lv_obj_set_style_text_font(close_lbl, &lv_font_montserrat_16, 0);
 }
 
 void ui_power_profile_open(void) {

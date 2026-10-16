@@ -71,6 +71,7 @@ LV_IMG_DECLARE(ui_img_utility_torch_png);
 LV_IMG_DECLARE(ui_img_utility_systeminfo_png);
 LV_IMG_DECLARE(ui_img_utility_spirit_level_png);
 LV_IMG_DECLARE(ui_img_utility_firmware_ota_png);
+LV_IMG_DECLARE(ui_img_utility_power_profile_png);
 LV_IMG_DECLARE(ui_img_images_qr_png);    // assets/images/qr.png
 LV_IMG_DECLARE(ui_img_aqi_good_png);    // assets/aqi/good.png
 LV_IMG_DECLARE(ui_img_aqi_hazardous_png);    // assets/aqi/hazardous.png
