@@ -25,6 +25,7 @@
 #include "version.h"
 #include "generated_catalog.h"
 #include "power/power_profile.h"
+#include "ui/screens/ui_Screen_PowerProfile.h"
 
 extern Audio audio;
 extern Preferences pref;
@@ -1229,6 +1230,14 @@ static void handle_screen() {
             } else if (act == "utility") {
                 _ui_screen_change(&ui_Screen_Utility, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Utility_screen_init);
                 utilityMode(NULL);
+            } else if (act == "power_profile") {
+                _ui_screen_change(&ui_Screen_Utility, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Utility_screen_init);
+                utilityMode(NULL);
+                ui_power_profile_open();
+                if (server.hasArg("scroll")) {
+                    int sc = server.arg("scroll").toInt();
+                    ui_power_profile_scroll_to((int16_t)sc);
+                }
             } else if (act == "music" || act == "lan") {
                 _ui_screen_change(&ui_Screen_Player, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen_Player_screen_init);
                 musicPlayerMode(NULL);
@@ -1260,16 +1269,26 @@ static void handle_touch() {
         server.send(200, "application/json", "{\"status\":\"ok\",\"action\":\"tap\"}");
         return;
     }
+    if (server.hasArg("x1") && server.hasArg("y1") && server.hasArg("x2") && server.hasArg("y2")) {
+        int x1 = server.arg("x1").toInt();
+        int y1 = server.arg("y1").toInt();
+        int x2 = server.arg("x2").toInt();
+        int y2 = server.arg("y2").toInt();
+        uint32_t dur = server.hasArg("dur") ? server.arg("dur").toInt() : 350;
+        lvgl_port_inject_swipe((int16_t)x1, (int16_t)y1, (int16_t)x2, (int16_t)y2, dur);
+        server.send(200, "application/json", "{\"status\":\"ok\",\"action\":\"swipe\"}");
+        return;
+    }
     if (server.hasArg("swipe")) {
         String dir = server.arg("swipe");
         if (dir == "up") {
-            lvgl_port_inject_touch(320, 140, 150);
+            lvgl_port_inject_swipe(320, 150, 320, 20, 350);
         } else if (dir == "down") {
-            lvgl_port_inject_touch(320, 20, 150);
+            lvgl_port_inject_swipe(320, 20, 320, 150, 350);
         } else if (dir == "left") {
-            lvgl_port_inject_touch(550, 86, 150);
+            lvgl_port_inject_swipe(550, 86, 90, 86, 350);
         } else if (dir == "right") {
-            lvgl_port_inject_touch(90, 86, 150);
+            lvgl_port_inject_swipe(90, 86, 550, 86, 350);
         }
         server.send(200, "application/json", "{\"status\":\"ok\",\"action\":\"swipe\"}");
         return;
@@ -1753,6 +1772,8 @@ static void handle_power_profile_get() {
     json += "\"gate_audio\":" + String(pwr->gate_audio ? "true" : "false") + ",";
     json += "\"gate_sensors\":" + String(pwr->gate_sensors ? "true" : "false") + ",";
     json += "\"cal_source\":\"" + String(battery_get_cal_source()) + "\",";
+    json += "\"cal_source_label\":\"" + String(battery_get_cal_source_label()) + "\",";
+    json += "\"cal_time\":\"" + String(battery_get_cal_timestamp()) + "\",";
     json += "\"volts\":[";
     for (int i = 0; i < count; i++) {
         json += String(volts[i], 3) + (i < count - 1 ? "," : "");
@@ -1806,6 +1827,10 @@ static void handle_power_profile_post() {
 static void handle_battery_sync_cal() {
     bool ok = battery_sync_from_cloud(NULL);
     if (ok) {
+        if (lvgl_port_lock(500)) {
+            ui_power_profile_refresh();
+            lvgl_port_unlock();
+        }
         handle_power_profile_get();
     } else {
         server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to sync battery curve from cloud\"}");

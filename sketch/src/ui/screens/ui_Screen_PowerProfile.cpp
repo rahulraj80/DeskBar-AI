@@ -494,3 +494,13 @@ bool ui_power_profile_is_open(void) {
     if (!s_root_container) return false;
     return !lv_obj_has_flag(s_root_container, LV_OBJ_FLAG_HIDDEN);
 }
+
+void ui_power_profile_scroll_to(int16_t y) {
+    if (s_scroll_box) {
+        lv_obj_scroll_to_y(s_scroll_box, y, LV_ANIM_OFF);
+    }
+}
+
+void ui_power_profile_refresh(void) {
+    update_all_labels();
+}
