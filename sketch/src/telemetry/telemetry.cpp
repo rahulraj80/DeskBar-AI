@@ -128,8 +128,8 @@ void telemetry_collect_snapshot(void) {
     snap.psram_free_kb = (uint16_t)(free_psram / 1024);
     snap.psram_used_pct = (total_psram > 0) ? (uint8_t)(100 - (free_psram * 100 / total_psram)) : 0;
 
-    snap.batt_mv = (uint16_t)analogReadMilliVolts(ADC_BATT);
-    snap.batt_pct = pct;
+    snap.batt_mv = battery_get_and_reset_5min_average_mv();
+    snap.batt_pct = voltageToBatteryPercent((snap.batt_mv * BATTERY_VDIV) / 1000.0f);
     snap.rssi = (WiFi.status() == WL_CONNECTED) ? (int8_t)WiFi.RSSI() : (int8_t)0;
     snap.audio_playing = audio.isRunning() ? 1 : 0;
     snap.screen_state = BL_OFF ? 0 : 1;

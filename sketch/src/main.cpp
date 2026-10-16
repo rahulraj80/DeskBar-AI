@@ -1,4 +1,5 @@
 #include "battery/battery.h"
+#include "power/power_profile.h"
 #include "updater/updater.h"
 #include "secrets/secrets_manager.h"
 #include "ui/screens/ui_Screen_Consent.h"
@@ -210,7 +211,9 @@ void setup() {
     log_e("ES7210 FAILED to Initialize");
   }
 
-  // Alarm engine init (Preferences NVS on main thread)
+  // Subsystems & engines init (Preferences NVS on main thread)
+  battery_init();
+  power_profile_init();
   alarm_init();
   lan_stream_init();
   imu_sensor_init();

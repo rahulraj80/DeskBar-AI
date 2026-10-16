@@ -19,6 +19,9 @@ Preferences pref;
 #include "lvgl_port/lvgl_port.h"
 #include "screens/ui_Screen_Consent.h"
 #include "../secrets/secrets_manager.h"
+#include "power/power_profile.h"
+#include "imu/imu_service.h"
+#include "tca9554/tca9554.h"
 
 #include "ESP32-audioI2S-master/Audio.h"
 #include "es7210/es7210.h"
@@ -128,6 +131,10 @@ void exit_clock_breathing(void) {
   clock_face_active = 0;
 
   bsp_set_backlight_power(true);
+  bsp_set_audio_amp_power(true);
+  if (imu_sensor_is_sleeping()) {
+    imu_sensor_wake();
+  }
   screenPowerOn(); // Restores AP3032 boost rail and sets PWM duty according to backlight_state
 }
 
@@ -137,6 +144,10 @@ extern "C" void on_clock_interaction_wake(void) {
   SCREEN_OFF_TIMER = millis();
   BL_OFF = false;
   bsp_set_backlight_power(true);
+  bsp_set_audio_amp_power(true);
+  if (imu_sensor_is_sleeping()) {
+    imu_sensor_wake();
+  }
   screenPowerOn();
 
   if (clock_face_active) {
@@ -174,8 +185,15 @@ void update_clock_breathing(void) {
 
   uint32_t now = millis();
 
-  // If we are on the Clock face (infoPageIndex == 0 on ui_Screen_Info) and breathing was paused due to interaction:
+  // If we are not in clock breathing (active UI or audio playing), sample battery every 10s so accumulator has data
+  static uint32_t s_last_active_sample_ms = 0;
   if (!clock_face_active) {
+    if (now - s_last_active_sample_ms >= 10000UL) {
+      uint16_t raw_adc = (uint16_t)analogReadMilliVolts(BATTERY_ADC_PIN);
+      battery_accumulate_sample(raw_adc, true /* screen on */);
+      s_last_active_sample_ms = now;
+    }
+
     if (lv_scr_act() == ui_Screen_Info && infoPageIndex == 0) {
       if (SCREEN_OFF_DELAY == 0) return; // If screen off delay is Never (0), never re-engage breathing!
       if (s_clock_interaction_ms == 0) {
@@ -190,70 +208,113 @@ void update_clock_breathing(void) {
     return;
   }
 
-  const uint8_t min_bl = 91; // Hardware floor: soft vacuum tube glow
-  uint8_t max_bl;
-  switch (backlight_state) {
-    case 0:  max_bl = 105; break; // LOW breathing ceiling
-    case 1:  max_bl = 120; break; // MED breathing ceiling
-    default: max_bl = 150; break; // HIGH breathing ceiling
+  const power_profile_t *pwr = power_profile_get();
+  uint8_t min_bl = pwr->bl_start;
+  uint8_t max_bl = pwr->bl_end;
+  uint8_t bl_black = pwr->bl_black;
+  uint16_t ramp_up = pwr->ramp_up_ms;
+  uint16_t hold_high = pwr->hold_high_ms;
+  uint16_t ramp_down = pwr->ramp_down_ms;
+  uint32_t full_black_ms = pwr->hold_dark_ms;
+
+  // Inactivity tiering: after 30 mins of no interaction, extend full black
+  if (pwr->inactivity_tier && g_last_user_interaction_ms > 0 && (now - g_last_user_interaction_ms >= 30 * 60 * 1000UL)) {
+    full_black_ms *= 2;
   }
 
-  // Inactivity tiering: after 30 mins of no interaction, extend full black from 5.0s to 10.0s
-  uint32_t full_black_ms = 5000;
-  if (g_last_user_interaction_ms > 0 && (now - g_last_user_interaction_ms >= 30 * 60 * 1000UL)) {
-    full_black_ms = 10000; // 10.0s full black
-  }
+  static bool s_sampled_high = false;
+  static bool s_sampled_dark = false;
 
   uint32_t elapsed = millis() - breath_timer_ms;
 
   switch (breath_state) {
     case BREATH_FULL_BLACK:
-      bsp_set_backlight_power(false); // Cut AP3032 boost rail while dark!
-      setUpduty(255); // 0% PWM duty -> 100% full black
+      if (bl_black == 0) {
+        bsp_set_backlight_power(false); // Cut AP3032 boost rail while dark!
+        setUpduty(255); // 0% PWM duty -> 100% full black
+      } else {
+        bsp_set_backlight_power(true);
+        setUpduty(255 - bl_black);
+      }
+
+      // Dark Service Gating
+      if (pwr->gate_sensors && !imu_sensor_is_sleeping()) {
+        imu_sensor_sleep();
+      }
+      if (pwr->gate_audio && !audio.isRunning() && bsp_get_audio_amp_power()) {
+        bsp_set_audio_amp_power(false);
+      }
+
+      // Point 2: 2.0s after screen turned dark (stable Vrest)
+      if (elapsed >= 2000 && !s_sampled_dark) {
+        uint16_t raw_adc = (uint16_t)analogReadMilliVolts(BATTERY_ADC_PIN);
+        battery_accumulate_sample(raw_adc, false /* screen off */);
+        s_sampled_dark = true;
+      }
+
       if (elapsed >= full_black_ms) {
         bsp_set_backlight_power(true); // Re-enable boost rail!
+        if (pwr->gate_sensors && imu_sensor_is_sleeping()) {
+          imu_sensor_wake();
+        }
+        if (pwr->gate_audio && !bsp_get_audio_amp_power()) {
+          bsp_set_audio_amp_power(true);
+        }
         breath_state    = BREATH_FADE_IN;
         breath_timer_ms = millis();
-        log_i("[BREATH] State -> FADE_IN | From: %u -> To: %u (1.5s)", min_bl, max_bl);
+        s_sampled_dark  = false;
+        log_i("[BREATH] State -> FADE_IN | From: %u -> To: %u (%ums)", min_bl, max_bl, ramp_up);
       }
       break;
 
     case BREATH_FADE_IN:
       bsp_set_backlight_power(true);
-      if (elapsed < 1500) { // 1.5s smooth ramp up from min_bl to max_bl
-        float progress = (float)elapsed / 1500.0f;
+      if (elapsed < ramp_up) {
+        float progress = (float)elapsed / (float)ramp_up;
         uint8_t current_val = min_bl + (uint8_t)(progress * (float)(max_bl - min_bl));
         setUpduty(255 - current_val);
       } else {
         setUpduty(255 - max_bl);
         breath_state    = BREATH_HOLD_HIGH;
         breath_timer_ms = millis();
-        log_i("[BREATH] State -> HOLD_HIGH | At: %u PWM (2.0s)", max_bl);
+        s_sampled_high  = false;
+        log_i("[BREATH] State -> HOLD_HIGH | At: %u PWM (%ums)", max_bl, hold_high);
       }
       break;
 
     case BREATH_HOLD_HIGH:
       bsp_set_backlight_power(true);
       setUpduty(255 - max_bl);
-      if (elapsed >= 2000) { // 2.0s hold high at ceiling
+
+      // Point 1: 2.0s after screen turned on (fade-in + 500ms into hold_high = 2.0s loaded)
+      if (elapsed >= 500 && !s_sampled_high) {
+        uint16_t raw_adc = (uint16_t)analogReadMilliVolts(BATTERY_ADC_PIN);
+        battery_accumulate_sample(raw_adc, true /* screen on */);
+        s_sampled_high = true;
+      }
+
+      if (elapsed >= hold_high) {
         breath_state    = BREATH_FADE_OUT;
         breath_timer_ms = millis();
-        log_i("[BREATH] State -> FADE_OUT | From: %u -> To: %u (1.5s)", max_bl, min_bl);
+        log_i("[BREATH] State -> FADE_OUT | From: %u -> To: %u (%ums)", max_bl, min_bl, ramp_down);
       }
       break;
 
     case BREATH_FADE_OUT:
       bsp_set_backlight_power(true);
-      if (elapsed < 1500) { // 1.5s smooth ramp down from max_bl to min_bl
-        float progress = (float)elapsed / 1500.0f;
+      if (elapsed < ramp_down) {
+        float progress = (float)elapsed / (float)ramp_down;
         uint8_t current_val = max_bl - (uint8_t)(progress * (float)(max_bl - min_bl));
         setUpduty(255 - current_val);
       } else {
-        setUpduty(255); // 0% PWM duty -> drop to full black
-        bsp_set_backlight_power(false); // Cut AP3032 boost rail while dark!
+        setUpduty(255);
+        if (bl_black == 0) {
+          bsp_set_backlight_power(false); // Cut AP3032 boost rail while dark!
+        }
         breath_state    = BREATH_FULL_BLACK;
         breath_timer_ms = millis();
-        log_i("[BREATH] State -> FULL_BLACK | 0 PWM (%u ms dark)", (unsigned)full_black_ms);
+        s_sampled_dark  = false;
+        log_i("[BREATH] State -> FULL_BLACK | %u PWM (%u ms dark)", bl_black, (unsigned)full_black_ms);
       }
       break;
   }
@@ -280,12 +341,12 @@ void lvgl_wifi_check_cb(lv_timer_t *t) {
 
   // Allow Wi-Fi to connect and sync NTP time upon startup/reset before suppressing it in clock mode
   if (clock_face_active && g_boot_ntp_synced && (!audio.isRunning() || mediaType >= 2)) {
-    // If 2 mins of inactivity reached in clock mode, keep Wi-Fi OFF
-    if (g_last_user_interaction_ms > 0 && (millis() - g_last_user_interaction_ms >= 120000UL)) {
+    // If 2 mins of inactivity reached in clock mode, gate Wi-Fi OFF if enabled in power profile
+    if (power_profile_get()->gate_wifi && g_last_user_interaction_ms > 0 && (millis() - g_last_user_interaction_ms >= 120000UL)) {
       if (WiFi.getMode() != WIFI_OFF) {
         WiFi.disconnect(true);
         WiFi.mode(WIFI_OFF);
-        log_i("[POWER] 2 min inactivity in clock mode -> Wi-Fi turned OFF");
+        log_i("[POWER] 2 min inactivity in clock mode -> Wi-Fi gated OFF");
       }
       return;
     }

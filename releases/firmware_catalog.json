@@ -2,9 +2,19 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.3.0",
+      "type": "minor",
+      "build": 52,
+      "date": "Oct 16, 2026",
+      "title": "TuneBar v2.3.0: Power & Breathing Profile app, 2-point breathing battery sampling, and cloud calibration engine",
+      "changelog": "\u2022 Power & Breathing Profile app, 2-point breathing battery sampling, and cloud calibration engine",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.0.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.2.5",
       "type": "patch",
-      "build": 50,
+      "build": 51,
       "date": "Oct 15, 2026",
       "title": "TuneBar v2.2.5: Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry",
       "changelog": "\u2022 Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry",
