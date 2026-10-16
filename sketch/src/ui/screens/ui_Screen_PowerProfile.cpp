@@ -1,6 +1,7 @@
 #include "ui_Screen_PowerProfile.h"
 #include "../../power/power_profile.h"
 #include "../../battery/battery.h"
+#include "../../lvgl_port/lvgl_port.h"
 #include <Arduino.h>
 
 extern "C" {
@@ -103,8 +104,55 @@ static void on_close_click(lv_event_t * e) {
     ui_power_profile_close();
 }
 
+static volatile bool s_is_syncing = false;
+
+static void sync_worker_task(void *pv) {
+    uint32_t t_start = millis();
+    bool ok = battery_sync_from_cloud(NULL);
+
+    uint32_t elapsed = millis() - t_start;
+    if (elapsed < 1000) {
+        vTaskDelay(pdMS_TO_TICKS(1000 - elapsed));
+    }
+
+    if (lvgl_port_lock(1000)) {
+        update_all_labels();
+        if (ok) {
+            if (s_lbl_cal_status) {
+                float volts[BATTERY_CURVE_PTS];
+                uint8_t count = 0;
+                battery_get_curve_points(volts, NULL, &count);
+                char cbuf[96];
+                snprintf(cbuf, sizeof(cbuf), "Synced: 100%%=%.2fV | 0%%=%.2fV (%u pts)",
+                         volts[0], volts[count - 1], count);
+                lv_label_set_text(s_lbl_cal_status, cbuf);
+                lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0x00FF88), 0);
+            }
+        } else {
+            if (s_lbl_cal_status) {
+                lv_label_set_text(s_lbl_cal_status, "Sync failed! Check Wi-Fi connection.");
+                lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0xFF5555), 0);
+            }
+        }
+
+        // Restore button appearance back to normal
+        if (s_btn_sync_cal) {
+            lv_obj_set_style_bg_color(s_btn_sync_cal, lv_color_hex(0x008855), 0);
+            lv_obj_set_style_border_color(s_btn_sync_cal, lv_color_hex(0x00FF88), 0);
+        }
+        if (s_lbl_sync_btn) {
+            lv_label_set_text(s_lbl_sync_btn, LV_SYMBOL_DOWNLOAD " Sync Cloud");
+        }
+        lvgl_port_unlock();
+    }
+    s_is_syncing = false;
+    vTaskDelete(NULL);
+}
+
 static void on_sync_cal_click(lv_event_t * e) {
     SCREEN_OFF_TIMER = millis();
+    if (s_is_syncing) return;
+    s_is_syncing = true;
 
     // 1. Change button appearance to Syncing (warm amber)
     if (s_btn_sync_cal) {
@@ -119,47 +167,25 @@ static void on_sync_cal_click(lv_event_t * e) {
         lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0xFFAA00), 0);
     }
 
-    // Force immediate redraw so user sees the "Syncing..." state
-    lv_refr_now(NULL);
-
-    uint32_t t_start = millis();
-    bool ok = battery_sync_from_cloud(NULL);
-
-    // Keep "Syncing..." visual feedback for at least 1.0 second
-    uint32_t elapsed = millis() - t_start;
-    if (elapsed < 1000) {
-        delay(1000 - elapsed);
-    }
-
-    update_all_labels();
-
-    if (ok) {
-        if (s_lbl_cal_status) {
-            float volts[BATTERY_CURVE_PTS];
-            uint8_t count = 0;
-            battery_get_curve_points(volts, NULL, &count);
-            char cbuf[96];
-            snprintf(cbuf, sizeof(cbuf), "Synced: 100%%=%.2fV | 0%%=%.2fV (%u pts)",
-                     volts[0], volts[count - 1], count);
-            lv_label_set_text(s_lbl_cal_status, cbuf);
-            lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0x00FF88), 0);
+    BaseType_t res = xTaskCreatePinnedToCore(
+        sync_worker_task,
+        "cal_sync",
+        8192,
+        NULL,
+        1,
+        NULL,
+        1
+    );
+    if (res != pdPASS) {
+        s_is_syncing = false;
+        if (s_btn_sync_cal) {
+            lv_obj_set_style_bg_color(s_btn_sync_cal, lv_color_hex(0x008855), 0);
+            lv_obj_set_style_border_color(s_btn_sync_cal, lv_color_hex(0x00FF88), 0);
         }
-    } else {
-        if (s_lbl_cal_status) {
-            lv_label_set_text(s_lbl_cal_status, "Sync failed! Check Wi-Fi connection.");
-            lv_obj_set_style_text_color(s_lbl_cal_status, lv_color_hex(0xFF5555), 0);
+        if (s_lbl_sync_btn) {
+            lv_label_set_text(s_lbl_sync_btn, LV_SYMBOL_DOWNLOAD " Sync Cloud");
         }
     }
-
-    // Restore button appearance back to normal
-    if (s_btn_sync_cal) {
-        lv_obj_set_style_bg_color(s_btn_sync_cal, lv_color_hex(0x008855), 0);
-        lv_obj_set_style_border_color(s_btn_sync_cal, lv_color_hex(0x00FF88), 0);
-    }
-    if (s_lbl_sync_btn) {
-        lv_label_set_text(s_lbl_sync_btn, LV_SYMBOL_DOWNLOAD " Sync Cloud");
-    }
-    lv_refr_now(NULL);
 }
 
 // Stepper Helper: creates [Label] [ - ] [ Value ] [ + ]
