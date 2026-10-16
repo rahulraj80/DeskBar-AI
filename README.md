@@ -3,10 +3,10 @@
 ![ESP32-S3](https://img.shields.io/badge/SoC-ESP32--S3-blue?logo=espressif)
 ![Flash/PSRAM](https://img.shields.io/badge/Memory-16MB%20Flash%20%2F%208MB%20PSRAM-orange)
 ![Display](https://img.shields.io/badge/Display-3.49%22%20Capacitive%20Touch%20(640x172)-green)
-![Firmware](https://img.shields.io/badge/Version-v2.0.5-brightgreen)
+![Firmware](https://img.shields.io/badge/Version-v2.3.7-brightgreen)
 ![License](https://img.shields.io/badge/License-CC--BY--NC--SA--4.0-lightgrey)
 
-**TuneBar Advanced Edition** is an extensive architectural evolution of the TuneBar project for the official [Waveshare ESP32-S3-Touch-LCD-3.49](https://docs.waveshare.com/ESP32-S3-Touch-LCD-3.49?variant=ESP32-S3-Touch-LCD-3.49) development platform. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart media bar, and distributed telemetry station with high-fidelity acoustic processing, advanced power management, robust DRAM memory engineering, 6-language international radio, LAN media streaming, zero-bitmap procedural vector themes, and complete privacy controls.
+**TuneBar Advanced Edition** is an extensive architectural evolution of the TuneBar project for the official [Waveshare ESP32-S3-Touch-LCD-3.49](https://docs.waveshare.com/ESP32-S3-Touch-LCD-3.49?variant=ESP32-S3-Touch-LCD-3.49) development platform. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart media bar, and distributed telemetry station with high-fidelity acoustic processing, advanced power and breathing profile management, dynamic crowd-sourced battery discharge calibration, 6-axis digital spirit level, 6-language international radio, local SD & LAN media streaming, zero-bitmap procedural vector themes, and complete privacy controls.
 
 ---
 
@@ -43,77 +43,20 @@ TuneBar runs on the 3.49-inch capacitive touch screen development board powered 
 
 *All captures shown below are 100% genuine uncompressed framebuffers extracted directly from the physical ESP32-S3 hardware via `/api/screenshot`.*
 
-### 1. Retro Nixie Digital Clock Face
-![Nixie Clock Face](document/screen_clock.png)
-Authentic retro glowing Nixie tube display driven by the hardware PCF85063 RTC with real-time day/date and hardware battery telemetry (voltage and percentage). Features gentle sine-wave breathing PWM dimming and powers down the Wi-Fi modem during idle to conserve battery life.
-
----
-
-### 2. Live Weather, AQI & Climate Panel
-![Weather & Climate Panel](document/screen_weather.png)
-Ambient climate station displaying live weather conditions, temperature ($^\circ\text{C}$ or $^\circ\text{F}$), relative humidity, local wind speed, animated icons, and an integrated US AQI / PM2.5 particulate monitor with color-coded safety indices.
-
----
-
-### 3. Retro Alarm Clock
-![Retro Alarm Panel](document/screen_alarm.png)
-Dedicated emerald-green retro alarm interface with independent hour/minute adjustments, armed status toggling, and an acoustic audit button to test the NS4150B amplifier and 8Ω speaker.
-
----
-
-### 4. Main Menu Carousel (Neon Cards)
-![Main Menu Cards View 1](document/screen_menu_cards_1.png)
-![Main Menu Cards View 2](document/screen_menu_cards_2.png)
-Ultra-crisp $640\times172$ horizontal launcher carousel featuring 6 custom neon cards: **CLIMATE** (Cyan), **RADIO** (Pink), **MUSIC** (Purple), **AI VOICE** (Emerald Green), **SYSTEM** (Amber Gold), and **SETTINGS** (Slate). When audio is playing, the active card gently breathes with a soft luminance curve.
-
----
-
-### 5. Multilingual Global Internet Radio Player
-![Radio Player Hindi](document/screen_radio_player_hi.png)
-![Radio Player English](document/screen_radio_player_en.png)
-![Radio Player German](document/screen_radio_player_de.png)
-International live-streaming internet radio player supporting 6 world languages (**HI**, **EN**, **ES**, **CN**, **DE**, **JA**) with dynamic language badge indicators, standardized 64 KB prebuffering, and seamless background streaming.
-
----
-
-### 6. Media Player Subsystem — Local SD & LAN Streaming
-![Music Player Local SD](document/screen_music_local.png)
-![Music Player LAN Stream](document/screen_music_lan.png)
-Unified media engine with single-tap source switching between **LOCAL SD** (purple neon glow, $O(1)$ PSRAM seek) and **LAN STREAM** (cyan neon glow, local Wi-Fi HTTP streaming).
-
----
-
-### 7. Autonomous AI Voice Assistant
-![AI Voice Assistant](document/screen_assistant.png)
-Full-duplex conversational voice interface utilizing the onboard dual ES7210 MEMS microphones, hardware voice activity detection (VAD), Groq Whisper STT (<200ms), Llama 3.3 70B reasoning, and neural speech streaming.
-
----
-
-### 8. System Diagnostics, Hardware Utilities & Firmware OTA
 <p align="center">
-  <img src="document/screen_utility_4apps.png" alt="4 Utility Apps Launcher" width="98%" />
+  <img src="document/tunebar_apps_showcase.gif" alt="TuneBar Dynamic Interface Showcase (14 Applications)" width="100%" />
+  <br>
+  <em>Live hardware captures cycling through all 14 applications (3.0s transition).</em>
 </p>
 
-Four dedicated system tools: **Torch** (100% white backlight flashlight), **System Info** (live DRAM/PSRAM meters, FreeRTOS tasks, battery telemetry), **Spirit Level** (6-axis inclinometer), and **Firmware OTA** (on-device community release manager).
-
----
-
-### 9. Comprehensive Device Settings Suite
-![Settings Wi-Fi](document/screen_settings_wifi.png)
-![Settings Screen (Procedural Vector Themes)](document/screen_settings_screen.png)
-![Settings Music](document/screen_settings_music.png)
-![Settings Region](document/screen_settings_region.png)
-Full on-device settings tabs: Wi-Fi network manager (up to 10 saved SSIDs), Screen configuration (**7 procedural vector themes** with zero flash footprint), Music preferences, Region/Timezone configuration, and User Guide.
-
----
-
-### 10. First-Boot Cloud Registration Modal & Master PIN Setup
-<p align="center">
-  <img src="document/screen_consent_modal.png" alt="First-Boot Cloud Consent Notice" width="48%" />
-  <img src="document/screen_pin_setup.png" alt="Hardware TRNG Master PIN Setup" width="48%" />
-</p>
-
-Interactive registration modal presented on very first boot: configure a 4-digit Master PIN (or rely on the hardware TRNG default), preview your cryptographically isolated telemetry table hash (`TB_<hash>`), and choose whether to connect or operate 100% offline.
+| Ambient, Time & Core Utilities | Media, AI & System Management |
+| :--- | :--- |
+| **Retro Nixie Digital Clock Face**<br>[![Nixie Clock Face](document/screen_clock.png)](document/screen_clock.png)<br>Authentic retro glowing Nixie tubes, hardware RTC precision, real-time date/battery telemetry, and sine PWM breathing dimming. | **Multilingual Global Internet Radio**<br>[![Radio Player](document/screen_radio_player_hi.png)](document/screen_radio_player_hi.png)<br>Live streaming across 6 world languages (**HI**, **EN**, **ES**, **CN**, **DE**, **JA**) with dynamic catalog selection and background audio. |
+| **Live Climate, Weather & AQI Station**<br>[![Climate & Weather](document/screen_weather.png)](document/screen_weather.png)<br>Live weather conditions, temperature, humidity, local wind speed, and real-time US AQI / PM2.5 index with color safety indicators. | **Local SD & LAN Music Player**<br>[![Music Player](document/screen_music_playing.png)](document/screen_music_playing.png)<br>$O(1)$ PSRAM seek for local SD FATFS tracks + Wi-Fi HTTP LAN music streaming with DMA bounce-buffer protection. |
+| **Retro Alarm Clock Interface**<br>[![Retro Alarm](document/screen_alarm.png)](document/screen_alarm.png)<br>Emerald-green retro alarm interface with independent hour/minute adjustments, armed status toggling, and acoustic audit test. | **Autonomous AI Voice Assistant**<br>[![AI Voice Assistant](document/screen_assistant.png)](document/screen_assistant.png)<br>Conversational voice interface: dual MEMS mic capture, Groq Whisper STT (<200ms), Llama 3.3 70B reasoning, and neural TTS. |
+| **6-Axis Digital Spirit Level & Inclinometer**<br>[![Spirit Level](document/screen_spirit_level_panel1.png)](document/screen_spirit_level_panel1.png)<br>QMI8658 6-axis IMU bullseye inclinometer, roll/pitch display, and 8-step guided 3D calibration wizard. | **Power & Breathing Profile Manager**<br>[![Power Profile](document/screen_power_profile.png)](document/screen_power_profile.png)<br>Scrollable control panel for breathing duty/timings, service gating, and crowd-sourced cloud battery discharge curve fitting. |
+| **System Utilities & App Launcher (5 Apps)**<br>[![Utility Launcher](document/screen_utility_5apps.png)](document/screen_utility_5apps.png)<br>Dedicated tools launcher: Torch flashlight, System Info diagnostics, Spirit Level, Power Profile, and Firmware OTA. | **On-Device Firmware OTA Manager**<br>[![Firmware OTA](document/screen_ota_carousel.png)](document/screen_ota_carousel.png)<br>Multi-repo community releases, dynamic GitHub catalog generation, SHA256 integrity verification, and battery safety interlocks. |
+| **Procedural Vector Display Themes**<br>[![Vector Themes](document/screen_settings_screen.png)](document/screen_settings_screen.png)<br>7 math-generated procedural vector themes (Amber, Emerald, Cyan, Ruby, Lavender, Gold, Monochrome) with 0 bytes flash cost. | **First-Boot Security & Master PIN Setup**<br>[![First-Boot Security](document/screen_consent_modal.png)](document/screen_consent_modal.png)<br>Hardware TRNG PIN setup, isolated SHA256 telemetry tables (`TB_<hash>`), and complete offline mode toggle. |
 
 ---
 
