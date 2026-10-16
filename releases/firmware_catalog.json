@@ -2,6 +2,16 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.3.5",
+      "type": "patch",
+      "build": 65,
+      "date": "Oct 16, 2026",
+      "title": "TuneBar v2.3.5: Async cloud battery calibration sync in dedicated background task",
+      "changelog": "\u2022 Async cloud battery calibration sync in dedicated background task",
+      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.5.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.3.4",
       "type": "patch",
       "build": 64,
@@ -9,7 +19,7 @@
       "title": "TuneBar v2.3.4: Refine utility app icon, fine-grained BL stepping under 100, full-screen scrollable layout, and 1s cloud sync visual feedback",
       "changelog": "\u2022 Refine utility app icon, fine-grained BL stepping under 100, full-screen scrollable layout, and 1s cloud sync visual feedback",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.4.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.3.3",
@@ -19,16 +29,6 @@
       "title": "TuneBar v2.3.3: Add power_profile programmatic scrolling and live cloud sync feedback",
       "changelog": "\u2022 Add power_profile programmatic scrolling and live cloud sync feedback",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.3.bin",
-      "size": 4283408
-    },
-    {
-      "version": "2.3.2",
-      "type": "patch",
-      "build": 54,
-      "date": "Oct 16, 2026",
-      "title": "TuneBar v2.3.2: Shorten cloud sync button and add live source and pull timestamp feedback",
-      "changelog": "\u2022 Shorten cloud sync button and add live source and pull timestamp feedback",
-      "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.2.bin",
       "size": 4283408
     },
     {
