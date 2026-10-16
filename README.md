@@ -184,7 +184,11 @@ This software and firmware codebase is licensed under the **GNU General Public L
 
 ## ☕ Support TuneBar (Advanced AI Edition)
 
-TuneBar is free and open-source. If it is useful to you — or just fun to tinker with — consider supporting its ongoing development. Every little bit helps keep the project active and maintained.
+TuneBar is free and open-source. [Click here to support the Original Repo by VaAndCob](https://github.com/VaAndCob/TuneBar#license)
+
+If you enjoyed the Advanced Edition with the new AI and Smart Features - please click below to support the continued development of the TuneBar (Advanced Edition) — Autonomous AI Voice Assistant & Smart Media Bar.
+
+Every little bit helps keep the project active and maintained.
 
 <p align="center">
   <a href="https://razorpay.me/@rahulraj593" target="_blank" rel="noopener noreferrer">
