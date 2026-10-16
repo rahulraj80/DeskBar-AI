@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <Update.h>
 #include <Preferences.h>
+#include <ArduinoJson.h>
 #include "esp_heap_caps.h"
 #include "ESP32-audioI2S-master/Audio.h"
 #include "file/file.h"
