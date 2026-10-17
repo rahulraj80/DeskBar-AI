@@ -2,6 +2,16 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.6.1",
+      "type": "patch",
+      "build": 83,
+      "date": "Oct 18, 2026",
+      "title": "DeskBar AI v2.6.1: Fix scale and orientation label glyphs with clean ASCII +/-",
+      "changelog": "\u2022 Fix scale and orientation label glyphs with clean ASCII +/-",
+      "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.1.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.6.0",
       "type": "minor",
       "build": 82,
@@ -9,7 +19,7 @@
       "title": "DeskBar AI v2.6.0: Enlarge spirit level raw IMU graph 12x with 3-axis traces, touch dynamic scale, and compact orientations",
       "changelog": "\u2022 Enlarge spirit level raw IMU graph 12x with 3-axis traces, touch dynamic scale, and compact orientations",
       "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.0.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.5.1",

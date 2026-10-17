@@ -67,8 +67,8 @@ struct NamedOrientationRow {
 static NamedOrientationRow s_named_orientations[4] = {
     {"1. LANDSCAPE",   "Y[-1.0g]",      0.0f, -1.0f,  0.0f, NULL, NULL},
     {"2. TILTED 30°",  "Y-.8 Z+.5",     0.0f, -0.86f, 0.5f, NULL, NULL},
-    {"3. PORTRAIT",    "X[±1.0g]",      1.0f,  0.0f,  0.0f, NULL, NULL},
-    {"4. DESK FLAT",   "Z[±1.0g]",      0.0f,  0.0f,  1.0f, NULL, NULL}
+    {"3. PORTRAIT",    "X[+/-1.0g]",    1.0f,  0.0f,  0.0f, NULL, NULL},
+    {"4. DESK FLAT",   "Z[+/-1.0g]",    0.0f,  0.0f,  1.0f, NULL, NULL}
 };
 
 static float s_tolerance_deg = 2.0f;
@@ -265,10 +265,10 @@ static void tol_reset_cb(lv_event_t * e) {
 static void update_chart_scale_label(void) {
     if (!s_lbl_chart_scale) return;
     if (s_chart_scale_mode == CHART_SCALE_1G) {
-        lv_label_set_text(s_lbl_chart_scale, "±1.0g [TAP]");
+        lv_label_set_text(s_lbl_chart_scale, "+/-1.0g [TAP]");
         lv_obj_set_style_text_color(s_lbl_chart_scale, lv_color_hex(0x00FF88), LV_PART_MAIN);
     } else if (s_chart_scale_mode == CHART_SCALE_2G) {
-        lv_label_set_text(s_lbl_chart_scale, "±2.0g [TAP]");
+        lv_label_set_text(s_lbl_chart_scale, "+/-2.0g [TAP]");
         lv_obj_set_style_text_color(s_lbl_chart_scale, lv_color_hex(0x00D2FF), LV_PART_MAIN);
     } else {
         lv_label_set_text(s_lbl_chart_scale, "AUTO [TAP]");
