@@ -9,6 +9,7 @@ static lv_obj_t *s_subtitle_label = NULL;
 static lv_obj_t *s_warning_label = NULL;
 static lv_obj_t *s_table_label = NULL;
 static lv_obj_t *s_code_label = NULL;
+static lv_obj_t *s_timer_label = NULL;
 static lv_obj_t *s_btn_digits[4] = {NULL};
 static lv_obj_t *s_lbl_digits[4] = {NULL};
 static lv_timer_t *s_totp_timer = NULL;
@@ -21,12 +22,16 @@ static void update_totp_display(void) {
     uint32_t code = 0;
     uint32_t rem_sec = 0;
     if (secrets_calculate_totp(&code, &rem_sec)) {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "WEB ACCESS CODE:  [ %03u %03u ]   (%02us)",
-                 (unsigned)(code / 1000), (unsigned)(code % 1000), (unsigned)rem_sec);
-        lv_label_set_text(s_code_label, buf);
+        char code_buf[32];
+        snprintf(code_buf, sizeof(code_buf), "[ %03u %03u ]",
+                 (unsigned)(code / 1000), (unsigned)(code % 1000));
+        lv_label_set_text(s_code_label, code_buf);
+        char timer_buf[16];
+        snprintf(timer_buf, sizeof(timer_buf), "(%02us)", (unsigned)rem_sec);
+        if (s_timer_label) lv_label_set_text(s_timer_label, timer_buf);
     } else {
-        lv_label_set_text(s_code_label, "WEB ACCESS CODE:  [ CONNECT WIFI TO SYNC CODE ]");
+        lv_label_set_text(s_code_label, "[ CONNECT WIFI ]");
+        if (s_timer_label) lv_label_set_text(s_timer_label, "(--s)");
     }
 }
 
@@ -47,7 +52,7 @@ static void update_table_preview(void) {
     char tbl_buf[32];
     secrets_calculate_table_for_pin(pin_str, tbl_buf, sizeof(tbl_buf));
     char disp_buf[64];
-    snprintf(disp_buf, sizeof(disp_buf), "Target Table: %s", tbl_buf);
+    snprintf(disp_buf, sizeof(disp_buf), "TABLE: %s", tbl_buf);
     if (s_table_label) {
         lv_label_set_text(s_table_label, disp_buf);
     }
@@ -149,38 +154,50 @@ void ui_consent_modal_init(lv_obj_t *parent) {
     lv_obj_set_style_radius(s_consent_backdrop, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(s_consent_backdrop, 0, LV_PART_MAIN);
 
-    // 2. High-tech Card Dialog
+    // 2. High-tech Card Dialog (624 x 160 expanded width)
     lv_obj_t *card = lv_obj_create(s_consent_backdrop);
-    lv_obj_set_size(card, 608, 158);
-    lv_obj_set_pos(card, 16, 7);
+    lv_obj_set_size(card, 624, 160);
+    lv_obj_set_pos(card, 8, 6);
     lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(card, lv_color_hex(0x0A0F1D), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(card, 255, LV_PART_MAIN);
     lv_obj_set_style_border_color(card, lv_color_hex(0x00F0FF), LV_PART_MAIN);
     lv_obj_set_style_border_width(card, 2, LV_PART_MAIN);
     lv_obj_set_style_radius(card, 8, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(card, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(card, 6, LV_PART_MAIN);
 
     // Title
     s_title_label = lv_label_create(card);
-    lv_obj_set_pos(s_title_label, 12, 3);
+    lv_obj_set_pos(s_title_label, 10, 3);
     lv_label_set_text(s_title_label, "CLOUD TELEMETRY & SECURITY PIN SETUP");
     lv_obj_set_style_text_color(s_title_label, lv_color_hex(0x00F0FF), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_title_label, &lv_font_montserrat_12, LV_PART_MAIN);
 
     // Subtitle Notice
     s_subtitle_label = lv_label_create(card);
-    lv_obj_set_pos(s_subtitle_label, 12, 19);
-    lv_obj_set_width(s_subtitle_label, 580);
+    lv_obj_set_pos(s_subtitle_label, 10, 18);
+    lv_obj_set_width(s_subtitle_label, 595);
     lv_label_set_text(s_subtitle_label, "Set your 4-digit PIN (tap digits to cycle 0-9) to create your isolated cloud table.");
     lv_obj_set_style_text_color(s_subtitle_label, lv_color_hex(0x94A3B8), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_subtitle_label, &lv_font_montserrat_10, LV_PART_MAIN);
 
-    // 4 PIN Digit Selector Buttons
+    // Subtle Vertical Divider separating Left and Right columns
+    lv_obj_t *sep = lv_obj_create(card);
+    lv_obj_set_size(sep, 1, 68);
+    lv_obj_set_pos(sep, 248, 36);
+    lv_obj_set_style_bg_color(sep, lv_color_hex(0x1E293B), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(sep, 255, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(sep, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(sep, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+    // ==========================================
+    // LEFT COLUMN: PIN Digits & Target Table
+    // ==========================================
     for (int i = 0; i < 4; i++) {
         s_btn_digits[i] = lv_btn_create(card);
         lv_obj_set_size(s_btn_digits[i], 44, 28);
-        lv_obj_set_pos(s_btn_digits[i], 16 + (i * 50), 36);
+        lv_obj_set_pos(s_btn_digits[i], 12 + (i * 48), 36);
         lv_obj_set_style_bg_color(s_btn_digits[i], lv_color_hex(0x131B2E), LV_PART_MAIN);
         lv_obj_set_style_border_color(s_btn_digits[i], lv_color_hex(0x00F0FF), LV_PART_MAIN);
         lv_obj_set_style_border_width(s_btn_digits[i], 1, LV_PART_MAIN);
@@ -191,37 +208,63 @@ void ui_consent_modal_init(lv_obj_t *parent) {
         lv_label_set_text(s_lbl_digits[i], "0");
         lv_obj_set_align(s_lbl_digits[i], LV_ALIGN_CENTER);
         lv_obj_set_style_text_color(s_lbl_digits[i], lv_color_hex(0x00F0FF), LV_PART_MAIN);
-        lv_obj_set_style_text_font(s_lbl_digits[i], &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_set_style_text_font(s_lbl_digits[i], &lv_font_montserrat_16, LV_PART_MAIN);
     }
 
-    // Target Table Preview Badge
+    // Target Table Preview Badge (larger font & prominent)
     s_table_label = lv_label_create(card);
-    lv_obj_set_pos(s_table_label, 226, 42);
-    lv_label_set_text(s_table_label, "Target Table: TB_56B4EF78CEA249AE");
+    lv_obj_set_pos(s_table_label, 12, 72);
+    lv_label_set_text(s_table_label, "TABLE: TB_56B4EF78CEA249AE");
     lv_obj_set_style_text_color(s_table_label, lv_color_hex(0xFBBF24), LV_PART_MAIN);
-    lv_obj_set_style_text_font(s_table_label, &lv_font_montserrat_10, LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_table_label, &lv_font_montserrat_12, LV_PART_MAIN);
 
-    // Dynamic TOTP Web Access Code Badge
+    // ==========================================
+    // RIGHT COLUMN: Prominent Web Access Code
+    // ==========================================
+    // Sub-header: "WEB ACCESS CODE:" on left, "30-DAY ACCESS" on right
+    lv_obj_t *lbl_access_hdr = lv_label_create(card);
+    lv_obj_set_pos(lbl_access_hdr, 264, 36);
+    lv_label_set_text(lbl_access_hdr, "WEB ACCESS CODE:");
+    lv_obj_set_style_text_color(lbl_access_hdr, lv_color_hex(0x94A3B8), LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl_access_hdr, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    lv_obj_t *lbl_badge_30d = lv_label_create(card);
+    lv_obj_set_pos(lbl_badge_30d, 510, 36);
+    lv_label_set_text(lbl_badge_30d, "30-DAY ACCESS");
+    lv_obj_set_style_text_color(lbl_badge_30d, lv_color_hex(0x38BDF8), LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl_badge_30d, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    // Large Prominent Code [ 860 193 ] (font 20)
     s_code_label = lv_label_create(card);
-    lv_obj_set_pos(s_code_label, 16, 64);
-    lv_label_set_text(s_code_label, "WEB ACCESS CODE:  [ CONNECT WIFI TO SYNC CODE ]");
+    lv_obj_set_pos(s_code_label, 264, 52);
+    lv_label_set_text(s_code_label, "[ CONNECT WIFI ]");
     lv_obj_set_style_text_color(s_code_label, lv_color_hex(0x00F0FF), LV_PART_MAIN);
-    lv_obj_set_style_text_font(s_code_label, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_code_label, &lv_font_montserrat_20, LV_PART_MAIN);
 
-    // Explicit Partition Warning
+    // Countdown Timer beside the code in amber font 12
+    s_timer_label = lv_label_create(card);
+    lv_obj_set_pos(s_timer_label, 452, 57);
+    lv_label_set_text(s_timer_label, "(--s)");
+    lv_obj_set_style_text_color(s_timer_label, lv_color_hex(0xFBBF24), LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_timer_label, &lv_font_montserrat_12, LV_PART_MAIN);
+
+    // Explanatory Message
     s_warning_label = lv_label_create(card);
-    lv_obj_set_pos(s_warning_label, 16, 86);
-    lv_obj_set_width(s_warning_label, 580);
+    lv_obj_set_pos(s_warning_label, 264, 82);
+    lv_obj_set_width(s_warning_label, 340);
     lv_label_set_text(s_warning_label,
         "Enter this 6-digit code on web dashboard for 30-day access. Diagnostics contain zero personal data."
     );
     lv_obj_set_style_text_color(s_warning_label, lv_color_hex(0xCBD5E1), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_warning_label, &lv_font_montserrat_10, LV_PART_MAIN);
 
+    // ==========================================
+    // FOOTER ACTION BUTTONS
+    // ==========================================
     // Confirm & Connect Button
     lv_obj_t *btn_acc = lv_btn_create(card);
-    lv_obj_set_size(btn_acc, 260, 30);
-    lv_obj_set_pos(btn_acc, 16, 112);
+    lv_obj_set_size(btn_acc, 290, 28);
+    lv_obj_set_pos(btn_acc, 12, 114);
     lv_obj_set_style_bg_color(btn_acc, lv_color_hex(0x064E3B), LV_PART_MAIN);
     lv_obj_set_style_border_color(btn_acc, lv_color_hex(0x34D399), LV_PART_MAIN);
     lv_obj_set_style_border_width(btn_acc, 2, LV_PART_MAIN);
@@ -236,8 +279,8 @@ void ui_consent_modal_init(lv_obj_t *parent) {
 
     // Stay Offline Button
     lv_obj_t *btn_dec = lv_btn_create(card);
-    lv_obj_set_size(btn_dec, 260, 30);
-    lv_obj_set_pos(btn_dec, 310, 112);
+    lv_obj_set_size(btn_dec, 290, 28);
+    lv_obj_set_pos(btn_dec, 310, 114);
     lv_obj_set_style_bg_color(btn_dec, lv_color_hex(0x2A200A), LV_PART_MAIN);
     lv_obj_set_style_border_color(btn_dec, lv_color_hex(0xFBBF24), LV_PART_MAIN);
     lv_obj_set_style_border_width(btn_dec, 1, LV_PART_MAIN);

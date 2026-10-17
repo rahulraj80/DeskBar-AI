@@ -10,6 +10,7 @@ extern uint8_t mediaType;
 lv_obj_t * ui_Screen_Player = NULL;
 lv_obj_t * ui_Player_Textarea_status = NULL;
 lv_obj_t * ui_Player_Label_trackNumber = NULL;
+lv_obj_t * ui_Player_Label_streamQuality = NULL;
 lv_obj_t * ui_Player_Container_VolumeControl = NULL;
 lv_obj_t * ui_Player_Button_volumeup = NULL;
 lv_obj_t * ui_Player_Label_Label1 = NULL;
@@ -228,6 +229,19 @@ void ui_Screen_Player_screen_init(void)
     lv_obj_set_style_text_opa(ui_Player_Label_trackNumber, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui_Player_Label_trackNumber, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_Player_Label_trackNumber, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_Player_Label_streamQuality = lv_label_create(ui_Screen_Player);
+    lv_obj_set_width(ui_Player_Label_streamQuality, LV_SIZE_CONTENT);
+    lv_obj_set_height(ui_Player_Label_streamQuality, LV_SIZE_CONTENT);
+    lv_obj_set_x(ui_Player_Label_streamQuality, 318);
+    lv_obj_set_y(ui_Player_Label_streamQuality, 7);
+    lv_obj_set_align(ui_Player_Label_streamQuality, LV_ALIGN_TOP_LEFT);
+    lv_label_set_text(ui_Player_Label_streamQuality, "");
+    lv_obj_set_style_text_color(ui_Player_Label_streamQuality, lv_color_hex(0x00E5FF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_Player_Label_streamQuality, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(ui_Player_Label_streamQuality, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Player_Label_streamQuality, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_add_flag(ui_Player_Label_streamQuality, LV_OBJ_FLAG_HIDDEN);
 
     ui_Player_Textarea_status = lv_textarea_create(ui_Screen_Player);
     lv_obj_set_width(ui_Player_Textarea_status, 400);
@@ -679,6 +693,7 @@ void ui_Screen_Player_screen_destroy(void)
     ui_Screen_Player = NULL;
     ui_Player_Textarea_status = NULL;
     ui_Player_Label_trackNumber = NULL;
+    ui_Player_Label_streamQuality = NULL;
     ui_Player_Container_VolumeControl = NULL;
     ui_Player_Button_volumeup = NULL;
     ui_Player_Label_Label1 = NULL;

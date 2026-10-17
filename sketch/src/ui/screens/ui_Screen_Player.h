@@ -17,6 +17,7 @@ extern void ui_event_Screen_Player(lv_event_t * e);
 extern lv_obj_t * ui_Screen_Player;
 extern lv_obj_t * ui_Player_Textarea_status;
 extern lv_obj_t * ui_Player_Label_trackNumber;
+extern lv_obj_t * ui_Player_Label_streamQuality;
 extern lv_obj_t * ui_Player_Container_VolumeControl;
 extern void ui_event_Player_Button_volumeup(lv_event_t * e);
 extern lv_obj_t * ui_Player_Button_volumeup;

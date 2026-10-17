@@ -17,58 +17,58 @@ struct CatalogItem {
 #define GENERATED_CATALOG_COUNT 6
 
 static const CatalogItem s_generated_catalog[6] = {
-  // [0] v2.4.0
+  // [0] v2.5.0
   {
-    "v2.4.0", "MINOR", 0x00B0FF, "Oct 17, 2026", "4.01 MB",
-    "• Add dynamic TOTP hardware cloud authentication and TB_DEVICE_AUTH table",
-    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.4.0.bin",
+    "v2.5.0", "MINOR", 0x00B0FF, "Oct 17, 2026", "4.01 MB",
+    "• Prominent two-column Cloud & PIN layout and Radio stream quality telemetry",
+    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.5.0.bin",
     4200000
   },
-  // [1] v2.3.7
+  // [1] v2.4.0
+  {
+    "v2.4.0", "MINOR", 0x00B0FF, "Oct 17, 2026", "4.08 MB",
+    "• Add dynamic TOTP hardware cloud authentication and TB_DEVICE_AUTH table",
+    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.4.0.bin",
+    4283408
+  },
+  // [2] v2.3.7
   {
     "v2.3.7", "PATCH", 0x00FF88, "Oct 16, 2026", "4.08 MB",
     "• Fix audio cutting during clock breathing and resolve SD card playback crash",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.7.bin",
     4283408
   },
-  // [2] v2.3.6
+  // [3] v2.3.6
   {
     "v2.3.6", "PATCH", 0x00FF88, "Oct 16, 2026", "4.08 MB",
     "• Fix audio cutting during clock breathing and resolve SD card playback crash",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.6.bin",
     4283408
   },
-  // [3] v2.3.5
+  // [4] v2.3.5
   {
     "v2.3.5", "PATCH", 0x00FF88, "Oct 16, 2026", "4.08 MB",
     "• Async cloud battery calibration sync in dedicated background task",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.5.bin",
     4283408
   },
-  // [4] v2.2.5
+  // [5] v2.2.5
   {
     "v2.2.5", "PATCH", 0x00FF88, "Oct 15, 2026", "4.08 MB",
     "• Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry",
     "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.5.bin",
-    4283408
-  },
-  // [5] v2.2.4
-  {
-    "v2.2.4", "PATCH", 0x00FF88, "Oct 15, 2026", "4.08 MB",
-    "• Duty-cycled Wi-Fi burst telemetry in clock mode and USB charger auto-detect",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.4.bin",
     4283408
   }
 };
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.4.0\",\"type\":\"minor\",\"build\":74,\"date\":\"Oct 17, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Add dynamic TOTP hardware cloud authentication and TB_DEVICE_AUTH table\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.4.0.bin\"},";
+  j += "{\"version\":\"2.5.0\",\"type\":\"minor\",\"build\":76,\"date\":\"Oct 17, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Prominent two-column Cloud & PIN layout and Radio stream quality telemetry\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.5.0.bin\"},";
+  j += "{\"version\":\"2.4.0\",\"type\":\"minor\",\"build\":75,\"date\":\"Oct 17, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Add dynamic TOTP hardware cloud authentication and TB_DEVICE_AUTH table\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.4.0.bin\"},";
   j += "{\"version\":\"2.3.7\",\"type\":\"patch\",\"build\":73,\"date\":\"Oct 16, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix audio cutting during clock breathing and resolve SD card playback crash\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.7.bin\"},";
   j += "{\"version\":\"2.3.6\",\"type\":\"patch\",\"build\":66,\"date\":\"Oct 16, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix audio cutting during clock breathing and resolve SD card playback crash\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.6.bin\"},";
   j += "{\"version\":\"2.3.5\",\"type\":\"patch\",\"build\":65,\"date\":\"Oct 16, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Async cloud battery calibration sync in dedicated background task\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.5.bin\"},";
-  j += "{\"version\":\"2.2.5\",\"type\":\"patch\",\"build\":51,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.5.bin\"},";
-  j += "{\"version\":\"2.2.4\",\"type\":\"patch\",\"build\":49,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Duty-cycled Wi-Fi burst telemetry in clock mode and USB charger auto-detect\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.4.bin\"}";
+  j += "{\"version\":\"2.2.5\",\"type\":\"patch\",\"build\":51,\"date\":\"Oct 15, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix clock_face_active extern and enable duty-cycled Wi-Fi burst telemetry\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.2.5.bin\"}";
   j += "]}";
   return j;
 }

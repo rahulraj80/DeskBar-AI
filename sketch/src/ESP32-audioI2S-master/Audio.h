@@ -159,6 +159,7 @@ class Audio {
     uint32_t         getAudioFileDuration();
     uint32_t         getAudioCurrentTime();
     uint32_t         getAudioFilePosition();
+    uint32_t         getTotalBytesRead() { return m_audioFilePosition; }
     bool             setAudioFilePosition(uint32_t pos);
     uint16_t         getVUlevel();
     uint32_t         inBufferFilled();            // returns the number of stored bytes in the inputbuffer
