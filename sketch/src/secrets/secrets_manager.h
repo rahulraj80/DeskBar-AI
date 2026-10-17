@@ -40,6 +40,11 @@ void secrets_calculate_table_for_pin(const char *pin, char *out_table, size_t ma
 void secrets_erase_all(void);
 bool secrets_has_custom_ini(void);
 
+// Dynamic TOTP Cloud Authentication
+const char* secrets_get_totp_seed(void);
+void secrets_regenerate_totp_seed(void);
+bool secrets_calculate_totp(uint32_t *out_code, uint32_t *out_remaining_sec);
+
 // Web Remote INI editor helpers
 bool secrets_write_ini_file(const char *ai_url, const char *telem_url, const char *table, uint32_t interval, const char *pin, bool consent);
 bool secrets_delete_ini_file(void);

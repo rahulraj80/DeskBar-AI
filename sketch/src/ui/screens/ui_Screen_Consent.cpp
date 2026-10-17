@@ -8,11 +8,32 @@ static lv_obj_t *s_title_label = NULL;
 static lv_obj_t *s_subtitle_label = NULL;
 static lv_obj_t *s_warning_label = NULL;
 static lv_obj_t *s_table_label = NULL;
+static lv_obj_t *s_code_label = NULL;
 static lv_obj_t *s_btn_digits[4] = {NULL};
 static lv_obj_t *s_lbl_digits[4] = {NULL};
+static lv_timer_t *s_totp_timer = NULL;
 
 static uint8_t s_pin_digits[4] = {0, 0, 0, 0};
 static bool s_is_masked = false;
+
+static void update_totp_display(void) {
+    if (!s_code_label) return;
+    uint32_t code = 0;
+    uint32_t rem_sec = 0;
+    if (secrets_calculate_totp(&code, &rem_sec)) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "WEB ACCESS CODE:  [ %03u %03u ]   (%02us)",
+                 (unsigned)(code / 1000), (unsigned)(code % 1000), (unsigned)rem_sec);
+        lv_label_set_text(s_code_label, buf);
+    } else {
+        lv_label_set_text(s_code_label, "WEB ACCESS CODE:  [ CONNECT WIFI TO SYNC CODE ]");
+    }
+}
+
+static void totp_timer_cb(lv_timer_t *timer) {
+    if (!s_consent_backdrop || lv_obj_has_flag(s_consent_backdrop, LV_OBJ_FLAG_HIDDEN)) return;
+    update_totp_display();
+}
 
 static void update_table_preview(void) {
     char pin_str[5];
@@ -110,6 +131,7 @@ static void refresh_modal_state(void) {
     }
 
     update_table_preview();
+    update_totp_display();
 }
 
 void ui_consent_modal_init(lv_obj_t *parent) {
@@ -148,7 +170,7 @@ void ui_consent_modal_init(lv_obj_t *parent) {
 
     // Subtitle Notice
     s_subtitle_label = lv_label_create(card);
-    lv_obj_set_pos(s_subtitle_label, 12, 21);
+    lv_obj_set_pos(s_subtitle_label, 12, 19);
     lv_obj_set_width(s_subtitle_label, 580);
     lv_label_set_text(s_subtitle_label, "Set your 4-digit PIN (tap digits to cycle 0-9) to create your isolated cloud table.");
     lv_obj_set_style_text_color(s_subtitle_label, lv_color_hex(0x94A3B8), LV_PART_MAIN);
@@ -157,8 +179,8 @@ void ui_consent_modal_init(lv_obj_t *parent) {
     // 4 PIN Digit Selector Buttons
     for (int i = 0; i < 4; i++) {
         s_btn_digits[i] = lv_btn_create(card);
-        lv_obj_set_size(s_btn_digits[i], 44, 32);
-        lv_obj_set_pos(s_btn_digits[i], 16 + (i * 50), 38);
+        lv_obj_set_size(s_btn_digits[i], 44, 28);
+        lv_obj_set_pos(s_btn_digits[i], 16 + (i * 50), 36);
         lv_obj_set_style_bg_color(s_btn_digits[i], lv_color_hex(0x131B2E), LV_PART_MAIN);
         lv_obj_set_style_border_color(s_btn_digits[i], lv_color_hex(0x00F0FF), LV_PART_MAIN);
         lv_obj_set_style_border_width(s_btn_digits[i], 1, LV_PART_MAIN);
@@ -174,26 +196,32 @@ void ui_consent_modal_init(lv_obj_t *parent) {
 
     // Target Table Preview Badge
     s_table_label = lv_label_create(card);
-    lv_obj_set_pos(s_table_label, 226, 45);
+    lv_obj_set_pos(s_table_label, 226, 42);
     lv_label_set_text(s_table_label, "Target Table: TB_56B4EF78CEA249AE");
     lv_obj_set_style_text_color(s_table_label, lv_color_hex(0xFBBF24), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_table_label, &lv_font_montserrat_10, LV_PART_MAIN);
 
+    // Dynamic TOTP Web Access Code Badge
+    s_code_label = lv_label_create(card);
+    lv_obj_set_pos(s_code_label, 16, 64);
+    lv_label_set_text(s_code_label, "WEB ACCESS CODE:  [ CONNECT WIFI TO SYNC CODE ]");
+    lv_obj_set_style_text_color(s_code_label, lv_color_hex(0x00F0FF), LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_code_label, &lv_font_montserrat_12, LV_PART_MAIN);
+
     // Explicit Partition Warning
     s_warning_label = lv_label_create(card);
-    lv_obj_set_pos(s_warning_label, 12, 74);
+    lv_obj_set_pos(s_warning_label, 16, 86);
     lv_obj_set_width(s_warning_label, 580);
     lv_label_set_text(s_warning_label,
-        "Note: Changing your PIN creates a new isolated table. Previous data link will not get updated.\n"
-        "Diagnostics contain zero personal data. You can self-host via Web Remote /secrets.ini anytime."
+        "Enter this 6-digit code on web dashboard for 30-day access. Diagnostics contain zero personal data."
     );
     lv_obj_set_style_text_color(s_warning_label, lv_color_hex(0xCBD5E1), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_warning_label, &lv_font_montserrat_10, LV_PART_MAIN);
 
     // Confirm & Connect Button
     lv_obj_t *btn_acc = lv_btn_create(card);
-    lv_obj_set_size(btn_acc, 260, 32);
-    lv_obj_set_pos(btn_acc, 16, 110);
+    lv_obj_set_size(btn_acc, 260, 30);
+    lv_obj_set_pos(btn_acc, 16, 112);
     lv_obj_set_style_bg_color(btn_acc, lv_color_hex(0x064E3B), LV_PART_MAIN);
     lv_obj_set_style_border_color(btn_acc, lv_color_hex(0x34D399), LV_PART_MAIN);
     lv_obj_set_style_border_width(btn_acc, 2, LV_PART_MAIN);
@@ -208,8 +236,8 @@ void ui_consent_modal_init(lv_obj_t *parent) {
 
     // Stay Offline Button
     lv_obj_t *btn_dec = lv_btn_create(card);
-    lv_obj_set_size(btn_dec, 260, 32);
-    lv_obj_set_pos(btn_dec, 310, 110);
+    lv_obj_set_size(btn_dec, 260, 30);
+    lv_obj_set_pos(btn_dec, 310, 112);
     lv_obj_set_style_bg_color(btn_dec, lv_color_hex(0x2A200A), LV_PART_MAIN);
     lv_obj_set_style_border_color(btn_dec, lv_color_hex(0xFBBF24), LV_PART_MAIN);
     lv_obj_set_style_border_width(btn_dec, 1, LV_PART_MAIN);
@@ -221,6 +249,11 @@ void ui_consent_modal_init(lv_obj_t *parent) {
     lv_obj_set_align(lbl_dec, LV_ALIGN_CENTER);
     lv_obj_set_style_text_color(lbl_dec, lv_color_hex(0xFBBF24), LV_PART_MAIN);
     lv_obj_set_style_text_font(lbl_dec, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    // 1-second periodic timer for dynamic countdown & rollover
+    if (!s_totp_timer) {
+        s_totp_timer = lv_timer_create(totp_timer_cb, 1000, NULL);
+    }
 
     // Initial state
     refresh_modal_state();
