@@ -23,8 +23,8 @@
 
   <!-- Section Title -->
   <g transform="translate(440, 48)">
-    <text class="title" text-anchor="middle">Support TuneBar (Advanced AI Edition) </text>
-    <g transform="translate(130, 0)">
+    <text class="title" text-anchor="middle">Support DeskBar-AI Edition </text>
+    <g transform="translate(160, 0)">
       <!-- Coffee Icon beside Title -->
       <path
         transform="translate(102 0) scale(0.65 1) translate(-102 0)"
