@@ -3,6 +3,7 @@
 #include <Preferences.h>
 #include <esp_mac.h>
 #include <mbedtls/sha256.h>
+#include <time.h>
 #include "user_config.h"
 #include "version.h"
 
@@ -12,6 +13,7 @@ static char s_ai_url[192] = {0};
 static char s_telemetry_endpoint[192] = {0};
 static char s_weather_key[64] = {0};
 static char s_master_pin[32] = {0};
+static char s_totp_seed[33] = {0};
 static uint32_t s_telemetry_interval = 300; // default 5 minutes (300s)
 static bool s_has_custom_ini = false;
 static bool s_cloud_consent = false;
@@ -87,6 +89,12 @@ void secrets_manager_reload(void) {
                 s_has_existing_pin = true;
             }
         }
+        if (s_sec_prefs.isKey("totp_seed")) {
+            String s = s_sec_prefs.getString("totp_seed", "");
+            if (s.length() == 32) {
+                strncpy(s_totp_seed, s.c_str(), sizeof(s_totp_seed) - 1);
+            }
+        }
         String reg_ver = s_sec_prefs.getString("reg_ver", "");
         s_has_decided_consent = s_sec_prefs.getBool("decided", false);
         s_cloud_consent = s_sec_prefs.getBool("consent", false);
@@ -97,6 +105,10 @@ void secrets_manager_reload(void) {
             s_cloud_consent = false;
         }
         s_sec_prefs.end();
+    }
+
+    if (strlen(s_totp_seed) != 32) {
+        secrets_regenerate_totp_seed();
     }
 
     compute_device_hash();
@@ -269,7 +281,8 @@ void secrets_set_master_pin(const char *pin) {
         s_sec_prefs.end();
     }
     compute_device_hash();
-    log_i("[SECRETS] Master PIN updated, table is now: %s", s_telemetry_table);
+    secrets_regenerate_totp_seed();
+    log_i("[SECRETS] Master PIN updated, table is now: %s (TOTP seed regenerated)", s_telemetry_table);
 }
 
 bool secrets_has_custom_ini(void) {
@@ -324,9 +337,96 @@ void secrets_erase_all(void) {
         LittleFS.remove("/secrets.ini");
     }
     s_master_pin[0] = '\0';
+    s_totp_seed[0] = '\0';
     s_has_existing_pin = false;
     s_has_decided_consent = false;
     s_cloud_consent = false;
     log_w("[SECRETS] All secrets and NVS credentials completely erased!");
     secrets_manager_reload();
+}
+
+const char* secrets_get_totp_seed(void) {
+    return s_totp_seed;
+}
+
+void secrets_regenerate_totp_seed(void) {
+    uint32_t r0 = esp_random();
+    uint32_t r1 = esp_random();
+    uint32_t r2 = esp_random();
+    uint32_t r3 = esp_random();
+    snprintf(s_totp_seed, sizeof(s_totp_seed), "%08X%08X%08X%08X", r0, r1, r2, r3);
+    if (s_sec_prefs.begin("sys_sec", false)) {
+        s_sec_prefs.putString("totp_seed", s_totp_seed);
+        s_sec_prefs.end();
+    }
+    log_i("[SECRETS] Regenerated TOTP auth seed: %s", s_totp_seed);
+}
+
+static void hmac_sha256(const uint8_t *key, size_t key_len, const uint8_t *data, size_t data_len, uint8_t out[32]) {
+    uint8_t tk[32];
+    if (key_len > 64) {
+        mbedtls_sha256_context tctx;
+        mbedtls_sha256_init(&tctx);
+        mbedtls_sha256_starts(&tctx, 0);
+        mbedtls_sha256_update(&tctx, key, key_len);
+        mbedtls_sha256_finish(&tctx, tk);
+        mbedtls_sha256_free(&tctx);
+        key = tk;
+        key_len = 32;
+    }
+
+    uint8_t ipad[64];
+    memset(ipad, 0x36, 64);
+    for (size_t i = 0; i < key_len; i++) ipad[i] ^= key[i];
+
+    uint8_t inner_hash[32];
+    mbedtls_sha256_context ictx;
+    mbedtls_sha256_init(&ictx);
+    mbedtls_sha256_starts(&ictx, 0);
+    mbedtls_sha256_update(&ictx, ipad, 64);
+    mbedtls_sha256_update(&ictx, data, data_len);
+    mbedtls_sha256_finish(&ictx, inner_hash);
+    mbedtls_sha256_free(&ictx);
+
+    uint8_t opad[64];
+    memset(opad, 0x5c, 64);
+    for (size_t i = 0; i < key_len; i++) opad[i] ^= key[i];
+
+    mbedtls_sha256_context octx;
+    mbedtls_sha256_init(&octx);
+    mbedtls_sha256_starts(&octx, 0);
+    mbedtls_sha256_update(&octx, opad, 64);
+    mbedtls_sha256_update(&octx, inner_hash, 32);
+    mbedtls_sha256_finish(&octx, out);
+    mbedtls_sha256_free(&octx);
+}
+
+bool secrets_calculate_totp(uint32_t *out_code, uint32_t *out_remaining_sec) {
+    if (strlen(s_totp_seed) != 32) return false;
+    time_t now = time(NULL);
+    if (now < 1700000000) {
+        // RTC or NTP not synchronized yet
+        return false;
+    }
+    uint64_t T = (uint64_t)now / 30;
+    if (out_remaining_sec) {
+        *out_remaining_sec = (uint32_t)(30 - (now % 30));
+    }
+
+    char msg[64];
+    int msg_len = snprintf(msg, sizeof(msg), "%s:%llu", s_telemetry_table, (unsigned long long)T);
+    if (msg_len <= 0) return false;
+
+    uint8_t hash[32];
+    hmac_sha256((const uint8_t *)s_totp_seed, strlen(s_totp_seed), (const uint8_t *)msg, msg_len, hash);
+
+    int offset = hash[31] & 0x0F;
+    uint32_t binary = ((hash[offset] & 0x7F) << 24)
+                    | ((hash[offset + 1] & 0xFF) << 16)
+                    | ((hash[offset + 2] & 0xFF) << 8)
+                    | (hash[offset + 3] & 0xFF);
+    if (out_code) {
+        *out_code = binary % 1000000;
+    }
+    return true;
 }

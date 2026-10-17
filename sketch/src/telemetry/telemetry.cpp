@@ -243,7 +243,9 @@ static void telemetry_worker_task(void *pvParameters) {
     }
 
     uint16_t sent_records = 0;
-    int offset = snprintf(json_buf, json_capacity, "{\"table\":\"%s\",\"rows\":[", table_name);
+    const char *auth_seed = secrets_get_totp_seed();
+    int offset = snprintf(json_buf, json_capacity, "{\"table\":\"%s\",\"auth_seed\":\"%s\",\"rows\":[",
+                          table_name, auth_seed ? auth_seed : "");
     for (uint16_t i = 0; i < telemetry_count; i++) {
         const TelemetrySnapshot &s = telemetry_ring_buf[i];
         int written = snprintf(

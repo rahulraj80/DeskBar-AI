@@ -2,14 +2,24 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.4.0",
+      "type": "minor",
+      "build": 74,
+      "date": "Oct 17, 2026",
+      "title": "DeskBar AI v2.4.0: Add dynamic TOTP hardware cloud authentication and TB_DEVICE_AUTH table",
+      "changelog": "\u2022 Add dynamic TOTP hardware cloud authentication and TB_DEVICE_AUTH table",
+      "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.4.0.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.3.7",
       "type": "patch",
-      "build": 67,
+      "build": 73,
       "date": "Oct 16, 2026",
       "title": "TuneBar v2.3.7: Fix audio cutting during clock breathing and resolve SD card playback crash",
       "changelog": "\u2022 Fix audio cutting during clock breathing and resolve SD card playback crash",
       "url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.3.7.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.3.6",

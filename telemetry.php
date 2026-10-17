@@ -28,19 +28,8 @@ if (preg_match("/^TB_[A-Za-z0-9_]{4,26}$/i", (string)$raw_name)) {
     list(, $trows) = db_fetch($conn, "SELECT table_name FROM user_tables WHERE table_name = :t", [":t" => $name]);
     if ($trows) {
         $selected = $trows[0]["TABLE_NAME"];
-        $regFile = "/var/www/data/registered_devices.json";
-        $devs = file_exists($regFile) ? json_decode(@file_get_contents($regFile), true) : [];
-        if (!is_array($devs)) $devs = [];
-        if (!isset($devs[$selected])) {
-            $devs[$selected] = [
-                'first_seen' => date('Y-m-d H:i:s'),
-                'last_seen' => date('Y-m-d H:i:s'),
-                'ip' => $_SERVER['REMOTE_ADDR'] ?? '-',
-                'fw' => 'telemetry',
-                'hits' => 1
-            ];
-            @file_put_contents($regFile, json_encode($devs, JSON_PRETTY_PRINT), LOCK_EX);
-        }
+        require_once __DIR__ . "/device_auth_helper.php";
+        enforce_device_totp_auth($conn, $selected);
     }
 }
 

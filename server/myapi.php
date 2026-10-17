@@ -133,20 +133,62 @@ function ensure_table($conn, $table, array $data_cols, $key_col = null)
     return ['created' => false, 'added' => $added];
 }
 
-function register_device_if_tb($table, $fw = null) {
-    if (!empty($table) && str_starts_with(strtoupper($table), 'TB_')) {
-        $regFile = '/var/www/data/registered_devices.json';
-        $devs = file_exists($regFile) ? json_decode(@file_get_contents($regFile), true) : [];
-        if (!is_array($devs)) $devs = [];
-        $tUpper = strtoupper($table);
-        $devs[$tUpper] = [
-            'first_seen' => $devs[$tUpper]['first_seen'] ?? date('Y-m-d H:i:s'),
-            'last_seen' => date('Y-m-d H:i:s'),
-            'ip' => $_SERVER['REMOTE_ADDR'] ?? '-',
-            'fw' => $fw ?? ($devs[$tUpper]['fw'] ?? 'telemetry'),
-            'hits' => ($devs[$tUpper]['hits'] ?? 0) + 1
-        ];
-        @file_put_contents($regFile, json_encode($devs, JSON_PRETTY_PRINT), LOCK_EX);
+function ensure_device_auth_table($conn) {
+    static $ensured = false;
+    if ($ensured) return;
+    if (!table_exists($conn, 'TB_DEVICE_AUTH')) {
+        $sql = "CREATE TABLE TB_DEVICE_AUTH (
+            TABLE_NAME VARCHAR2(32) PRIMARY KEY,
+            AUTH_SEED VARCHAR2(64),
+            LAST_SEEN TIMESTAMP DEFAULT SYSTIMESTAMP,
+            CREATED_AT TIMESTAMP DEFAULT SYSTIMESTAMP,
+            IP VARCHAR2(64),
+            FW VARCHAR2(64),
+            HITS NUMBER DEFAULT 1
+        )";
+        try {
+            db_exec($conn, $sql);
+        } catch (Exception $e) {
+            // ignore if created concurrently
+        }
+    }
+    $ensured = true;
+}
+
+function register_device_auth($conn, $table, $auth_seed = null, $fw = null) {
+    if (empty($table) || !str_starts_with(strtoupper($table), 'TB_')) {
+        return;
+    }
+    $table = strtoupper(trim((string)$table));
+    ensure_device_auth_table($conn);
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '-';
+    $fw = $fw ?? 'telemetry';
+    $seed = (!empty($auth_seed) && is_string($auth_seed)) ? trim($auth_seed) : null;
+
+    $mergeSql = "MERGE INTO TB_DEVICE_AUTH d
+        USING (SELECT :tbl AS table_name FROM dual) s
+        ON (d.table_name = s.table_name)
+        WHEN MATCHED THEN
+            UPDATE SET d.last_seen = SYSTIMESTAMP,
+                       d.ip = :ip,
+                       d.hits = NVL(d.hits, 0) + 1,
+                       d.auth_seed = CASE WHEN :seed IS NOT NULL AND LENGTH(:seed) > 0 THEN :seed ELSE d.auth_seed END,
+                       d.fw = :fw
+        WHEN NOT MATCHED THEN
+            INSERT (table_name, auth_seed, last_seen, created_at, ip, fw, hits)
+            VALUES (:tbl, :seed, SYSTIMESTAMP, SYSTIMESTAMP, :ip, :fw, 1)";
+
+    try {
+        $stid = oci_parse($conn, $mergeSql);
+        oci_bind_by_name($stid, ':tbl', $table);
+        oci_bind_by_name($stid, ':ip', $ip);
+        oci_bind_by_name($stid, ':seed', $seed);
+        oci_bind_by_name($stid, ':fw', $fw);
+        oci_execute($stid, OCI_COMMIT_ON_SUCCESS);
+        oci_free_statement($stid);
+    } catch (Exception $e) {
+        error_log("register_device_auth failed: " . $e->getMessage());
     }
 }
 
@@ -168,7 +210,8 @@ try {
     if ($batch_rows !== null) {
         // --- BATCH INGESTION ---
         $table = safe_identifier($json_input['table'] ?? $_GET['table'] ?? $_POST['table'] ?? $default_table);
-        register_device_if_tb($table);
+        $auth_seed = $json_input['auth_seed'] ?? $_GET['auth_seed'] ?? $_POST['auth_seed'] ?? null;
+        register_device_auth($conn, $table, $auth_seed);
         $all_cols = [];
         foreach ($batch_rows as $row) {
             if (is_array($row)) {
@@ -245,7 +288,8 @@ try {
 
         $mode  = strtolower((string)($source['mode'] ?? 'insert'));
         $table = safe_identifier($source['table'] ?? $default_table);
-        register_device_if_tb($table);
+        $auth_seed = $source['auth_seed'] ?? null;
+        register_device_auth($conn, $table, $auth_seed);
         $key   = $source['key'] ?? null;
         $value = $source['value'] ?? null;
 

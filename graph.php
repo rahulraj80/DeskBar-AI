@@ -69,6 +69,10 @@ try {
             break;
         }
     }
+    if ($table !== null && !$admin && str_starts_with(strtoupper($table), 'TB_')) {
+        require_once __DIR__ . '/device_auth_helper.php';
+        enforce_device_totp_auth($conn, $table);
+    }
     if ($table === null) {
         if (!$admin) {
             http_response_code(404);
