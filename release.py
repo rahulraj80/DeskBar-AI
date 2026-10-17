@@ -221,7 +221,8 @@ def main():
     # 8. Remote Build via PlatformIO on server if not skipped
     if not no_build:
         print(f"--- Triggering Remote Build for {next_tag} on auto ---", flush=True)
-        build_code = subprocess.run([sys.executable, "sync_and_build.py", "--no-push"]).returncode
+        sync_and_build_path = os.path.join(ROOT_DIR, "scripts", "sync_and_build.py")
+        build_code = subprocess.run([sys.executable, sync_and_build_path, "--no-push"]).returncode
         if build_code != 0:
             print("[ERROR] Build failed! Aborting release pipeline.", flush=True)
             sys.exit(build_code)
