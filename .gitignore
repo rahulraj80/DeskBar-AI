@@ -58,3 +58,4 @@ esphome_es7210.cpp
 esphome_es7210_const.h
 /include/
 /src/
+scripts/temp_captures/
