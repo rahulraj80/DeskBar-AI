@@ -1,4 +1,5 @@
-# 🎧 TuneBar (Advanced Edition) — Autonomous AI Voice Assistant & Smart Media Bar
+# 🎙️ DeskBar AI — Autonomous AI Voice Assistant & Smart Desktop Bar
+*(Evolved from upstream TuneBar)*
 
 ![ESP32-S3](https://img.shields.io/badge/SoC-ESP32--S3-blue?logo=espressif)
 ![Flash/PSRAM](https://img.shields.io/badge/Memory-16MB%20Flash%20%2F%208MB%20PSRAM-orange)
@@ -6,7 +7,7 @@
 ![Firmware](https://img.shields.io/badge/Version-v2.3.7-brightgreen)
 ![License](https://img.shields.io/badge/License-CC--BY--NC--SA--4.0-lightgrey)
 
-**TuneBar Advanced Edition** is an extensive architectural evolution of the TuneBar project for the official [Waveshare ESP32-S3-Touch-LCD-3.49](https://docs.waveshare.com/ESP32-S3-Touch-LCD-3.49?variant=ESP32-S3-Touch-LCD-3.49) development platform. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart media bar, and distributed telemetry station with high-fidelity acoustic processing, advanced power and breathing profile management, dynamic crowd-sourced battery discharge calibration, 6-axis digital spirit level, 6-language international radio, local SD & LAN media streaming, zero-bitmap procedural vector themes, and complete privacy controls.
+**DeskBar AI** is an extensive architectural evolution of the TuneBar project for the official [Waveshare ESP32-S3-Touch-LCD-3.49](https://docs.waveshare.com/ESP32-S3-Touch-LCD-3.49?variant=ESP32-S3-Touch-LCD-3.49) development platform. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart desktop companion, and distributed telemetry station with high-fidelity acoustic processing, advanced power and breathing profile management, dynamic crowd-sourced battery discharge calibration, 6-axis digital spirit level, 6-language international radio, local SD & LAN media streaming, zero-bitmap procedural vector themes, and complete privacy controls.
 
 ---
 
@@ -14,17 +15,18 @@
 
 * [📦 Hardware Overview](#-hardware-overview)
 * [📸 Interface Showcase (Authentic Hardware Captures)](#-interface-showcase)
+* [⚡ Why DeskBar AI is Different](#-why-deskbar-ai-is-different)
 * [⚡ Quickstart & Flash Guide](#-quickstart--flash-guide)
 * [📚 Detailed Technical Documentation](#-detailed-technical-documentation)
 * [🛒 Where to Buy Genuine Hardware](#-where-to-buy)
 * [📜 Credits & License](#-credits--license)
-* [☕ Support the Development](#-support-tunebar-advanced-ai-edition)
+* [☕ Support DeskBar AI](#-support-deskbar-ai)
 
 ---
 
 ## 📦 Hardware Overview
 
-TuneBar runs on the 3.49-inch capacitive touch screen development board powered by the **ESP32-S3R8** (dual-core 240 MHz, 16MB Flash, 8MB OPI PSRAM) with an integrated acoustic front-end (dual MEMS microphones + ES7210 ADC), audio codec (ES8311 DAC + NS4150B amplifier), 6-axis IMU, and RTC:
+DeskBar AI runs on the 3.49-inch capacitive touch screen development board powered by the **ESP32-S3R8** (dual-core 240 MHz, 16MB Flash, 8MB OPI PSRAM) with an integrated acoustic front-end (dual MEMS microphones + ES7210 ADC), audio codec (ES8311 DAC + NS4150B amplifier), 6-axis IMU, and RTC:
 
 <p align="center">
   <img src="document/hw_header.png" alt="Waveshare ESP32-S3-Touch-LCD-3.49 Front View" width="48%" />
@@ -75,8 +77,8 @@ TuneBar bridges the gap between commercial smart displays and open-source hardwa
 
 ### 1. Clone & Set Up Secrets Template
 ```bash
-git clone https://github.com/rahulraj80/TuneBar.git
-cd TuneBar
+git clone https://github.com/rahulraj80/DeskBar-AI.git
+cd DeskBar-AI
 
 # Set up secrets template
 cp sketch/include/secrets_example.h sketch/include/secrets.h
@@ -126,23 +128,23 @@ For makers looking to replicate this device:
 ---
 
 ## 📜 Credits & License
-
-* Original TuneBar project by **[VaAndCob](https://github.com/VaAndCob/TuneBar)**.
+ 
+* Original TuneBar project foundation by **[VaAndCob](https://github.com/VaAndCob/TuneBar)**.
 * Core audio functionality powered by the **[ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S)** library.
 * UI engine powered by **[LVGL 8.4.0](https://lvgl.io/)**.
-* Advanced Audio Engineering, ES7210 driver fixes, DRAM optimization, power saving architecture, multilingual radio expansion, and AI Voice Assistant by **Rahul Raj** ([@rahulraj80](https://github.com/rahulraj80)).
+* Advanced Audio Engineering, ES7210 driver fixes, DRAM optimization, power saving architecture, multilingual radio expansion, 6-axis instruments, and AI Voice Assistant by **Rahul Raj** ([@rahulraj80](https://github.com/rahulraj80)).
 
 This software and firmware codebase is licensed under the **GNU General Public License v3.0 (GPL-3.0)** (see [`LICENSE`](LICENSE)). Any hardware designs, UI assets, and media components derived from upstream TuneBar remain licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/) license. Attribution to original author Va&Cob and contributing author Rahul Raj is required on all derivative distributions.
 
 ---
 
-## ☕ Support TuneBar (Advanced AI Edition)
+## ☕ Support DeskBar AI
 
-TuneBar is free and open-source. [Click here to support the Original Repo by VaAndCob](https://github.com/VaAndCob/TuneBar#license)
+DeskBar AI is free and open-source. [Click here to support the Original Upstream Repo by VaAndCob](https://github.com/VaAndCob/TuneBar#license)
 
-If you enjoyed the Advanced Edition with the new AI and Smart Features - please click below to support the continued development of TuneBar (Advanced Edition).
+If you enjoyed DeskBar AI with the new autonomous voice assistant and desktop instrument bar features - please click below to support the continued development of DeskBar AI.
 
-TuneBar is 100% free, open-source, and privacy-respecting. Your sponsorship directly funds:
+DeskBar AI is 100% free, open-source, and privacy-respecting. Your sponsorship directly funds:
 * 🧠 **AI Tokens & Inference**: Groq Whisper STT and Llama 3.3 70B cloud inference for live community testing and development.
 * 🔬 **Hardware Lab Testing**: Acoustic tuning for the ES7210 ADC, NS4150B amplifier thermal stress tests, and I2C/SPI bus stability.
 * 🌐 **Community Cloud Infrastructure**: Maintaining the cloud OTA release catalog and crowd-sourced battery telemetry servers.
@@ -151,7 +153,7 @@ Every little bit helps keep the project active and maintained.
 
 <p align="center">
   <a href="https://razorpay.me/@rahulraj593" target="_blank" rel="noopener noreferrer">
-    <img src="assets/support.svg" alt="Support TuneBar — pay via UPI QR (GPay / PhonePe / Paytm) or Razorpay for international cards / PayPal" width="760" />
+    <img src="assets/support.svg" alt="Support DeskBar AI — pay via UPI QR (GPay / PhonePe / Paytm) or Razorpay for international cards / PayPal" width="760" />
   </a>
 </p>
 

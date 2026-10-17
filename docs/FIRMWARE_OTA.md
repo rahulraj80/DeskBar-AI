@@ -1,6 +1,6 @@
 # ⚡ On-Device Multi-Repo Firmware OTA Manager
 
-TuneBar features a full-featured on-device Over-the-Air (OTA) firmware manager capable of querying official and community releases over Wi-Fi and flashing updates directly without a computer.
+DeskBar AI features a full-featured on-device Over-the-Air (OTA) firmware manager capable of querying official and community releases over Wi-Fi and flashing updates directly without a computer.
 
 ---
 
@@ -24,7 +24,7 @@ TuneBar features a full-featured on-device Over-the-Air (OTA) firmware manager c
 2. **Numeric Stepper GitHub Query**:
    - Browse arbitrary versions from GitHub using `v[▲▼].[▲▼].[▲▼]` with live HTTP HEAD compatibility checks.
 3. **Approved Repositories Switcher**:
-   - Switch between Official (`rahulraj80/TuneBar`) and Upstream (`VaAndCob/TuneBar`) repositories with automatic catalog re-fetching.
+   - Switch between Official (`rahulraj80/DeskBar-AI`) and Upstream (`VaAndCob/TuneBar`) repositories with automatic catalog re-fetching.
 4. **Hardware Battery Guard**:
    - OTA flashing is automatically blocked below 70% battery capacity unless actively connected to USB power.
 5. **App Teardown on OTA**:
@@ -36,7 +36,7 @@ TuneBar features a full-featured on-device Over-the-Air (OTA) firmware manager c
 
 ## 🚀 Git-First Build Pipeline & OTA Publishing Workflow
 
-TuneBar decouples development compilation from OTA deployment to prevent Git repository bloat:
+DeskBar AI decouples development compilation from OTA deployment to prevent Git repository bloat:
 
 1. **Stage 1: Build & Local Test (`release.py` / `sync_and_build.py`)**:
    - Updates `version.h`, creates an annotated Git tag (`vX.Y.Z`), and pushes code/tags to GitHub (`origin main --tags`).

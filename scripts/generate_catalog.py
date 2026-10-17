@@ -77,9 +77,9 @@ def main():
             "type": "patch",
             "build": build_num,
             "date": now_date,
-            "title": f"TuneBar v{cur_ver} Firmware Release",
+            "title": f"DeskBar AI v{cur_ver} Firmware Release",
             "changelog": "• Automated multi-tenant telemetry and device registration guard.\n• 4-Row 3-State IMU posture panel with active/inverted tracking.\n• High-precision shelf inclinometer and uphill air bubble physics.\n• Dynamic isometric chassis diagram in calibration wizard.\n• Clock breathing interaction wake fix.",
-            "url": f"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/{bin_name}",
+            "url": f"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/{bin_name}",
             "size": bin_size
         }
         releases.insert(0, new_entry)
@@ -157,7 +157,7 @@ def main():
         sz_mb = f"{sz_bytes / (1024*1024):.2f} MB" if sz_bytes > 0 else "4.08 MB"
         raw_cl = r.get("changelog", "").strip().rstrip('\\').strip()
         cl = raw_cl.replace("\\n", "\n").replace('"', '\\"').replace('\n', '\\n"\n    "')
-        url = r.get("url", f"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-{v_str}.bin")
+        url = r.get("url", f"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-{v_str}.bin")
 
         h_lines.append(f"  // [{idx}] {v_str}")
         h_lines.append("  {")

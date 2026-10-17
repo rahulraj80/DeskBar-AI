@@ -1,6 +1,6 @@
 # Autonomous AI Voice Assistant: Architecture, Self-Hosting & Scaling
 
-TuneBar includes an **Autonomous AI Voice Assistant** out of the box, offering a full-duplex conversational voice interface directly from your desktop.
+DeskBar AI includes an **Autonomous AI Voice Assistant** out of the box, offering a full-duplex conversational voice interface directly from your desktop.
 
 ---
 
@@ -93,7 +93,7 @@ async def handle_ask(audio: UploadFile = File(...)):
             json={
                 "model": "llama-3.3-70b-versatile",
                 "messages": [
-                    {"role": "system", "content": "You are TuneBar, a concise voice assistant. Limit answers to 2 short sentences."},
+                    {"role": "system", "content": "You are DeskBar, a concise voice assistant. Limit answers to 2 short sentences."},
                     {"role": "user", "content": user_prompt}
                 ]
             }
@@ -111,7 +111,7 @@ async def handle_ask(audio: UploadFile = File(...)):
     return Response(content=tts_audio, media_type="audio/mpeg")
 ```
 
-### Step 2: Configure TuneBar via `/secrets.ini`
+### Step 2: Configure DeskBar AI via `/secrets.ini`
 
 Create a file named `secrets.ini`:
 

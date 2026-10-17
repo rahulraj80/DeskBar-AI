@@ -1,6 +1,6 @@
-# 📖 TuneBar User Guide & Interaction Reference
+# 📖 DeskBar AI User Guide & Interaction Reference
 
-TuneBar Advanced Edition transforms the Waveshare ESP32-S3-Touch-LCD-3.49 into a responsive, autonomous desktop smart assistant and media bar.
+DeskBar AI transforms the Waveshare ESP32-S3-Touch-LCD-3.49 into a responsive, autonomous desktop smart assistant and instrument bar.
 
 ---
 

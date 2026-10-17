@@ -1,6 +1,6 @@
-# 🌐 TuneBar Web Remote REST API Reference
+# 🌐 DeskBar AI Web Remote REST API Reference
 
-TuneBar hosts an embedded, high-performance HTTP REST API on port 80. All endpoints are accessible directly over your local Wi-Fi network.
+DeskBar AI hosts an embedded, high-performance HTTP REST API on port 80. All endpoints are accessible directly over your local Wi-Fi network.
 
 ---
 

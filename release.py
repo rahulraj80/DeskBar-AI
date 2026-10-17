@@ -139,9 +139,9 @@ def update_catalog(next_ver_str, rel_type, message, build_num):
             "type": rel_type,
             "build": build_num,
             "date": now_date,
-            "title": f"TuneBar v{next_ver_str}: {message}",
+            "title": f"DeskBar AI v{next_ver_str}: {message}",
             "changelog": changelog_bullet,
-            "url": f"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v{next_ver_str}.bin",
+            "url": f"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v{next_ver_str}.bin",
             "size": 4200000
         }
         releases.insert(0, new_entry)

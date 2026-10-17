@@ -1,12 +1,12 @@
 # Privacy, First-Boot Consent & Telemetry Architecture
 
-TuneBar implements a **Privacy-by-Design** security model ensuring users have complete transparency, ownership, and control over all network communications.
+DeskBar AI implements a **Privacy-by-Design** security model ensuring users have complete transparency, ownership, and control over all network communications.
 
 ---
 
 ## 1. First-Boot Cloud Consent Architecture
 
-When TuneBar powers on for the very first time with blank or erased NVS flash:
+When DeskBar AI powers on for the very first time with blank or erased NVS flash:
 1. **Interactive Modal Dialog**: The device halts network telemetry and presents a full-screen consent dialog.
 2. **Master Security PIN Setup**:
    - The user is prompted to configure or confirm a 4-digit Master PIN.
