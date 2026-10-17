@@ -221,18 +221,19 @@ void ui_consent_modal_init(lv_obj_t *parent) {
     // ==========================================
     // RIGHT COLUMN: Prominent Web Access Code
     // ==========================================
-    // Sub-header: "WEB ACCESS CODE:" on left, "30-DAY ACCESS" on right
+    // Sub-header: "WEB ACCESS CODE:" on left, countdown timer on right
     lv_obj_t *lbl_access_hdr = lv_label_create(card);
     lv_obj_set_pos(lbl_access_hdr, 264, 36);
     lv_label_set_text(lbl_access_hdr, "WEB ACCESS CODE:");
     lv_obj_set_style_text_color(lbl_access_hdr, lv_color_hex(0x94A3B8), LV_PART_MAIN);
     lv_obj_set_style_text_font(lbl_access_hdr, &lv_font_montserrat_10, LV_PART_MAIN);
 
-    lv_obj_t *lbl_badge_30d = lv_label_create(card);
-    lv_obj_set_pos(lbl_badge_30d, 510, 36);
-    lv_label_set_text(lbl_badge_30d, "30-DAY ACCESS");
-    lv_obj_set_style_text_color(lbl_badge_30d, lv_color_hex(0x38BDF8), LV_PART_MAIN);
-    lv_obj_set_style_text_font(lbl_badge_30d, &lv_font_montserrat_10, LV_PART_MAIN);
+    // Countdown Timer in sub-header row (top right)
+    s_timer_label = lv_label_create(card);
+    lv_obj_set_pos(s_timer_label, 540, 36);
+    lv_label_set_text(s_timer_label, "(--s)");
+    lv_obj_set_style_text_color(s_timer_label, lv_color_hex(0xFBBF24), LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_timer_label, &lv_font_montserrat_10, LV_PART_MAIN);
 
     // Large Prominent Code [ 860 193 ] (font 20)
     s_code_label = lv_label_create(card);
@@ -241,12 +242,12 @@ void ui_consent_modal_init(lv_obj_t *parent) {
     lv_obj_set_style_text_color(s_code_label, lv_color_hex(0x00F0FF), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_code_label, &lv_font_montserrat_20, LV_PART_MAIN);
 
-    // Countdown Timer beside the code in amber font 12
-    s_timer_label = lv_label_create(card);
-    lv_obj_set_pos(s_timer_label, 452, 57);
-    lv_label_set_text(s_timer_label, "(--s)");
-    lv_obj_set_style_text_color(s_timer_label, lv_color_hex(0xFBBF24), LV_PART_MAIN);
-    lv_obj_set_style_text_font(s_timer_label, &lv_font_montserrat_12, LV_PART_MAIN);
+    // 30-Day Access Badge beside the large code
+    lv_obj_t *lbl_badge_30d = lv_label_create(card);
+    lv_obj_set_pos(lbl_badge_30d, 452, 57);
+    lv_label_set_text(lbl_badge_30d, "30-DAY ACCESS");
+    lv_obj_set_style_text_color(lbl_badge_30d, lv_color_hex(0x38BDF8), LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl_badge_30d, &lv_font_montserrat_12, LV_PART_MAIN);
 
     // Explanatory Message
     s_warning_label = lv_label_create(card);
