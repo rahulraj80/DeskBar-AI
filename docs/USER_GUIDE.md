@@ -36,6 +36,14 @@ DeskBar AI transforms the Waveshare ESP32-S3-Touch-LCD-3.49 into a responsive, a
 
 ### From Global Radio Player:
 - **Tap Catalog Badge (`[ ♫ EN ]`, etc.)**: Cycle through available presets or switch catalogs.
+- **Real-Time Stream Quality Telemetry (Top Row)**: Directly beside the station index (`1 of 10`), real-time diagnostics display:
+  - **Audio Bitrate**: Media encoding rate (e.g. `128k`).
+  - **Download Speed**: Real-time network socket throughput (e.g. `DL: 142k`).
+  - **PSRAM Buffer Status**: Percentage of jitter ring buffer filled (e.g. `BUF: 92%`).
+  - **Dynamic Buffer Health Color Feedback**:
+    - 🟢 **Green ($\ge 50\%$)**: Healthy buffer with zero stutter risk.
+    - 🟡 **Amber ($20-49\%$)**: Moderate buffer filling; transient network fluctuations being absorbed.
+    - 🔴 **Red ($< 20\%$)**: Low buffer / stream starvation warning; visual prompt to switch to a higher-bandwidth station.
 - **Transport Buttons**: Play/Pause, Next/Previous station.
 - **Swipe Up ($\uparrow$)**: Return to Main Menu while radio streaming continues in the background.
 
@@ -78,3 +86,16 @@ Access via the **SETTINGS** card on the Main Menu:
    - Built-in on-device documentation reference.
 7. **Dismiss**:
    - Tap top-right **[X]** button to persist settings to flash and return to the main carousel.
+
+---
+
+## 🔐 First-Boot Cloud Telemetry & Web Dashboard Access
+
+On first boot (or via CLI `consent`), the Cloud & PIN Setup modal appears:
+- **Configure PIN**: Tap any of the 4 PIN digits on the left column to cycle `0-9`. A hardware TRNG PIN is assigned by default.
+- **Table Name**: The isolated hashed database table (`TABLE: TB_<hash>`) updates immediately below the PIN digits.
+- **Web Access Code**: The right column shows your 6-digit rolling TOTP code in large 20pt font with a renewal countdown timer `(xxs)`.
+- **30-Day Browser Session**: Entering this code on `telemetry.php` grants 30-day persistent browser access to your device's historical graphs and analytics.
+- **Action Buttons**:
+  - **CONFIRM & CONNECT**: Saves your PIN, registers auth credentials to cloud DB, and activates telemetry.
+  - **STAY OFFLINE**: Operates in 100% air-gapped local mode with all telemetry permanently silenced.
