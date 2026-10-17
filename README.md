@@ -61,9 +61,9 @@ DeskBar AI runs on the 3.49-inch capacitive touch screen development board power
 
 ---
 
-## ⚡ Why TuneBar is Different
+## ⚡ Why DeskBar-AI is Different
 
-TuneBar bridges the gap between commercial smart displays and open-source hardware by solving notorious ESP32-S3 silicon quirks:
+DeskBar-AI bridges the gap between commercial smart displays and open-source hardware by solving notorious ESP32-S3 silicon quirks:
 
 | ⚡ Silicon & Audio Architecture | 🔋 Mathematical Battery Science |
 | :--- | :--- |
