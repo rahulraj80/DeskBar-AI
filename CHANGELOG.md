@@ -1,5 +1,36 @@
 ## Version history
 
+### 2.5.1 (Oct 17th, 2026)
+- **Visual Hierarchy Refinement**: Exchanged the positions of the countdown renewal timer and "30-DAY ACCESS" badge in the Cloud & PIN setup modal:
+  - Countdown timer `(%02us)` placed on the sub-header row beside `"WEB ACCESS CODE:"`.
+  - `"30-DAY ACCESS"` badge placed beside the prominent 20pt web access code.
+
+### 2.5.0 (Oct 17th, 2026)
+- **Two-Column Cloud & PIN Setup Modal**:
+  - Expanded dialog card to 624x160 with clean two-column division and vertical separator.
+  - Left column: 4 interactive PIN digits + large target table badge (`TABLE: TB_<hash>`).
+  - Right column: Large prominent 20pt cyan web access code `[ xxx xxx ]` with countdown timer and privacy guarantee.
+  - Side-by-side action buttons: `CONFIRM & CONNECT` (emerald) and `STAY OFFLINE` (amber).
+- **Radio Screen Real-Time Stream Quality Telemetry**:
+  - Top-row telemetry beside station index (`1 of 10`): Audio Bitrate (`128k`), Download Speed (`DL: 128k`), and PSRAM Buffer Percentage (`BUF: 92%`).
+  - Dynamic buffer color-coding: Green ($\ge 50\%$), Amber ($20-49\%$), Red ($< 20\%$) to indicate stream health and assist users in avoiding stuttering stations.
+
+### 2.4.0 (Oct 17th, 2026)
+- **Dynamic TOTP Hardware Cloud Authentication**:
+  - Hardware-bound 6-digit rolling TOTP code generated on-device with SHA-256 HMAC and countdown timer.
+  - Implemented `TB_DEVICE_AUTH` registry table with automated table provisioning on backend.
+  - Interactive TOTP challenge modal on `telemetry.php` and `graph.php` issuing 30-day encrypted authenticated browser sessions.
+- **Oracle Autonomous DB Scalability**: Verified PGA/SGA memory allocation and cloud tablespace integrity for high-concurrency fleet telemetry.
+
+### 2.3.7 (Oct 17th, 2026)
+- **Audio Continuity & SD Card Stability**: Fixed audio dropouts during clock PWM breathing transitions and resolved FATFS PSRAM DMA bounce buffer contention during SD card playback.
+
+### 2.3.5 (Oct 17th, 2026)
+- **Async Cloud Battery Calibration Sync**: Offloaded cloud battery discharge curve synchronization to dedicated FreeRTOS background task with live pull timestamp feedback.
+
+### 2.3.4 (Oct 17th, 2026)
+- **Fine-Grained Backlight Control**: Added fine-grained backlight stepping below 100 PWM, refreshed utility icons, and scrollable power profile manager.
+
 ### 2.0.5 (Oct 13th, 2026)
 - **Throttled Stream Replacement**: Replaced server-throttled web streams with high-bandwidth CDN alternatives (Bombay Beats to regional load balancer, added Radio Paradise Rock, RdMix Classic Rock, and Radio Caroline 259).
 - **Buffer Standardization**: Standardized audio prebuffering to 64 KB across all stations.
