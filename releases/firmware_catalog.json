@@ -2,14 +2,24 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.5.0",
+      "type": "minor",
+      "build": 76,
+      "date": "Oct 17, 2026",
+      "title": "DeskBar AI v2.5.0: Prominent two-column Cloud & PIN layout and Radio stream quality telemetry",
+      "changelog": "\u2022 Prominent two-column Cloud & PIN layout and Radio stream quality telemetry",
+      "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.5.0.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.4.0",
       "type": "minor",
-      "build": 74,
+      "build": 75,
       "date": "Oct 17, 2026",
       "title": "DeskBar AI v2.4.0: Add dynamic TOTP hardware cloud authentication and TB_DEVICE_AUTH table",
       "changelog": "\u2022 Add dynamic TOTP hardware cloud authentication and TB_DEVICE_AUTH table",
       "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.4.0.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.3.7",

@@ -238,6 +238,48 @@ void process_ui_status_queue() {
       } // switch
       // update weather condition widget every 15 min.
       if (msg.minute % 15 == 0 && msg.second == 0 && wifiEnable) updateWeatherPanel();
+
+      // Real-time Radio Stream Quality Telemetry (Audio Bitrate, DL Speed, PSRAM Buffer)
+      extern lv_obj_t * ui_Player_Label_streamQuality;
+      if (ui_Player_Label_streamQuality) {
+        if (audio.isRunning() && mediaType == 0) {
+          static uint32_t s_last_dl_bytes = 0;
+          static uint32_t s_last_dl_time = 0;
+          uint32_t now_ms = millis();
+          uint32_t dt_ms = now_ms - s_last_dl_time;
+          uint32_t dl_kbps = 0;
+          uint32_t total_bytes = audio.getTotalBytesRead();
+          if (dt_ms >= 500 && dt_ms < 5000 && total_bytes >= s_last_dl_bytes) {
+            dl_kbps = ((total_bytes - s_last_dl_bytes) * 8) / dt_ms;
+          }
+          s_last_dl_bytes = total_bytes;
+          s_last_dl_time = now_ms;
+
+          uint32_t audio_kbps = audio.getBitRate() / 1000;
+          uint32_t buf_filled = audio.inBufferFilled();
+          uint32_t buf_total = audio.getInBufferSize();
+          uint8_t buf_pct = (buf_total > 0) ? (uint8_t)((buf_filled * 100) / buf_total) : 0;
+
+          char q_buf[48];
+          if (audio_kbps > 0) {
+            snprintf(q_buf, sizeof(q_buf), "%uk | DL:%uk | BUF:%u%%", audio_kbps, dl_kbps, buf_pct);
+          } else {
+            snprintf(q_buf, sizeof(q_buf), "DL:%uk | BUF:%u%%", dl_kbps, buf_pct);
+          }
+          lv_label_set_text(ui_Player_Label_streamQuality, q_buf);
+          lv_obj_clear_flag(ui_Player_Label_streamQuality, LV_OBJ_FLAG_HIDDEN);
+
+          if (buf_pct >= 50) {
+            lv_obj_set_style_text_color(ui_Player_Label_streamQuality, lv_color_hex(0x34D399), LV_PART_MAIN);
+          } else if (buf_pct >= 20) {
+            lv_obj_set_style_text_color(ui_Player_Label_streamQuality, lv_color_hex(0xFBBF24), LV_PART_MAIN);
+          } else {
+            lv_obj_set_style_text_color(ui_Player_Label_streamQuality, lv_color_hex(0xEF4444), LV_PART_MAIN);
+          }
+        } else {
+          lv_obj_add_flag(ui_Player_Label_streamQuality, LV_OBJ_FLAG_HIDDEN);
+        }
+      }
       break;
     }
 
