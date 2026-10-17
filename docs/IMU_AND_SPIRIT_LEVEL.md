@@ -27,9 +27,14 @@ DeskBar AI leverages the onboard **QMI8658 6-axis IMU** (3-axis accelerometer + 
 </p>
 
 ### Panel 1 (`[01] RAW DATA`):
-- Live calibrated 6-axis accelerometer telemetry ($m/s^2$) with real-time sparkline waveform charts.
-- 4-row named posture tracker (`[01] NORMAL LANDSCAPE`, `[02] TILTED LANDSCAPE`, `[03] PORTRAIT`, `[04] FLAT`) with 3-state badges (`[ACTIVE]` green, `[INVERTED]` amber, `[IDLE]` slate).
-- Interactive `[-]` / `[+]` 0.25° tolerance adjustment steppers and single-tap `[↺]` reset button restoring default $\pm 2.00^\circ$ level lock.
+- **12× Expanded 3-Axis Oscilloscope Chart (332 × 102 px)**: Plots independent real-time waveform traces for **X (Red `#FF4D4D`)**, **Y (Green `#00FF88`)**, and **Z (Cyan `#00D2FF`)** with a central zero baseline ($0\text{ m/s}^2$).
+- **Interactive Touch Scale Switching**: Tap directly anywhere on the graph to seamlessly cycle between:
+  1. `+/-1.0g [TAP]`: Fixed standard gravitational range ($\pm9.8\text{ m/s}^2$).
+  2. `+/-2.0g [TAP]`: High dynamic range ($\pm19.6\text{ m/s}^2$).
+  3. `AUTO [TAP]`: Dynamic auto-scaling that continuously tracks the rolling min/max peak of displayed data and adjusts the Y-axis span with live numerical labels.
+- **Color-Coded Live Telemetry Header**: Integrated live $m/s^2$ readouts matching each waveform color in the top header bar.
+- **Condensed Tactical Orientations Sidebar (150 px)**: Displays 4 compact orientation monitors (`1. LANDSCAPE`, `2. TILTED 30°`, `3. PORTRAIT`, `4. DESK FLAT`) with threshold tags and glowing state badges (`[ACTIVE]` green, `[INVERTED]` amber, `[IDLE]` slate).
+- **Modular Tolerance Pod**: Dedicated control box with interactive `[-]` / `[+]` $0.25^\circ$ tolerance steppers and single-tap `[↺]` reset button with NVS persistence.
 
 ### Panel 2 (`[02] SPIRIT LEVEL`):
 - High-precision 2D bullseye reticle with liquid bubble physics (air bubble rises uphill to highest elevation edge across all orientations).
