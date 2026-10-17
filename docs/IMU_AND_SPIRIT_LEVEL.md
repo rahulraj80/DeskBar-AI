@@ -1,6 +1,6 @@
 # 📐 6-Axis IMU, Spirit Level & Auto-Rotation (QMI8658)
 
-TuneBar leverages the onboard **QMI8658 6-axis IMU** (3-axis accelerometer + 3-axis gyroscope) to provide jitter-free **Landscape Auto-Rotation** and a precision **3-Panel Digital Inclinometer & Spirit Level**.
+DeskBar AI leverages the onboard **QMI8658 6-axis IMU** (3-axis accelerometer + 3-axis gyroscope) to provide jitter-free **Landscape Auto-Rotation** and a precision **3-Panel Digital Inclinometer & Spirit Level**.
 
 ---
 

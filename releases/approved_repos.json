@@ -2,11 +2,11 @@
   "approved_repos": [
     {
       "id": "official",
-      "name": "TuneBar Official",
+      "name": "DeskBar AI Official",
       "author": "rahulraj80",
-      "repo_url": "https://github.com/rahulraj80/TuneBar",
-      "catalog_url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/firmware_catalog.json",
-      "description": "Official firmware with HiFi radio, LAN streaming, Nixie clock & IMU auto-rotation",
+      "repo_url": "https://github.com/rahulraj80/DeskBar-AI",
+      "catalog_url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/firmware_catalog.json",
+      "description": "Official DeskBar AI firmware with autonomous voice assistant, instruments, HiFi radio, and battery science",
       "is_official": true,
       "metrics": {
         "dram_free_avg_kb": 182,

@@ -180,8 +180,8 @@ def main():
         print("[INFO] No catalog or binary changes needed to be committed.", flush=True)
 
     print(f"\n=======================================================", flush=True)
-    print(f" SUCCESS: TuneBar {ver_tag} published to official OTA!", flush=True)
-    print(f" URL: https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/{target_bin_name}", flush=True)
+    print(f" SUCCESS: DeskBar AI {ver_tag} published to official OTA!", flush=True)
+    print(f" URL: https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/{target_bin_name}", flush=True)
     print(f" Active OTA versions in repo: {', '.join(keep_bins)}", flush=True)
     print(f"=======================================================\n", flush=True)
 
