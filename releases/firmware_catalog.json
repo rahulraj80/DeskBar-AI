@@ -2,14 +2,24 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.5.1",
+      "type": "patch",
+      "build": 78,
+      "date": "Oct 17, 2026",
+      "title": "DeskBar AI v2.5.1: Exchange positions of timer and 30-day access badge in cloud modal",
+      "changelog": "\u2022 Exchange positions of timer and 30-day access badge in cloud modal",
+      "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.5.1.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.5.0",
       "type": "minor",
-      "build": 76,
+      "build": 77,
       "date": "Oct 17, 2026",
       "title": "DeskBar AI v2.5.0: Prominent two-column Cloud & PIN layout and Radio stream quality telemetry",
       "changelog": "\u2022 Prominent two-column Cloud & PIN layout and Radio stream quality telemetry",
       "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.5.0.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.4.0",
