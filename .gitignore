@@ -22,9 +22,11 @@ sketch/build/
 *.tar.gz
 sync_payload.tar.gz
 screen_temp.bmp
+artifacts/
 /*.png
 !document/**/*.png
-server/registered_devices.json
+backend/registered_devices.json
+server/
 sketch/src/ui/images_backup/
 sketch/*.py
 __pycache__/
@@ -39,7 +41,6 @@ __pycache__/
 scratch/
 /*.py
 !/release.py
-!/sync_and_build.py
 /*.sh
 /*.diff
 /*.log
