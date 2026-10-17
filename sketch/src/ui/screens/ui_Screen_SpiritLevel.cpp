@@ -32,8 +32,27 @@ static lv_obj_t * s_lbl_raw_accel_x = NULL;
 static lv_obj_t * s_lbl_raw_accel_y = NULL;
 static lv_obj_t * s_lbl_raw_accel_z = NULL;
 static lv_obj_t * s_raw_sparkline_chart = NULL;
-static lv_chart_series_t * s_raw_sparkline_series = NULL;
+static lv_chart_series_t * s_raw_series_x = NULL;
+static lv_chart_series_t * s_raw_series_y = NULL;
+static lv_chart_series_t * s_raw_series_z = NULL;
+static lv_obj_t * s_lbl_chart_scale = NULL;
+static lv_obj_t * s_lbl_axis_max = NULL;
+static lv_obj_t * s_lbl_axis_mid = NULL;
+static lv_obj_t * s_lbl_axis_min = NULL;
 static lv_obj_t * s_lbl_tolerances_val = NULL;
+
+enum ChartScaleMode {
+    CHART_SCALE_1G = 0,    // Absolute ±1.0g (±9.8 m/s²)
+    CHART_SCALE_2G = 1,    // Absolute ±2.0g (±19.6 m/s²)
+    CHART_SCALE_AUTO = 2   // Dynamic auto-scaling according to displayed range
+};
+static ChartScaleMode s_chart_scale_mode = CHART_SCALE_1G;
+
+#define CHART_POINT_COUNT 40
+static int16_t s_hist_vx[CHART_POINT_COUNT] = {0};
+static int16_t s_hist_vy[CHART_POINT_COUNT] = {0};
+static int16_t s_hist_vz[CHART_POINT_COUNT] = {0};
+static int s_hist_idx = 0;
 
 struct NamedOrientationRow {
     const char *name;
@@ -46,10 +65,10 @@ struct NamedOrientationRow {
 };
 
 static NamedOrientationRow s_named_orientations[4] = {
-    {"[01] NORMAL LANDSCAPE",   "Y[-1.0g]",      0.0f, -1.0f,  0.0f, NULL, NULL},
-    {"[02] TILTED LANDSCAPE",   "Y[-.8] Z[+.5]", 0.0f, -0.86f, 0.5f, NULL, NULL},
-    {"[03] PORTRAIT",           "X[+/-1.0g]",    1.0f,  0.0f,  0.0f, NULL, NULL},
-    {"[04] FLAT",               "Z[+/-1.0g]",    0.0f,  0.0f,  1.0f, NULL, NULL}
+    {"1. LANDSCAPE",   "Y[-1.0g]",      0.0f, -1.0f,  0.0f, NULL, NULL},
+    {"2. TILTED 30°",  "Y-.8 Z+.5",     0.0f, -0.86f, 0.5f, NULL, NULL},
+    {"3. PORTRAIT",    "X[±1.0g]",      1.0f,  0.0f,  0.0f, NULL, NULL},
+    {"4. DESK FLAT",   "Z[±1.0g]",      0.0f,  0.0f,  1.0f, NULL, NULL}
 };
 
 static float s_tolerance_deg = 2.0f;
@@ -241,6 +260,32 @@ static void tol_reset_cb(lv_event_t * e) {
     s_tol_y = 0.10f;
     s_tol_z = 0.08f;
     save_calibration_to_nvs();
+}
+
+static void update_chart_scale_label(void) {
+    if (!s_lbl_chart_scale) return;
+    if (s_chart_scale_mode == CHART_SCALE_1G) {
+        lv_label_set_text(s_lbl_chart_scale, "±1.0g [TAP]");
+        lv_obj_set_style_text_color(s_lbl_chart_scale, lv_color_hex(0x00FF88), LV_PART_MAIN);
+    } else if (s_chart_scale_mode == CHART_SCALE_2G) {
+        lv_label_set_text(s_lbl_chart_scale, "±2.0g [TAP]");
+        lv_obj_set_style_text_color(s_lbl_chart_scale, lv_color_hex(0x00D2FF), LV_PART_MAIN);
+    } else {
+        lv_label_set_text(s_lbl_chart_scale, "AUTO [TAP]");
+        lv_obj_set_style_text_color(s_lbl_chart_scale, lv_color_hex(0xFFCC00), LV_PART_MAIN);
+    }
+}
+
+static void chart_scale_click_cb(lv_event_t * e) {
+    SCREEN_OFF_TIMER = millis();
+    if (s_chart_scale_mode == CHART_SCALE_1G) {
+        s_chart_scale_mode = CHART_SCALE_2G;
+    } else if (s_chart_scale_mode == CHART_SCALE_2G) {
+        s_chart_scale_mode = CHART_SCALE_AUTO;
+    } else {
+        s_chart_scale_mode = CHART_SCALE_1G;
+    }
+    update_chart_scale_label();
 }
 
 // -------------------------------------------------------------
@@ -465,24 +510,63 @@ static void spirit_level_timer_cb(lv_timer_t * timer) {
     // =========================================================
     if (s_active_tab == 0) {
         if (s_lbl_raw_accel_x) {
-            char buf[48];
-            snprintf(buf, sizeof(buf), "ACCEL_X: %+.2f (Range: -19.6..+19.6)", ax_ms2);
+            char buf[24];
+            snprintf(buf, sizeof(buf), "X: %+.2f", ax_ms2);
             lv_label_set_text(s_lbl_raw_accel_x, buf);
         }
         if (s_lbl_raw_accel_y) {
-            char buf[32];
-            snprintf(buf, sizeof(buf), "ACCEL_Y: %+.2f", ay_ms2);
+            char buf[24];
+            snprintf(buf, sizeof(buf), "Y: %+.2f", ay_ms2);
             lv_label_set_text(s_lbl_raw_accel_y, buf);
         }
         if (s_lbl_raw_accel_z) {
-            char buf[32];
-            snprintf(buf, sizeof(buf), "ACCEL_Z: %+.2f", az_ms2);
+            char buf[24];
+            snprintf(buf, sizeof(buf), "Z: %+.2f", az_ms2);
             lv_label_set_text(s_lbl_raw_accel_z, buf);
         }
-        if (s_raw_sparkline_chart && s_raw_sparkline_series) {
-            // Push magnitude fluctuation into chart
-            int16_t val = (int16_t)(sqrtf(ax_ms2 * ax_ms2 + ay_ms2 * ay_ms2 + az_ms2 * az_ms2) * 1.5f);
-            lv_chart_set_next_value(s_raw_sparkline_chart, s_raw_sparkline_series, val);
+        if (s_raw_sparkline_chart && s_raw_series_x && s_raw_series_y && s_raw_series_z) {
+            int16_t vx = (int16_t)roundf(ax_ms2 * 10.0f);
+            int16_t vy = (int16_t)roundf(ay_ms2 * 10.0f);
+            int16_t vz = (int16_t)roundf(az_ms2 * 10.0f);
+
+            s_hist_vx[s_hist_idx] = vx;
+            s_hist_vy[s_hist_idx] = vy;
+            s_hist_vz[s_hist_idx] = vz;
+            s_hist_idx = (s_hist_idx + 1) % CHART_POINT_COUNT;
+
+            lv_chart_set_next_value(s_raw_sparkline_chart, s_raw_series_x, vx);
+            lv_chart_set_next_value(s_raw_sparkline_chart, s_raw_series_y, vy);
+            lv_chart_set_next_value(s_raw_sparkline_chart, s_raw_series_z, vz);
+
+            if (s_chart_scale_mode == CHART_SCALE_1G) {
+                lv_chart_set_range(s_raw_sparkline_chart, LV_CHART_AXIS_PRIMARY_Y, -98, +98);
+                if (s_lbl_axis_max) lv_label_set_text(s_lbl_axis_max, "+1.0g");
+                if (s_lbl_axis_min) lv_label_set_text(s_lbl_axis_min, "-1.0g");
+            } else if (s_chart_scale_mode == CHART_SCALE_2G) {
+                lv_chart_set_range(s_raw_sparkline_chart, LV_CHART_AXIS_PRIMARY_Y, -196, +196);
+                if (s_lbl_axis_max) lv_label_set_text(s_lbl_axis_max, "+2.0g");
+                if (s_lbl_axis_min) lv_label_set_text(s_lbl_axis_min, "-2.0g");
+            } else { // CHART_SCALE_AUTO (Dynamic auto-range)
+                int16_t max_peak = 20; // baseline floor ±2 m/s2
+                for (int p = 0; p < CHART_POINT_COUNT; p++) {
+                    int16_t ax_abs = abs(s_hist_vx[p]);
+                    int16_t ay_abs = abs(s_hist_vy[p]);
+                    int16_t az_abs = abs(s_hist_vz[p]);
+                    if (ax_abs > max_peak) max_peak = ax_abs;
+                    if (ay_abs > max_peak) max_peak = ay_abs;
+                    if (az_abs > max_peak) max_peak = az_abs;
+                }
+                int16_t range_lim = ((max_peak * 115) / 100 + 9) / 10 * 10;
+                if (range_lim < 30) range_lim = 30; // at least ±3.0 m/s2
+                lv_chart_set_range(s_raw_sparkline_chart, LV_CHART_AXIS_PRIMARY_Y, -range_lim, +range_lim);
+                if (s_lbl_axis_max && s_lbl_axis_min) {
+                    char max_b[16], min_b[16];
+                    snprintf(max_b, sizeof(max_b), "+%.1f", (float)range_lim / 10.0f);
+                    snprintf(min_b, sizeof(min_b), "-%.1f", (float)range_lim / 10.0f);
+                    lv_label_set_text(s_lbl_axis_max, max_b);
+                    lv_label_set_text(s_lbl_axis_min, min_b);
+                }
+            }
         }
         if (s_lbl_tolerances_val) {
             char buf[32];
@@ -821,121 +905,179 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
     lv_obj_set_style_border_width(s_panel_raw, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(s_panel_raw, 4, LV_PART_MAIN);
 
-    // Card 1: Left Raw IMU Card
+    // Card 1: Left Raw IMU & Telemetry Pod (Width: 474px, Height: 134px)
     lv_obj_t * c1 = lv_obj_create(s_panel_raw);
-    lv_obj_set_size(c1, 296, 134);
+    lv_obj_set_size(c1, 474, 134);
     lv_obj_set_pos(c1, 4, 2);
     lv_obj_clear_flag(c1, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(c1, lv_color_hex(0x0A0F1A), LV_PART_MAIN);
     lv_obj_set_style_border_color(c1, lv_color_hex(0x00D2FF), LV_PART_MAIN);
     lv_obj_set_style_border_width(c1, 1, LV_PART_MAIN);
     lv_obj_set_style_radius(c1, 6, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(c1, 6, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(c1, 4, LV_PART_MAIN);
 
+    // Top Header: Title & 3-Axis Color-Coded Live Telemetry Badges
     lv_obj_t * c1_hdr = lv_label_create(c1);
     lv_obj_set_pos(c1_hdr, 4, 2);
-    lv_label_set_text(c1_hdr, "RAW IMU SCORES (m/s2)");
+    lv_label_set_text(c1_hdr, "3-AXIS ACCEL (m/s2)");
     lv_obj_set_style_text_color(c1_hdr, lv_color_hex(0x00F0FF), LV_PART_MAIN);
     lv_obj_set_style_text_font(c1_hdr, &lv_font_montserrat_12, LV_PART_MAIN);
 
     s_lbl_raw_accel_x = lv_label_create(c1);
-    lv_obj_set_pos(s_lbl_raw_accel_x, 4, 20);
-    lv_label_set_text(s_lbl_raw_accel_x, "ACCEL_X: -0.12 (Range: -19.6..+19.6)");
-    lv_obj_set_style_text_color(s_lbl_raw_accel_x, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_pos(s_lbl_raw_accel_x, 180, 2);
+    lv_label_set_text(s_lbl_raw_accel_x, "X: +0.00");
+    lv_obj_set_style_text_color(s_lbl_raw_accel_x, lv_color_hex(0xFF4D4D), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_lbl_raw_accel_x, &lv_font_montserrat_10, LV_PART_MAIN);
 
     s_lbl_raw_accel_y = lv_label_create(c1);
-    lv_obj_set_pos(s_lbl_raw_accel_y, 4, 38);
-    lv_label_set_text(s_lbl_raw_accel_y, "ACCEL_Y: +9.79");
-    lv_obj_set_style_text_color(s_lbl_raw_accel_y, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_pos(s_lbl_raw_accel_y, 276, 2);
+    lv_label_set_text(s_lbl_raw_accel_y, "Y: -9.80");
+    lv_obj_set_style_text_color(s_lbl_raw_accel_y, lv_color_hex(0x00FF88), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_lbl_raw_accel_y, &lv_font_montserrat_10, LV_PART_MAIN);
 
     s_lbl_raw_accel_z = lv_label_create(c1);
-    lv_obj_set_pos(s_lbl_raw_accel_z, 4, 56);
-    lv_label_set_text(s_lbl_raw_accel_z, "ACCEL_Z: +0.03");
-    lv_obj_set_style_text_color(s_lbl_raw_accel_z, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_pos(s_lbl_raw_accel_z, 372, 2);
+    lv_label_set_text(s_lbl_raw_accel_z, "Z: +0.00");
+    lv_obj_set_style_text_color(s_lbl_raw_accel_z, lv_color_hex(0x00D2FF), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_lbl_raw_accel_z, &lv_font_montserrat_10, LV_PART_MAIN);
 
-    // Sparkline waveform chart
+    // Large High-Visibility Oscilloscope Waveform Chart (332 x 102 px)
     s_raw_sparkline_chart = lv_chart_create(c1);
-    lv_obj_set_size(s_raw_sparkline_chart, 90, 30);
-    lv_obj_set_pos(s_raw_sparkline_chart, 192, 34);
+    lv_obj_set_size(s_raw_sparkline_chart, 332, 102);
+    lv_obj_set_pos(s_raw_sparkline_chart, 4, 22);
     lv_chart_set_type(s_raw_sparkline_chart, LV_CHART_TYPE_LINE);
-    lv_chart_set_point_count(s_raw_sparkline_chart, 18);
-    lv_chart_set_range(s_raw_sparkline_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 30);
+    lv_chart_set_point_count(s_raw_sparkline_chart, CHART_POINT_COUNT);
+    lv_chart_set_range(s_raw_sparkline_chart, LV_CHART_AXIS_PRIMARY_Y, -98, +98);
+    lv_chart_set_div_line_count(s_raw_sparkline_chart, 5, 7);
     lv_obj_set_style_bg_color(s_raw_sparkline_chart, lv_color_hex(0x050810), LV_PART_MAIN);
     lv_obj_set_style_border_color(s_raw_sparkline_chart, lv_color_hex(0x007090), LV_PART_MAIN);
     lv_obj_set_style_border_width(s_raw_sparkline_chart, 1, LV_PART_MAIN);
-    lv_obj_set_style_size(s_raw_sparkline_chart, 0, LV_PART_INDICATOR); // no point dots
-    s_raw_sparkline_series = lv_chart_add_series(s_raw_sparkline_chart, lv_color_hex(0xFFE600), LV_CHART_AXIS_PRIMARY_Y);
+    lv_obj_set_style_line_color(s_raw_sparkline_chart, lv_color_hex(0x102538), LV_PART_MAIN);
+    lv_obj_set_style_size(s_raw_sparkline_chart, 0, LV_PART_INDICATOR);
+    lv_obj_set_style_pad_all(s_raw_sparkline_chart, 0, LV_PART_MAIN);
+    lv_obj_add_flag(s_raw_sparkline_chart, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_raw_sparkline_chart, chart_scale_click_cb, LV_EVENT_CLICKED, NULL);
 
-    // Level Tolerance row
-    lv_obj_t * tol_hdr = lv_label_create(c1);
-    lv_obj_set_pos(tol_hdr, 4, 82);
-    lv_label_set_text(tol_hdr, "LEVEL TOLERANCE:");
+    s_raw_series_x = lv_chart_add_series(s_raw_sparkline_chart, lv_color_hex(0xFF4D4D), LV_CHART_AXIS_PRIMARY_Y);
+    s_raw_series_y = lv_chart_add_series(s_raw_sparkline_chart, lv_color_hex(0x00FF88), LV_CHART_AXIS_PRIMARY_Y);
+    s_raw_series_z = lv_chart_add_series(s_raw_sparkline_chart, lv_color_hex(0x00D2FF), LV_CHART_AXIS_PRIMARY_Y);
+
+    // Dynamic Scale Badge Overlay (Top Right of Chart)
+    s_lbl_chart_scale = lv_label_create(s_raw_sparkline_chart);
+    lv_obj_align(s_lbl_chart_scale, LV_ALIGN_TOP_RIGHT, -4, 2);
+    lv_obj_set_style_text_font(s_lbl_chart_scale, &lv_font_montserrat_10, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_lbl_chart_scale, lv_color_hex(0x0B1626), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(s_lbl_chart_scale, 210, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(s_lbl_chart_scale, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(s_lbl_chart_scale, 1, LV_PART_MAIN);
+    lv_obj_set_style_radius(s_lbl_chart_scale, 3, LV_PART_MAIN);
+    update_chart_scale_label();
+
+    // Chart Y-Axis Scale Guides
+    s_lbl_axis_max = lv_label_create(s_raw_sparkline_chart);
+    lv_obj_align(s_lbl_axis_max, LV_ALIGN_TOP_LEFT, 4, 2);
+    lv_obj_set_style_text_font(s_lbl_axis_max, &lv_font_montserrat_10, LV_PART_MAIN);
+    lv_obj_set_style_text_color(s_lbl_axis_max, lv_color_hex(0x607890), LV_PART_MAIN);
+    lv_label_set_text(s_lbl_axis_max, "+1.0g");
+
+    s_lbl_axis_mid = lv_label_create(s_raw_sparkline_chart);
+    lv_obj_align(s_lbl_axis_mid, LV_ALIGN_LEFT_MID, 4, 0);
+    lv_obj_set_style_text_font(s_lbl_axis_mid, &lv_font_montserrat_10, LV_PART_MAIN);
+    lv_obj_set_style_text_color(s_lbl_axis_mid, lv_color_hex(0x405870), LV_PART_MAIN);
+    lv_label_set_text(s_lbl_axis_mid, "0");
+
+    s_lbl_axis_min = lv_label_create(s_raw_sparkline_chart);
+    lv_obj_align(s_lbl_axis_min, LV_ALIGN_BOTTOM_LEFT, 4, -2);
+    lv_obj_set_style_text_font(s_lbl_axis_min, &lv_font_montserrat_10, LV_PART_MAIN);
+    lv_obj_set_style_text_color(s_lbl_axis_min, lv_color_hex(0x607890), LV_PART_MAIN);
+    lv_label_set_text(s_lbl_axis_min, "-1.0g");
+
+    // Modular Tolerance Pod (Width: 120px, Height: 102px)
+    lv_obj_t * tol_pod = lv_obj_create(c1);
+    lv_obj_set_size(tol_pod, 120, 102);
+    lv_obj_set_pos(tol_pod, 342, 22);
+    lv_obj_clear_flag(tol_pod, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(tol_pod, lv_color_hex(0x08101C), LV_PART_MAIN);
+    lv_obj_set_style_border_color(tol_pod, lv_color_hex(0x162C42), LV_PART_MAIN);
+    lv_obj_set_style_border_width(tol_pod, 1, LV_PART_MAIN);
+    lv_obj_set_style_radius(tol_pod, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(tol_pod, 4, LV_PART_MAIN);
+
+    lv_obj_t * tol_hdr = lv_label_create(tol_pod);
+    lv_obj_set_pos(tol_hdr, 2, 2);
+    lv_label_set_text(tol_hdr, "LEVEL TOLERANCE");
     lv_obj_set_style_text_color(tol_hdr, lv_color_hex(0x70A0C0), LV_PART_MAIN);
     lv_obj_set_style_text_font(tol_hdr, &lv_font_montserrat_10, LV_PART_MAIN);
 
-    s_lbl_tolerances_val = lv_label_create(c1);
-    lv_obj_set_pos(s_lbl_tolerances_val, 4, 102);
+    s_lbl_tolerances_val = lv_label_create(tol_pod);
+    lv_obj_set_pos(s_lbl_tolerances_val, 2, 16);
     lv_label_set_text(s_lbl_tolerances_val, "+/-2.00 deg");
     lv_obj_set_style_text_color(s_lbl_tolerances_val, lv_color_hex(0xFFCC00), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_lbl_tolerances_val, &lv_font_montserrat_12, LV_PART_MAIN);
 
-    lv_obj_t * b_m = lv_btn_create(c1);
-    lv_obj_set_size(b_m, 26, 22);
-    lv_obj_set_pos(b_m, 140, 98);
+    lv_obj_t * b_m = lv_btn_create(tol_pod);
+    lv_obj_set_size(b_m, 28, 24);
+    lv_obj_set_pos(b_m, 2, 36);
     lv_obj_set_style_bg_color(b_m, lv_color_hex(0x1B2338), LV_PART_MAIN);
+    lv_obj_set_style_border_color(b_m, lv_color_hex(0x2B3A5A), LV_PART_MAIN);
+    lv_obj_set_style_border_width(b_m, 1, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(b_m, 0, LV_PART_MAIN);
     lv_obj_add_event_cb(b_m, tol_minus_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_t * lm = lv_label_create(b_m);
     lv_label_set_text(lm, "-");
     lv_obj_set_align(lm, LV_ALIGN_CENTER);
 
-    lv_obj_t * b_step = lv_label_create(c1);
-    lv_obj_set_pos(b_step, 170, 102);
-    lv_label_set_text(b_step, "0.25d");
-    lv_obj_set_style_text_color(b_step, lv_color_hex(0x8EA5C8), LV_PART_MAIN);
-    lv_obj_set_style_text_font(b_step, &lv_font_montserrat_10, LV_PART_MAIN);
-
-    lv_obj_t * b_p = lv_btn_create(c1);
-    lv_obj_set_size(b_p, 26, 22);
-    lv_obj_set_pos(b_p, 204, 98);
+    lv_obj_t * b_p = lv_btn_create(tol_pod);
+    lv_obj_set_size(b_p, 28, 24);
+    lv_obj_set_pos(b_p, 36, 36);
     lv_obj_set_style_bg_color(b_p, lv_color_hex(0x1B2338), LV_PART_MAIN);
+    lv_obj_set_style_border_color(b_p, lv_color_hex(0x2B3A5A), LV_PART_MAIN);
+    lv_obj_set_style_border_width(b_p, 1, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(b_p, 0, LV_PART_MAIN);
     lv_obj_add_event_cb(b_p, tol_plus_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_t * lp = lv_label_create(b_p);
     lv_label_set_text(lp, "+");
     lv_obj_set_align(lp, LV_ALIGN_CENTER);
 
-    lv_obj_t * b_gear = lv_btn_create(c1);
-    lv_obj_set_size(b_gear, 28, 22);
-    lv_obj_set_pos(b_gear, 246, 98);
+    lv_obj_t * b_gear = lv_btn_create(tol_pod);
+    lv_obj_set_size(b_gear, 32, 24);
+    lv_obj_set_pos(b_gear, 70, 36);
     lv_obj_set_style_bg_color(b_gear, lv_color_hex(0x005A7A), LV_PART_MAIN);
+    lv_obj_set_style_border_color(b_gear, lv_color_hex(0x008CB8), LV_PART_MAIN);
+    lv_obj_set_style_border_width(b_gear, 1, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(b_gear, 0, LV_PART_MAIN);
     lv_obj_add_event_cb(b_gear, tol_reset_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_t * lg = lv_label_create(b_gear);
     lv_label_set_text(lg, LV_SYMBOL_REFRESH);
     lv_obj_set_align(lg, LV_ALIGN_CENTER);
 
-    // Card 2: Right Named Orientations Card
+    lv_obj_t * step_note = lv_label_create(tol_pod);
+    lv_obj_set_pos(step_note, 2, 68);
+    lv_label_set_text(step_note, "Step: 0.25 deg");
+    lv_obj_set_style_text_color(step_note, lv_color_hex(0x475569), LV_PART_MAIN);
+    lv_obj_set_style_text_font(step_note, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    // Card 2: Right Orientations Card (Width: 150px, Height: 134px)
     lv_obj_t * c2 = lv_obj_create(s_panel_raw);
-    lv_obj_set_size(c2, 328, 134);
-    lv_obj_set_pos(c2, 304, 2);
+    lv_obj_set_size(c2, 150, 134);
+    lv_obj_set_pos(c2, 484, 2);
     lv_obj_clear_flag(c2, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(c2, lv_color_hex(0x0A0F1A), LV_PART_MAIN);
     lv_obj_set_style_border_color(c2, lv_color_hex(0x00D2FF), LV_PART_MAIN);
     lv_obj_set_style_border_width(c2, 1, LV_PART_MAIN);
     lv_obj_set_style_radius(c2, 6, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(c2, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(c2, 3, LV_PART_MAIN);
 
     lv_obj_t * c2_hdr = lv_label_create(c2);
     lv_obj_set_pos(c2_hdr, 4, 2);
-    lv_label_set_text(c2_hdr, "NAMED ORIENTATIONS          Active    Thresholds");
+    lv_label_set_text(c2_hdr, "ORIENTATIONS");
     lv_obj_set_style_text_color(c2_hdr, lv_color_hex(0x00F0FF), LV_PART_MAIN);
     lv_obj_set_style_text_font(c2_hdr, &lv_font_montserrat_10, LV_PART_MAIN);
 
     for (int i = 0; i < 4; i++) {
         lv_obj_t * r = lv_obj_create(c2);
-        lv_obj_set_size(r, 316, 23);
-        lv_obj_set_pos(r, 2, 20 + (i * 26));
+        lv_obj_set_size(r, 142, 26);
+        lv_obj_set_pos(r, 1, 16 + (i * 28));
         lv_obj_clear_flag(r, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_style_bg_color(r, lv_color_hex(0x0B1220), LV_PART_MAIN);
         lv_obj_set_style_border_color(r, lv_color_hex(0x203548), LV_PART_MAIN);
@@ -945,22 +1087,22 @@ void ui_spirit_level_init(lv_obj_t *parent_screen) {
         s_named_orientations[i].row_container = r;
 
         lv_obj_t * nm = lv_label_create(r);
-        lv_obj_set_pos(nm, 4, 2);
+        lv_obj_set_pos(nm, 2, 0);
         lv_label_set_text(nm, s_named_orientations[i].name);
         lv_obj_set_style_text_color(nm, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
         lv_obj_set_style_text_font(nm, &lv_font_montserrat_10, LV_PART_MAIN);
 
-        s_named_orientations[i].status_label = lv_label_create(r);
-        lv_obj_set_pos(s_named_orientations[i].status_label, 156, 2);
-        lv_label_set_text(s_named_orientations[i].status_label, "[IDLE]");
-        lv_obj_set_style_text_color(s_named_orientations[i].status_label, lv_color_hex(0x607890), LV_PART_MAIN);
-        lv_obj_set_style_text_font(s_named_orientations[i].status_label, &lv_font_montserrat_10, LV_PART_MAIN);
-
         lv_obj_t * th = lv_label_create(r);
-        lv_obj_set_pos(th, 236, 2);
+        lv_obj_set_pos(th, 2, 11);
         lv_label_set_text(th, s_named_orientations[i].threshold_str);
         lv_obj_set_style_text_color(th, lv_color_hex(0x00D2FF), LV_PART_MAIN);
         lv_obj_set_style_text_font(th, &lv_font_montserrat_10, LV_PART_MAIN);
+
+        s_named_orientations[i].status_label = lv_label_create(r);
+        lv_obj_set_pos(s_named_orientations[i].status_label, 84, 5);
+        lv_label_set_text(s_named_orientations[i].status_label, "[IDLE]");
+        lv_obj_set_style_text_color(s_named_orientations[i].status_label, lv_color_hex(0x607890), LV_PART_MAIN);
+        lv_obj_set_style_text_font(s_named_orientations[i].status_label, &lv_font_montserrat_10, LV_PART_MAIN);
     }
 
     // =========================================================
