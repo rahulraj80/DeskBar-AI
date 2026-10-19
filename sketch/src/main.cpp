@@ -30,7 +30,7 @@
  * to ensure alignment across development, testing, and system integration workflows.
  */
 #include "esp_heap_caps.h"
-#include "esp_partition.h"
+#include "esp_sleep.h"
 #include "esp_task_wdt.h"
 #include "mbedtls/platform.h"
 
@@ -1075,17 +1075,12 @@ void serial_cli_task(void *param) {
             ESP.restart();
 #ifdef LAUNCHER_BUILD
           } else if (cmd.equalsIgnoreCase("launcher")) {
-            // With otadata blank the bootloader falls back to the Launcher,
-            // which is how the Launcher itself picks "boot Launcher".
-            const esp_partition_t *otadata =
-                esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, NULL);
-            if (!otadata || esp_partition_erase_range(otadata, 0, otadata->size) != ESP_OK) {
-              Serial.println("[CLI ERROR] Could not clear otadata");
-            } else {
-              Serial.println("[CLI] OK: Rebooting to the Launcher...");
-              delay(100);
-              ESP.restart();
-            }
+            // The Launcher's bootloader starts the Launcher after a power-on
+            // or a deep-sleep wake, and the installed app after a soft restart.
+            Serial.println("[CLI] OK: Rebooting to the Launcher...");
+            delay(100);
+            esp_sleep_enable_timer_wakeup(100 * 1000);
+            esp_deep_sleep_start();
 #endif
           } else if (cmd.equalsIgnoreCase("alarm")) {
             uint8_t a_hr = 0, a_min = 0;
