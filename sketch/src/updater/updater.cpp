@@ -350,6 +350,11 @@ static void http_ota_task(void *pvParameters) {
 }
 
 bool ota_start_http_flash(const char *version_str, const char *bin_url) {
+#ifdef LAUNCHER_BUILD
+  // The next OTA slot may hold another app the Launcher installed.
+  log_w("[OTA] Disabled in the Launcher build; update DeskBar from the Launcher");
+  return false;
+#endif
   uint8_t batt_pct = 0;
   float batt_v = 0.0f;
   if (!ota_check_battery_allowed(&batt_pct, &batt_v)) {

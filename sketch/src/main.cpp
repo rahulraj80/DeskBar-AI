@@ -30,6 +30,7 @@
  * to ensure alignment across development, testing, and system integration workflows.
  */
 #include "esp_heap_caps.h"
+#include "esp_partition.h"
 #include "esp_task_wdt.h"
 #include "mbedtls/platform.h"
 
@@ -356,6 +357,9 @@ void serial_cli_task(void *param) {
             Serial.println("  ask <text>            - Query AI Voice Assistant and stream audio");
             Serial.println("  wifi <on|off>         - Enable or disable WiFi");
             Serial.println("  reboot                - Restart ESP32-S3");
+#ifdef LAUNCHER_BUILD
+            Serial.println("  launcher              - Reboot into the Launcher");
+#endif
           } else if (cmd.equalsIgnoreCase("status") || cmd.equalsIgnoreCase("ip")) {
             float volt = 0.0f; uint8_t pct = 0;
             getBatteryStatus(&volt, &pct);
@@ -1069,6 +1073,20 @@ void serial_cli_task(void *param) {
             Serial.println("[CLI] OK: Rebooting ESP32-S3...");
             delay(100);
             ESP.restart();
+#ifdef LAUNCHER_BUILD
+          } else if (cmd.equalsIgnoreCase("launcher")) {
+            // With otadata blank the bootloader falls back to the Launcher,
+            // which is how the Launcher itself picks "boot Launcher".
+            const esp_partition_t *otadata =
+                esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, NULL);
+            if (!otadata || esp_partition_erase_range(otadata, 0, otadata->size) != ESP_OK) {
+              Serial.println("[CLI ERROR] Could not clear otadata");
+            } else {
+              Serial.println("[CLI] OK: Rebooting to the Launcher...");
+              delay(100);
+              ESP.restart();
+            }
+#endif
           } else if (cmd.equalsIgnoreCase("alarm")) {
             uint8_t a_hr = 0, a_min = 0;
             alarm_get_time(&a_hr, &a_min);
