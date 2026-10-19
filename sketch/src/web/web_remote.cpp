@@ -1680,6 +1680,12 @@ static size_t s_ota_total_expected = 0;
 static void handle_update_upload(void) {
     HTTPUpload& upload = server.upload();
     if (upload.status == UPLOAD_FILE_START) {
+#ifdef LAUNCHER_BUILD
+        // The next OTA slot may hold another app the Launcher installed.
+        log_w("[OTA] Disabled in the Launcher build; update DeskBar from the Launcher");
+        s_ota_active = false;
+        return;
+#endif
         log_i("[OTA] Starting firmware upload: %s", upload.filename.c_str());
 
         int clen = server.header("Content-Length").toInt();

@@ -1,0 +1,9 @@
+# Layout for the image the WaveShare_3.49_Launcher installs (env deskbar-launcher).
+# The Launcher copies only the app and data partitions out of the merged image;
+# nvs/otadata here just make the table valid. The data partition must not be
+# labelled "spiffs": the Launcher shrinks those to its default size on install.
+# Name,     Type, SubType,  Offset,   Size,     Flags
+nvs,        data, nvs,      0x9000,   0x5000,
+otadata,    data, ota,      0xE000,   0x2000,
+app0,       app,  ota_0,    0x10000,  0x500000,
+littlefs,   data, littlefs, 0x510000, 0x1E0000,

@@ -79,11 +79,16 @@ lv_fs_res_t fs_seek(lv_fs_drv_t *drv, void *file_p, uint32_t pos, lv_fs_whence_t
 
 //------------------------------------------------
 // init LittleFS
+#ifdef LAUNCHER_BUILD
+#define LITTLEFS_LABEL "littlefs" // see partitions/launcher_app5MB_littlefs.csv
+#else
+#define LITTLEFS_LABEL "spiffs"
+#endif
 void initLittleFS() {
-  bool mounted = LittleFS.begin(false, "/littlefs", 10, "spiffs");
+  bool mounted = LittleFS.begin(false, "/littlefs", 10, LITTLEFS_LABEL);
   if (!mounted) {
-    log_w("LittleFS mount failed on 'spiffs'. Formatting...");
-    mounted = LittleFS.begin(true, "/littlefs", 10, "spiffs");
+    log_w("LittleFS mount failed on '" LITTLEFS_LABEL "'. Formatting...");
+    mounted = LittleFS.begin(true, "/littlefs", 10, LITTLEFS_LABEL);
     if (!mounted) {
       log_e("LittleFS format and mount failed!");
       return;
