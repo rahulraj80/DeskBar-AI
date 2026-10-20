@@ -3,3 +3,5 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+# generated from web/index.html by tools/gzip_web_page.py
+include/web_page_gz.h
