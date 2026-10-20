@@ -259,11 +259,19 @@ void Audio::destroy_decoder() {
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 std::unique_ptr<Decoder> Audio::createDecoder(const std::string& type) {
     destroy_decoder();
+    // AUDIO_NO_* leave a codec out of the build (nothing references it, so the
+    // linker drops it); such streams then fail to start like any unknown type.
     if (type == "MP3") return std::make_unique<MP3Decoder>(*this);
+#ifndef AUDIO_NO_FLAC
     if (type == "FLAC") return std::make_unique<FlacDecoder>(*this);
+#endif
+#ifndef AUDIO_NO_OPUS
     if (type == "OPUS") return std::make_unique<OpusDecoder>(*this);
+#endif
     if (type == "AAC") return std::make_unique<AACDecoder>(*this);
+#ifndef AUDIO_NO_VORBIS
     if (type == "VORBIS") return std::make_unique<VorbisDecoder>(*this);
+#endif
     if (type == "WAV") return std::make_unique<WavDecoder>(*this);
     return nullptr;
 }
