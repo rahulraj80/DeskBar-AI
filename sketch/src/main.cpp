@@ -42,19 +42,17 @@ static void mbedtls_psram_free(void *ptr) {
     heap_caps_free(ptr);
 }
 
-// HWCDC::write drops the rest of a write that doesn't fit its ring buffer while
-// the FIFO is busy (it marks the port disconnected and still reports success).
-// Only ever hand it what fits; when it is full, flush() re-arms the TX interrupt
-// and waits for the host. Used for bulk output such as the screenshot; gives up
-// after 2 s without progress.
+// HWCDC drops queued output whenever it thinks the host went away (its
+// connected flag flips under load): a write that doesn't fit, or flush(),
+// discards data while still reporting success. Only ever hand it what fits
+// the ring buffer; when that is full, bool(Serial) re-arms the TX interrupt
+// without discarding anything. Used for bulk output such as the screenshot;
+// gives up after 2 s without progress.
 static bool serial_write_all(const uint8_t *p, size_t n) {
     unsigned long last_progress = millis();
     while (n > 0) {
         size_t room = (size_t)Serial.availableForWrite();
-        if (room == 0) {
-            Serial.flush();
-            room = (size_t)Serial.availableForWrite();
-        }
+        if (room == 0) (void)(bool)Serial;
         size_t k = room ? Serial.write(p, n < room ? n : room) : 0;
         if (k > 0) {
             p += k;
