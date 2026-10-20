@@ -42,13 +42,15 @@ static void mbedtls_psram_free(void *ptr) {
     heap_caps_free(ptr);
 }
 
-// USB-CDC drops whatever doesn't fit its TX buffer: keep feeding it until the
-// host has taken everything (bulk output such as the screenshot), giving up
-// after 2 s without progress.
+// HWCDC::write drops the rest of a write that doesn't fit its ring buffer while
+// the FIFO is busy (it marks the port disconnected and still reports success).
+// Only ever hand it what fits, until the host has taken everything (bulk output
+// such as the screenshot), giving up after 2 s without progress.
 static bool serial_write_all(const uint8_t *p, size_t n) {
     unsigned long last_progress = millis();
     while (n > 0) {
-        size_t k = Serial.write(p, n);
+        size_t room = (size_t)Serial.availableForWrite();
+        size_t k = room ? Serial.write(p, n < room ? n : room) : 0;
         if (k > 0) {
             p += k;
             n -= k;
@@ -456,7 +458,6 @@ void serial_cli_task(void *param) {
                   }
                   while ((dst - row_buf) < (int)row_stride) *dst++ = 0;
                   serial_write_all(row_buf, row_stride);
-                  Serial.flush();  // pace rows: the CDC driver still drops bytes on overrun
                 }
                 heap_caps_free(row_buf);
                 Serial.println("\n===END_BMP===");
