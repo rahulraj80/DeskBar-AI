@@ -436,6 +436,9 @@ void serial_cli_task(void *param) {
 
               char begin_line[32];
               int begin_len = snprintf(begin_line, sizeof(begin_line), "===BEGIN_BMP:%u===\n", (unsigned)file_size);
+              // HWCDC drops queued output once the host hasn't read for tx_timeout_ms
+              // (default 100 ms); give a busy PC more slack for the bulk transfer.
+              Serial.setTxTimeoutMs(2000);
               serial_write_all((const uint8_t *)begin_line, begin_len);
               serial_write_all(bmp_hdr, 54);
 
@@ -467,6 +470,7 @@ void serial_cli_task(void *param) {
                 heap_caps_free(row_buf);
                 Serial.println("\n===END_BMP===");
               }
+              Serial.setTxTimeoutMs(100);
             }
           } else if (cmd.startsWith("pin ")) {
             String p = cmd.substring(4);
