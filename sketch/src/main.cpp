@@ -456,6 +456,7 @@ void serial_cli_task(void *param) {
                   }
                   while ((dst - row_buf) < (int)row_stride) *dst++ = 0;
                   serial_write_all(row_buf, row_stride);
+                  Serial.flush();  // pace rows: the CDC driver still drops bytes on overrun
                 }
                 heap_caps_free(row_buf);
                 Serial.println("\n===END_BMP===");
