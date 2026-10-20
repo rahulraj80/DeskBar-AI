@@ -671,7 +671,7 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_height(ui_MainMenu_Label_Label12, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_align(ui_MainMenu_Label_Label12, LV_ALIGN_CENTER);
     lv_label_set_text(ui_MainMenu_Label_Label12, "D Save");
-    lv_obj_set_style_text_font(ui_MainMenu_Label_Label12, &lv_font_montserrat_32, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_MainMenu_Label_Label12, &ui_font_Mont32Sub, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Button_NetworkScan = lv_btn_create(ui_MainMenu_Tabpage_network);
     lv_obj_set_width(ui_MainMenu_Button_NetworkScan, 150);
@@ -692,7 +692,7 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_height(ui_MainMenu_Label_Label13, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_align(ui_MainMenu_Label_Label13, LV_ALIGN_CENTER);
     lv_label_set_text(ui_MainMenu_Label_Label13, "W Scan");
-    lv_obj_set_style_text_font(ui_MainMenu_Label_Label13, &lv_font_montserrat_32, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_MainMenu_Label_Label13, &ui_font_Mont32Sub, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Switch_Wifi = lv_switch_create(ui_MainMenu_Tabpage_network);
     lv_obj_set_width(ui_MainMenu_Switch_Wifi, 60);
@@ -1067,7 +1067,7 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_set_height(ui_MainMenu_Label_Label9, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_align(ui_MainMenu_Label_Label9, LV_ALIGN_CENTER);
     lv_label_set_text(ui_MainMenu_Label_Label9, "X");
-    lv_obj_set_style_text_font(ui_MainMenu_Label_Label9, &lv_font_montserrat_32, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_MainMenu_Label_Label9, &ui_font_Mont32Sub, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_MainMenu_Keyboard_Keyboard1 = lv_keyboard_create(ui_Screen_MainMenu);
     lv_obj_set_width(ui_MainMenu_Keyboard_Keyboard1, 350);
