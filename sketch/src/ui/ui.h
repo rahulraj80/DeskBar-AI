@@ -56,7 +56,6 @@ LV_IMG_DECLARE(ui_img_images_utility_png);    // assets/images/utility.png
 LV_IMG_DECLARE(ui_img_images_settings_png);    // assets/images/settings.png
 LV_IMG_DECLARE(ui_img_images_globe_png);    // assets/images/globe.png
 LV_IMG_DECLARE(ui_img_images_timezone_png);    // assets/images/timezone.png
-LV_IMG_DECLARE(ui_img_images_button_png);    // assets/images/button.png
 LV_IMG_DECLARE(ui_img_numbers_0_png);    // assets/numbers/0.png
 LV_IMG_DECLARE(ui_img_numbers_colon_png);    // assets/numbers/colon.png
 LV_IMG_DECLARE(ui_img_weather_home_sunny_png);    // assets/weather/home_sunny.png
@@ -65,8 +64,6 @@ LV_IMG_DECLARE(ui_img_weather_propeller_png);    // assets/weather/propeller.png
 LV_IMG_DECLARE(ui_img_custom_cat_right1_png);    // assets/custom/cat_right1.png
 LV_IMG_DECLARE(ui_img_custom_dog_left1_png);    // assets/custom/dog_left1.png
 LV_IMG_DECLARE(ui_img_images_mute_png);    // assets/images/mute.png
-LV_IMG_DECLARE(ui_img_images_torch_png);    // assets/images/torch.png
-LV_IMG_DECLARE(ui_img_images_systeminfo_png);    // assets/images/systeminfo.png
 LV_IMG_DECLARE(ui_img_utility_torch_png);
 LV_IMG_DECLARE(ui_img_utility_systeminfo_png);
 LV_IMG_DECLARE(ui_img_utility_spirit_level_png);
@@ -98,9 +95,6 @@ LV_IMG_DECLARE(ui_img_numbers_7_png);    // assets/numbers/7.png
 LV_IMG_DECLARE(ui_img_numbers_8_png);    // assets/numbers/8.png
 LV_IMG_DECLARE(ui_img_numbers_9_png);    // assets/numbers/9.png
 LV_IMG_DECLARE(ui_img_numbers_colon_png); // assets/numbers/colon.png
-LV_IMG_DECLARE(ui_img_numbers_minus_png);    // assets/numbers/minus.png
-LV_IMG_DECLARE(ui_img_numbers_plus_png);    // assets/numbers/plus.png
-LV_IMG_DECLARE(ui_img_numbers_slash_png);    // assets/numbers/slash.png
 // Procedural vector themes replace heavy wallpaper bitmaps
 LV_IMG_DECLARE(ui_img_weather_clearnight_png);    // assets/weather/clearnight.png
 LV_IMG_DECLARE(ui_img_weather_cloudy_png);    // assets/weather/cloudy.png

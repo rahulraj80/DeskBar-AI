@@ -15,7 +15,6 @@ images/ui_img_images_utility_png.c
 images/ui_img_images_settings_png.c
 images/ui_img_images_globe_png.c
 images/ui_img_images_timezone_png.c
-images/ui_img_images_button_png.c
 images/ui_img_numbers_0_png.c
 images/ui_img_numbers_colon_png.c
 images/ui_img_weather_home_sunny_png.c
@@ -24,8 +23,6 @@ images/ui_img_weather_propeller_png.c
 images/ui_img_custom_cat_right1_png.c
 images/ui_img_custom_dog_left1_png.c
 images/ui_img_images_mute_png.c
-images/ui_img_images_torch_png.c
-images/ui_img_images_systeminfo_png.c
 images/ui_img_images_vaandcobbanner_png.c
 images/ui_img_images_qr_png.c
 images/ui_img_aqi_good_png.c
@@ -49,9 +46,6 @@ images/ui_img_numbers_6_png.c
 images/ui_img_numbers_7_png.c
 images/ui_img_numbers_8_png.c
 images/ui_img_numbers_9_png.c
-images/ui_img_numbers_minus_png.c
-images/ui_img_numbers_plus_png.c
-images/ui_img_numbers_slash_png.c
 images/ui_img_wallpaper_beach_png.c
 images/ui_img_wallpaper_christmas1_png.c
 images/ui_img_wallpaper_christmas2_png.c
