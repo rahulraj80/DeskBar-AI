@@ -42,29 +42,35 @@ static void mbedtls_psram_free(void *ptr) {
     heap_caps_free(ptr);
 }
 
-// HWCDC drops queued output whenever it thinks the host went away (its
-// connected flag flips under load): a write that doesn't fit, or flush(),
-// discards data while still reporting success. Only ever hand it what fits
-// the ring buffer; when that is full, bool(Serial) re-arms the TX interrupt
-// without discarding anything. Used for bulk output such as the screenshot;
-// gives up after 2 s without progress.
-static bool serial_write_all(const uint8_t *p, size_t n) {
+#include "hal/usb_serial_jtag_ll.h"
+
+// Bulk output (the screenshot) straight into the USB-Serial/JTAG FIFO. Arduino's
+// HWCDC discards queued TX whenever it misjudges the host as gone, so let its
+// queue drain, mask its TX interrupt, and poll the FIFO here; gives up after 2 s
+// without the host taking a packet.
+static void usb_bulk_begin() {
+    for (int i = 0; i < 50 && Serial.availableForWrite() < 256; i++) delay(1);
+    usb_serial_jtag_ll_disable_intr_mask(USB_SERIAL_JTAG_INTR_SERIAL_IN_EMPTY);
+}
+
+static bool usb_bulk_write(const uint8_t *p, size_t n) {
     unsigned long last_progress = millis();
     while (n > 0) {
-        size_t room = (size_t)Serial.availableForWrite();
-        if (room == 0) (void)(bool)Serial;
-        size_t k = room ? Serial.write(p, n < room ? n : room) : 0;
-        if (k > 0) {
+        if (usb_serial_jtag_ll_txfifo_writable()) {
+            uint32_t k = usb_serial_jtag_ll_write_txfifo(p, n);
+            usb_serial_jtag_ll_txfifo_flush();
             p += k;
             n -= k;
             last_progress = millis();
         } else if (millis() - last_progress > 2000) {
             return false;
-        } else {
-            delay(1);
         }
     }
     return true;
+}
+
+static void usb_bulk_end() {
+    usb_serial_jtag_ll_ena_intr_mask(USB_SERIAL_JTAG_INTR_SERIAL_IN_EMPTY);
 }
 
 
@@ -74,27 +80,6 @@ static bool serial_write_all(const uint8_t *p, size_t n) {
 #include "ui/ui.h"
 #include "ui/ui_events.h"
 #include "user_config.h"
-
-// One display row (top-down) of the LVGL framebuffer as 24-bit BGR, zero-padded
-// to len bytes; undoes the 180 degree flip. Shared by screenshot and screenrows.
-static void screenshot_row_bgr(const uint16_t *fb, int y, uint8_t *dst, uint32_t len) {
-    const uint32_t width = WAVESHARE_349_LCD_H_RES;
-    const bool is_flipped = lvgl_port_is_inverted_landscape();
-    const uint16_t *src_row = fb + ((is_flipped ? (WAVESHARE_349_LCD_V_RES - 1 - y) : y) * width);
-    uint8_t *end = dst + len;
-    for (uint32_t x = 0; x < width; x++) {
-        uint16_t raw_c = src_row[is_flipped ? (width - 1 - x) : x];
-#if LV_COLOR_16_SWAP
-        uint16_t c = (uint16_t)((raw_c >> 8) | (raw_c << 8));
-#else
-        uint16_t c = raw_c;
-#endif
-        *dst++ = (c & 0x1F) * 255 / 31;
-        *dst++ = ((c >> 5) & 0x3F) * 255 / 63;
-        *dst++ = ((c >> 11) & 0x1F) * 255 / 31;
-    }
-    while (dst < end) *dst++ = 0;
-}
 #include <Arduino.h>
 #include <stdio.h>
 #include "ESP32-audioI2S-master/Audio.h" //https://github.com/schreibfaul1/ESP32-audioI2S
@@ -453,57 +438,39 @@ void serial_cli_task(void *param) {
               bmp_hdr[36] = (uint8_t)(image_size >> 16);
               bmp_hdr[37] = (uint8_t)(image_size >> 24);
 
-              char begin_line[32];
-              int begin_len = snprintf(begin_line, sizeof(begin_line), "===BEGIN_BMP:%u===\n", (unsigned)file_size);
-              // HWCDC drops queued output once the host hasn't read for tx_timeout_ms
-              // (default 100 ms); give a busy PC more slack for the bulk transfer.
-              Serial.setTxTimeoutMs(2000);
-              serial_write_all((const uint8_t *)begin_line, begin_len);
-              serial_write_all(bmp_hdr, 54);
-
               uint8_t *row_buf = (uint8_t *)heap_caps_malloc(row_stride, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
               if (!row_buf) {
                 Serial.println("\n[CLI ERROR] OOM row buffer");
               } else {
-                for (int y = (int)height - 1; y >= 0; y--) {
-                  screenshot_row_bgr(fb, y, row_buf, row_stride);
-                  serial_write_all(row_buf, row_stride);
+                char begin_line[32];
+                int begin_len = snprintf(begin_line, sizeof(begin_line), "===BEGIN_BMP:%u===\n", (unsigned)file_size);
+                usb_bulk_begin();
+                bool ok = usb_bulk_write((const uint8_t *)begin_line, begin_len) && usb_bulk_write(bmp_hdr, 54);
+                const bool is_flipped = lvgl_port_is_inverted_landscape();
+                for (int y = (int)height - 1; ok && y >= 0; y--) {
+                  int src_y = is_flipped ? ((int)height - 1 - y) : y;
+                  const uint16_t *src_row = fb + (src_y * width);
+                  uint8_t *dst = row_buf;
+                  for (uint32_t x = 0; x < width; x++) {
+                    uint32_t src_x = is_flipped ? (width - 1 - x) : x;
+                    uint16_t raw_c = src_row[src_x];
+#if LV_COLOR_16_SWAP
+                    uint16_t c = (uint16_t)((raw_c >> 8) | (raw_c << 8));
+#else
+                    uint16_t c = raw_c;
+#endif
+                    uint8_t r = ((c >> 11) & 0x1F) * 255 / 31;
+                    uint8_t g = ((c >> 5) & 0x3F) * 255 / 63;
+                    uint8_t b = (c & 0x1F) * 255 / 31;
+                    *dst++ = b; *dst++ = g; *dst++ = r;
+                  }
+                  while ((dst - row_buf) < (int)row_stride) *dst++ = 0;
+                  ok = usb_bulk_write(row_buf, row_stride);
                 }
+                usb_bulk_end();
                 heap_caps_free(row_buf);
-                Serial.println("\n===END_BMP===");
+                Serial.println(ok ? "\n===END_BMP===" : "\n[CLI ERROR] screenshot aborted, host stopped reading");
               }
-              Serial.setTxTimeoutMs(100);
-            }
-          } else if (cmd.startsWith("screenrows ")) {
-            // Verifiable screenshot for hosts that lose USB-CDC bytes: rows y0..y0+n-1
-            // (top-down), each "ROW <y> <fnv1a32 hex>\n" + 3*width BGR bytes. y0 == 0
-            // takes a new snapshot; later calls re-send rows of the same snapshot.
-            int y0 = 0, n = 0;
-            sscanf(cmd.c_str() + 11, "%d %d", &y0, &n);
-            if (y0 == 0) {
-              screenPowerOn();
-              lvgl_port_take_screenshot();
-            }
-            const uint16_t *fb = lvgl_port_get_framebuffer();
-            const uint32_t row_len = WAVESHARE_349_LCD_H_RES * 3;
-            uint8_t *row_buf = fb ? (uint8_t *)heap_caps_malloc(row_len, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) : NULL;
-            if (!row_buf) {
-              Serial.println("[CLI ERROR] Framebuffer unavailable");
-            } else {
-              Serial.setTxTimeoutMs(2000);
-              Serial.printf("===ROWS %d %d %d===\n", WAVESHARE_349_LCD_H_RES, WAVESHARE_349_LCD_V_RES, n);
-              for (int y = y0; y < y0 + n && y < WAVESHARE_349_LCD_V_RES; y++) {
-                screenshot_row_bgr(fb, y, row_buf, row_len);
-                uint32_t h = 2166136261u;
-                for (uint32_t i = 0; i < row_len; i++) h = (h ^ row_buf[i]) * 16777619u;
-                char head[32];
-                int k = snprintf(head, sizeof(head), "ROW %d %08x\n", y, (unsigned)h);
-                serial_write_all((const uint8_t *)head, k);
-                serial_write_all(row_buf, row_len);
-              }
-              heap_caps_free(row_buf);
-              Serial.println("\n===END_ROWS===");
-              Serial.setTxTimeoutMs(100);
             }
           } else if (cmd.startsWith("pin ")) {
             String p = cmd.substring(4);
