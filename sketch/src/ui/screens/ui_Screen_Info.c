@@ -380,7 +380,7 @@ void ui_Screen_Info_screen_init(void)
     lv_obj_set_align(ui_Info_Label_Temp, LV_ALIGN_BOTTOM_LEFT);
     lv_label_set_text(ui_Info_Label_Temp, "0.0°c");
     lv_obj_set_style_text_align(ui_Info_Label_Temp, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui_Info_Label_Temp, &lv_font_montserrat_48, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Info_Label_Temp, &ui_font_Mont48Digits, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Info_Label_LastUpdated = lv_label_create(ui_Info_Panel_Weather);
     lv_obj_set_width(ui_Info_Label_LastUpdated, 400);
@@ -449,7 +449,7 @@ void ui_Screen_Info_screen_init(void)
     lv_obj_set_style_text_color(ui_Info_Label_AQIvalue, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_Info_Label_AQIvalue, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui_Info_Label_AQIvalue, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui_Info_Label_AQIvalue, &lv_font_montserrat_48, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Info_Label_AQIvalue, &ui_font_Mont48Digits, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui_Info_Label_AQIvalue, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_color(ui_Info_Label_AQIvalue, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Info_Label_AQIvalue, 100, LV_PART_MAIN | LV_STATE_DEFAULT);

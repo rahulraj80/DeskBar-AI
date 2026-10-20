@@ -113,6 +113,9 @@ LV_IMG_DECLARE(ui_img_weather_windy_png);    // assets/weather/windy.png
 LV_FONT_DECLARE(ui_font_NixieOne48);
 LV_FONT_DECLARE(ui_font_NotoSanThai16);
 LV_FONT_DECLARE(ui_font_NotoSanThai20);
+// Subsets of Montserrat 48/32 with only the glyphs those labels show (lv_font_conv).
+LV_FONT_DECLARE(ui_font_Mont48Digits); // 0-9 . - ° c F
+LV_FONT_DECLARE(ui_font_Mont32Sub);    // 0-9 : space S a v e c n X + SAVE/WIFI symbols
 
 // UI INIT
 void ui_init(void);

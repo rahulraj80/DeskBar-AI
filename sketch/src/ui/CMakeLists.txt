@@ -66,6 +66,8 @@ SET(SOURCES screens/ui_Screen_Boot.c
     images/ui_img_weather_windy_png.c
     fonts/ui_font_NixieOne48.c
     fonts/ui_font_NotoSanThai16.c
-    fonts/ui_font_NotoSanThai20.c)
+    fonts/ui_font_NotoSanThai20.c
+    fonts/ui_font_Mont48Digits.c
+    fonts/ui_font_Mont32Sub.c)
 
 add_library(ui ${SOURCES})

@@ -164,7 +164,7 @@ static lv_obj_t* create_digit_box(lv_obj_t *parent) {
     lv_obj_set_align(lbl, LV_ALIGN_CENTER);
     lv_label_set_text(lbl, "0");
     lv_obj_set_style_text_color(lbl, lv_color_hex(0x00FF66), LV_PART_MAIN);
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_32, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &ui_font_Mont32Sub, LV_PART_MAIN);
     return lbl;
 }
 
@@ -229,7 +229,7 @@ void alarm_ui_init(lv_obj_t *parent) {
     lv_obj_set_pos(colon_lbl, 260, 60);
     lv_label_set_text(colon_lbl, ":");
     lv_obj_set_style_text_color(colon_lbl, lv_color_hex(0x00FF66), LV_PART_MAIN);
-    lv_obj_set_style_text_font(colon_lbl, &lv_font_montserrat_32, LV_PART_MAIN);
+    lv_obj_set_style_text_font(colon_lbl, &ui_font_Mont32Sub, LV_PART_MAIN);
 
     create_arrow_btn(ui_Info_Panel_Alarm, LV_SYMBOL_UP, [](lv_event_t *e){ adjust_m1(1); }, NULL);
     lv_obj_set_pos(lv_obj_get_child(ui_Info_Panel_Alarm, lv_obj_get_child_cnt(ui_Info_Panel_Alarm)-1), col_x[2], row_y[0]);
