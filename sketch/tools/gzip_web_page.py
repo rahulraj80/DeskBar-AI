@@ -1,6 +1,8 @@
 # PlatformIO pre-build step: gzip web/index.html into include/web_page_gz.h,
-# so the firmware stores (and serves, with Content-Encoding: gzip) the page at
-# about a quarter of its size. Edit web/index.html, not the generated header.
+# so the firmware stores the page at about a quarter of its size and serves it
+# gzipped. Edit web/index.html, not the generated header.
+# (Keep the words "coding" + ":" out of the first two lines: Python would read
+# them as a source-encoding declaration.)
 import gzip
 import os
 
