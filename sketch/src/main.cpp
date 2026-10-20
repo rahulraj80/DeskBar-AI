@@ -42,6 +42,26 @@ static void mbedtls_psram_free(void *ptr) {
     heap_caps_free(ptr);
 }
 
+// USB-CDC drops whatever doesn't fit its TX buffer: keep feeding it until the
+// host has taken everything (bulk output such as the screenshot), giving up
+// after 2 s without progress.
+static bool serial_write_all(const uint8_t *p, size_t n) {
+    unsigned long last_progress = millis();
+    while (n > 0) {
+        size_t k = Serial.write(p, n);
+        if (k > 0) {
+            p += k;
+            n -= k;
+            last_progress = millis();
+        } else if (millis() - last_progress > 2000) {
+            return false;
+        } else {
+            delay(1);
+        }
+    }
+    return true;
+}
+
 
 #include "i2c_bsp/i2c_bsp.h"
 #include "lcd_bl_bsp/lcd_bl_pwm_bsp.h"
@@ -407,8 +427,10 @@ void serial_cli_task(void *param) {
               bmp_hdr[36] = (uint8_t)(image_size >> 16);
               bmp_hdr[37] = (uint8_t)(image_size >> 24);
 
-              Serial.printf("===BEGIN_BMP:%u===\n", file_size);
-              Serial.write(bmp_hdr, 54);
+              char begin_line[32];
+              int begin_len = snprintf(begin_line, sizeof(begin_line), "===BEGIN_BMP:%u===\n", (unsigned)file_size);
+              serial_write_all((const uint8_t *)begin_line, begin_len);
+              serial_write_all(bmp_hdr, 54);
 
               uint8_t *row_buf = (uint8_t *)heap_caps_malloc(row_stride, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
               if (!row_buf) {
@@ -433,7 +455,7 @@ void serial_cli_task(void *param) {
                     *dst++ = b; *dst++ = g; *dst++ = r;
                   }
                   while ((dst - row_buf) < (int)row_stride) *dst++ = 0;
-                  Serial.write(row_buf, row_stride);
+                  serial_write_all(row_buf, row_stride);
                 }
                 heap_caps_free(row_buf);
                 Serial.println("\n===END_BMP===");
