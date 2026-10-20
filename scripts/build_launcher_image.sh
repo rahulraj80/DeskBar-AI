@@ -12,8 +12,13 @@ ESPTOOL="${ESPTOOL:-$HOME/.platformio/penv/bin/esptool}"
 ENV=deskbar-launcher
 BUILD=".pio/build/$ENV"
 
-"$PIO" run -e "$ENV"
+# Filesystem first: a buildfs run can clean the build dir, which would take
+# the firmware with it if it ran second.
 "$PIO" run -e "$ENV" -t buildfs
+"$PIO" run -e "$ENV"
+for f in bootloader.bin partitions.bin firmware.bin littlefs.bin; do
+    [ -f "$BUILD/$f" ] || { echo "missing $BUILD/$f" >&2; exit 1; }
+done
 
 VERSION=$(grep -oP 'define TUNEBAR_VERSION_STR\s+"\K[^"]+' include/version.h)
 OUT="deskbar-${VERSION}-launcher.bin"
