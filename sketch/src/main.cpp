@@ -75,6 +75,7 @@ static bool serial_write_all(const uint8_t *p, size_t n) {
 #include "lvgl_port/lvgl_port.h"
 #include "ui/ui.h"
 #include "ui/ui_events.h"
+#include "user_config.h"
 
 // One display row (top-down) of the LVGL framebuffer as 24-bit BGR, zero-padded
 // to len bytes; undoes the 180 degree flip. Shared by screenshot and screenrows.
@@ -96,7 +97,6 @@ static void screenshot_row_bgr(const uint16_t *fb, int y, uint8_t *dst, uint32_t
     }
     while (dst < end) *dst++ = 0;
 }
-#include "user_config.h"
 #include <Arduino.h>
 #include <stdio.h>
 #include "ESP32-audioI2S-master/Audio.h" //https://github.com/schreibfaul1/ESP32-audioI2S
@@ -478,8 +478,7 @@ void serial_cli_task(void *param) {
             }
           } else if (cmd.startsWith("screenrows ")) {
             // Verifiable screenshot for hosts that lose USB-CDC bytes: rows y0..y0+n-1
-            // (top-down), each "ROW <y> <fnv1a32 hex>
-" + 3*width BGR bytes. y0 == 0
+            // (top-down), each "ROW <y> <fnv1a32 hex>\n" + 3*width BGR bytes. y0 == 0
             // takes a new snapshot; later calls re-send rows of the same snapshot.
             int y0 = 0, n = 0;
             sscanf(cmd.c_str() + 11, "%d %d", &y0, &n);
@@ -494,21 +493,18 @@ void serial_cli_task(void *param) {
               Serial.println("[CLI ERROR] Framebuffer unavailable");
             } else {
               Serial.setTxTimeoutMs(2000);
-              Serial.printf("===ROWS %d %d %d===
-", WAVESHARE_349_LCD_H_RES, WAVESHARE_349_LCD_V_RES, n);
+              Serial.printf("===ROWS %d %d %d===\n", WAVESHARE_349_LCD_H_RES, WAVESHARE_349_LCD_V_RES, n);
               for (int y = y0; y < y0 + n && y < WAVESHARE_349_LCD_V_RES; y++) {
                 screenshot_row_bgr(fb, y, row_buf, row_len);
                 uint32_t h = 2166136261u;
                 for (uint32_t i = 0; i < row_len; i++) h = (h ^ row_buf[i]) * 16777619u;
                 char head[32];
-                int k = snprintf(head, sizeof(head), "ROW %d %08x
-", y, (unsigned)h);
+                int k = snprintf(head, sizeof(head), "ROW %d %08x\n", y, (unsigned)h);
                 serial_write_all((const uint8_t *)head, k);
                 serial_write_all(row_buf, row_len);
               }
               heap_caps_free(row_buf);
-              Serial.println("
-===END_ROWS===");
+              Serial.println("\n===END_ROWS===");
               Serial.setTxTimeoutMs(100);
             }
           } else if (cmd.startsWith("pin ")) {
