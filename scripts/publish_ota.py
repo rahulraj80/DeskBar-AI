@@ -165,7 +165,10 @@ def main():
 
     # 6. Stage and commit release binary and catalog
     print("\n--- Staging and committing OTA release ---", flush=True)
-    run_cmd(["git", "add", "releases/bin", "releases/firmware_catalog.json", "sketch/include/generated_catalog.h"])
+    # releases/bin is excluded by a "!*.bin" sparse rule: a plain git add
+    # silently stages nothing and publishes a catalog pointing at a 404.
+    run_cmd(["git", "add", "--sparse", "releases/bin", "releases/firmware_catalog.json",
+             "sketch/include/generated_catalog.h"])
     
     # Check if there are changes to commit
     st = run_cmd(["git", "status", "--porcelain"])

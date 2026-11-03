@@ -19,16 +19,16 @@ struct CatalogItem {
 static const CatalogItem s_generated_catalog[1] = {
   // [0] v2.6.2
   {
-    "v2.6.2", "PATCH", 0x00FF88, "Nov 04, 2026", "3.04 MB",
+    "v2.6.2", "PATCH", 0x00FF88, "Nov 04, 2026", "3.03 MB",
     "• Battery SOC: validator accepted only flat curves; curve now pulled from the fleet automatically",
     "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.2.bin",
-    3189024
+    3181696
   }
 };
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.6.2\",\"type\":\"patch\",\"build\":186,\"date\":\"Nov 04, 2026\",\"size\":\"3.04 MB\",\"size_bytes\":3189024,\"changelog\":\"• Battery SOC: validator accepted only flat curves; curve now pulled from the fleet automatically\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.2.bin\"}";
+  j += "{\"version\":\"2.6.2\",\"type\":\"patch\",\"build\":189,\"date\":\"Nov 04, 2026\",\"size\":\"3.03 MB\",\"size_bytes\":3181696,\"changelog\":\"• Battery SOC: validator accepted only flat curves; curve now pulled from the fleet automatically\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.2.bin\"}";
   j += "]}";
   return j;
 }

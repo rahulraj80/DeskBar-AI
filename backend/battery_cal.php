@@ -196,6 +196,7 @@ function fit_14_point_curve($run, $target_pcts) {
     }
 
     $fitted_volts = [];
+    $prev_v = 4.200;   // top of the physical range; keeps the descent monotone
     foreach ($target_pcts as $p) {
         $v = null;
         if ($p <= $soc_start && $p >= $soc_end) {
@@ -219,6 +220,16 @@ function fit_14_point_curve($run, $target_pcts) {
             if ($p >= $soc_start) $v = max($v, $v_first);
             if ($p <= $soc_end)   $v = min($v, $v_last);
         }
+        // Top anchor: the charger terminates at 4.09-4.12V and a full pack
+        // settles to ~4.08V under load, so a fit that puts 100% at 4.13V means
+        // the bar can never show 100% while discharging - it tops out near 92%.
+        // Pin the top three points to what the fleet actually measures.
+        $top_anchor = [100 => 4.080, 95 => 4.040, 90 => 4.010];
+        if (isset($top_anchor[$p])) $v = min($v, $top_anchor[$p]);
+        // After pinning, keep the descent monotone: an inverted pair would make
+        // the firmware validator reject the whole curve.
+        if ($v > $prev_v - 0.002) $v = $prev_v - 0.002;
+        $prev_v = $v;
         // 0% is clamped at 3.10V: the pack is an 18650 that cuts out around
         // 3.00-3.12V, so 3.0 as an empty anchor made the last 5% look deeper
         // than the hardware goes. Everything below 3.10V is "empty".
