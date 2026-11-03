@@ -14,6 +14,20 @@
 // never stay stuck at a low percentage.
 #define BATTERY_CHARGE_RESET_V 4.0f
 
+// Discharge-clamp escape hatch below BATTERY_CHARGE_RESET_V. The clamp may only
+// ever fall, so a USB charge started at e.g. 3.6V kept the last discharge
+// percentage frozen until the pack crossed 4.0V. The clamp now re-syncs to the
+// curve once the voltage has climbed BATTERY_RATCHET_RISE_V above the lowest
+// point seen since it engaged AND the curve says the charge went up by more
+// than noise (BATTERY_PCT_RECOVER_PTS).
+#define BATTERY_RATCHET_RISE_V   0.030f
+#define BATTERY_PCT_RECOVER_PTS  5
+
+// A fleet-averaged curve can repeat a point or wobble by a few mV between
+// adjacent samples; a larger adjacent inversion means the curve shape is
+// broken (the shape that maps a full battery to a low percentage).
+#define BATTERY_CURVE_JITTER_V   0.010f
+
 #ifdef __cplusplus
 extern "C" {
 #endif

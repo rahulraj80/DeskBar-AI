@@ -1,5 +1,6 @@
 #include "battery.h"
 #include <Arduino.h>
+#include <math.h>
 #include <Preferences.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -24,6 +25,9 @@ static char    s_cal_source[32] = "factory_baseline";
 static char    s_cal_timestamp[32] = "Never";
 static bool    s_initialized = false;
 static uint8_t s_last_discharged_pct = 100;
+// Lowest battery voltage seen since the discharge clamp last re-synced: the
+// clamp releases when the pack climbs BATTERY_RATCHET_RISE_V above it.
+static float   s_ratchet_low_v = 0.0f;
 
 // 2-Point Breathing Sampling Accumulator (5-minute telemetry cycle)
 static uint32_t s_accum_sum_mv = 0;
@@ -61,26 +65,34 @@ void battery_init(void) {
         if (pref.isKey("valid") && pref.getBool("valid", false)) {
             size_t v_len = sizeof(s_active_volts);
             size_t p_len = sizeof(s_active_pcts);
-            if (pref.getBytes("volts", s_active_volts, v_len) == v_len &&
-                pref.getBytes("pcts", s_active_pcts, p_len) == p_len) {
-                if (battery_curve_is_valid(s_active_volts, s_active_pcts, BATTERY_CURVE_PTS)) {
-                    String src = pref.getString("source", "nvs_cached");
-                    strncpy(s_cal_source, src.c_str(), sizeof(s_cal_source) - 1);
-                    String t = pref.getString("cal_time", "Unknown");
-                    strncpy(s_cal_timestamp, t.c_str(), sizeof(s_cal_timestamp) - 1);
-                    log_i("[BATT] Loaded calibrated curve from NVS (Source: %s, Time: %s, 100%%=%.3fV, 0%%=%.3fV)",
-                          s_cal_source, s_cal_timestamp, s_active_volts[0], s_active_volts[BATTERY_CURVE_PTS - 1]);
+            // Both arrays must come from the same save: accepting one and
+            // falling back on the other leaves a mixed curve where an NVS
+            // voltage table is paired with factory percentages.
+            const bool v_ok = pref.getBytes("volts", s_active_volts, v_len) == v_len;
+            const bool p_ok = pref.getBytes("pcts", s_active_pcts, p_len) == p_len;
+            if (v_ok && p_ok &&
+                battery_curve_is_valid(s_active_volts, s_active_pcts, BATTERY_CURVE_PTS)) {
+                String src = pref.getString("source", "nvs_cached");
+                strncpy(s_cal_source, src.c_str(), sizeof(s_cal_source) - 1);
+                String t = pref.getString("cal_time", "Unknown");
+                strncpy(s_cal_timestamp, t.c_str(), sizeof(s_cal_timestamp) - 1);
+                log_i("[BATT] Loaded calibrated curve from NVS (Source: %s, Time: %s, 100%%=%.3fV, 0%%=%.3fV)",
+                      s_cal_source, s_cal_timestamp, s_active_volts[0], s_active_volts[BATTERY_CURVE_PTS - 1]);
+            } else {
+                // Corrupt / out-of-range / half-written curve in NVS: fall back
+                // to the factory baseline instead of mapping a full battery to
+                // a low percentage. Capture the rejected values BEFORE the
+                // overwrite so the boot log reports what was actually bad.
+                float bad_100 = s_active_volts[0];
+                float bad_0   = s_active_volts[BATTERY_CURVE_PTS - 1];
+                memcpy(s_active_volts, FACTORY_VOLTS, sizeof(s_active_volts));
+                memcpy(s_active_pcts, FACTORY_PCTS, sizeof(s_active_pcts));
+                strncpy(s_cal_source, "factory_baseline", sizeof(s_cal_source));
+                strncpy(s_cal_timestamp, "Factory", sizeof(s_cal_timestamp));
+                if (!v_ok || !p_ok) {
+                    log_w("[BATT] NVS curve incomplete (volts %s, pcts %s) - falling back to factory baseline",
+                          v_ok ? "ok" : "short", p_ok ? "ok" : "short");
                 } else {
-                    // Corrupt / out-of-range curve in NVS: fall back to the
-                    // factory baseline instead of mapping a full battery to a
-                    // low percentage. Capture the rejected values BEFORE the
-                    // overwrite so the boot log reports what was actually bad.
-                    float bad_100 = s_active_volts[0];
-                    float bad_0   = s_active_volts[BATTERY_CURVE_PTS - 1];
-                    memcpy(s_active_volts, FACTORY_VOLTS, sizeof(s_active_volts));
-                    memcpy(s_active_pcts, FACTORY_PCTS, sizeof(s_active_pcts));
-                    strncpy(s_cal_source, "factory_baseline", sizeof(s_cal_source));
-                    strncpy(s_cal_timestamp, "Factory", sizeof(s_cal_timestamp));
                     log_w("[BATT] NVS curve invalid (100%%=%.3fV, 0%%=%.3fV) - falling back to factory baseline",
                           bad_100, bad_0);
                 }
@@ -108,24 +120,29 @@ void battery_init(void) {
 static bool battery_curve_is_valid(const float *volts, const uint8_t *pcts, uint8_t count) {
     if (!volts || !pcts || count < 2) return false;
 
-    // Physical LiPo bounds: 100% point must be a plausible full charge
-    // (4.0V..4.35V), 0% point a plausible empty (2.8V..3.3V).
-    if (volts[0] < 4.0f || volts[0] > 4.35f) return false;
-    if (volts[count - 1] < 2.8f || volts[count - 1] > 3.3f) return false;
+    // Physical LiPo bounds, with slack for fleet-averaged endpoints: a peer
+    // average can top out below a single device's full charge and bottom out
+    // above its cut-off. NaN fails every comparison and is rejected here too.
+    if (!(volts[0] >= 3.9f && volts[0] <= 4.4f)) return false;
+    if (!(volts[count - 1] >= 2.7f && volts[count - 1] <= 3.5f)) return false;
 
-    // Strictly monotonic descending voltages with a minimum step so the
-    // piecewise interpolation never divides by (near) zero. 1 mV is enough to
-    // catch degenerate curves while still accepting tight empirical curves
-    // (the old Run-2 calibration had a 2 mV step between two points).
+    // The curve has to span a real discharge range, not be flat.
+    if ((volts[0] - volts[count - 1]) < 0.3f) return false;
+
+    // Voltages must descend. A fleet average can legitimately repeat a point
+    // or wobble by a few mV; a larger adjacent inversion is a broken curve
+    // shape. (The interpolator handles the jittered segments itself.)
     for (int i = 0; i < count - 1; i++) {
-        if (volts[i] <= volts[i + 1]) return false;
-        if ((volts[i] - volts[i + 1]) < 0.001f) return false;
+        if (!(volts[i + 1] >= volts[i] - BATTERY_CURVE_JITTER_V)) return false;
     }
 
     // Percentages must be strictly monotonic descending, start near 100 and
     // end near 0. Exact 100/0 is too restrictive: a fleet-average curve can
     // legitimately top out at e.g. 99% or bottom out at 1% after averaging.
-    if (pcts[0] <= 95 || pcts[count - 1] >= 5) return false;
+    // The upper bound also rejects garbage >100 values that would otherwise
+    // pass as "above 95".
+    if (pcts[0] < 96 || pcts[0] > 100) return false;
+    if (pcts[count - 1] > 4) return false;
     for (int i = 0; i < count - 1; i++) {
         if (pcts[i] <= pcts[i + 1]) return false;
     }
@@ -160,17 +177,38 @@ uint8_t voltageToBatteryPercent(float v) {
     } else if (v <= s_active_volts[BATTERY_CURVE_PTS - 1]) {
         pct = 0;
     } else {
+        int seg = -1;
         for (int i = 0; i < BATTERY_CURVE_PTS - 1; i++) {
             if (v <= s_active_volts[i] && v >= s_active_volts[i + 1]) {
-                float diff = s_active_volts[i] - s_active_volts[i + 1];
-                if (diff <= 0.0001f) {
-                    pct = s_active_pcts[i];
-                    break;
-                }
-                float ratio = (v - s_active_volts[i + 1]) / diff;
-                pct = (uint8_t)(s_active_pcts[i + 1] + ratio * (s_active_pcts[i] - s_active_pcts[i + 1]));
+                seg = i;
                 break;
             }
+        }
+        if (seg < 0) {
+            // No exact bracket: the curve repeats a point or wobbles by a few
+            // mV between two samples (normal for a fleet average). Pick the
+            // nearest segment instead of falling through to 0%, which would
+            // report ~empty for a nearly-full battery - the "4.1V but 4%"
+            // failure mode.
+            float best_d = -1.0f;
+            for (int i = 0; i < BATTERY_CURVE_PTS - 1; i++) {
+                float mid = 0.5f * (s_active_volts[i] + s_active_volts[i + 1]);
+                float d = fabsf(v - mid);
+                if (best_d < 0.0f || d < best_d) {
+                    best_d = d;
+                    seg = i;
+                }
+            }
+        }
+        if (seg >= 0) {
+            float diff = s_active_volts[seg] - s_active_volts[seg + 1];
+            float ratio = 1.0f; // degenerate segment: trust the upper point
+            if (diff > 0.0001f) {
+                ratio = (v - s_active_volts[seg + 1]) / diff;
+                if (ratio < 0.0f) ratio = 0.0f;
+                if (ratio > 1.0f) ratio = 1.0f;
+            }
+            pct = (uint8_t)(s_active_pcts[seg + 1] + ratio * (s_active_pcts[seg] - s_active_pcts[seg + 1]));
         }
     }
 
@@ -184,14 +222,29 @@ uint8_t voltageToBatteryPercent(float v) {
     // voltage recovered to 4.1V.
     if (bsp_is_battery_charging() || v >= BATTERY_CHARGE_RESET_V) {
         s_last_discharged_pct = 100;
-        return pct;
-    } else {
-        if (pct > s_last_discharged_pct) {
-            return s_last_discharged_pct;
-        }
-        s_last_discharged_pct = pct;
+        s_ratchet_low_v = v;
         return pct;
     }
+
+    // Release the clamp when the pack is genuinely gaining charge below the
+    // reset voltage: the voltage climbed BATTERY_RATCHET_RISE_V above the
+    // lowest point seen since the clamp engaged AND the curve agrees the
+    // charge rose by more than noise. Otherwise a USB charge started at e.g.
+    // 3.6V stays frozen at the last discharge percentage until 4.0V.
+    if (s_ratchet_low_v <= 0.0f ||
+        (v >= s_ratchet_low_v + BATTERY_RATCHET_RISE_V &&
+         pct >= s_last_discharged_pct + BATTERY_PCT_RECOVER_PTS)) {
+        s_last_discharged_pct = pct;
+        s_ratchet_low_v = v;
+        return pct;
+    }
+
+    if (pct > s_last_discharged_pct) {
+        return s_last_discharged_pct;
+    }
+    s_last_discharged_pct = pct;
+    s_ratchet_low_v = v;
+    return pct;
 }
 
 void getBatteryStatus(float *voltage_out, uint8_t *percent_out) {
@@ -306,6 +359,10 @@ bool battery_save_nvs_curve(const float *volts, const uint8_t *pcts, uint8_t cou
 
         memcpy(s_active_volts, volts, sizeof(s_active_volts));
         memcpy(s_active_pcts, pcts, sizeof(s_active_pcts));
+        // A new curve is a new percentage basis: an old ratchet value would
+        // hold the display at a stale percentage until the pack crossed 4.0V.
+        s_last_discharged_pct = 100;
+        s_ratchet_low_v = 0.0f;
         strncpy(s_cal_source, source ? source : "custom", sizeof(s_cal_source) - 1);
         log_i("[BATT] Saved new battery calibration to NVS (Source: %s, Time: %s)", s_cal_source, s_cal_timestamp);
         return true;
