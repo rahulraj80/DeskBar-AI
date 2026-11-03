@@ -122,8 +122,10 @@ static bool battery_curve_is_valid(const float *volts, const uint8_t *pcts, uint
         if ((volts[i] - volts[i + 1]) < 0.001f) return false;
     }
 
-    // Percentages must be strictly monotonic descending, start at 100 and end at 0.
-    if (pcts[0] != 100 || pcts[count - 1] != 0) return false;
+    // Percentages must be strictly monotonic descending, start near 100 and
+    // end near 0. Exact 100/0 is too restrictive: a fleet-average curve can
+    // legitimately top out at e.g. 99% or bottom out at 1% after averaging.
+    if (pcts[0] <= 95 || pcts[count - 1] >= 5) return false;
     for (int i = 0; i < count - 1; i++) {
         if (pcts[i] <= pcts[i + 1]) return false;
     }
