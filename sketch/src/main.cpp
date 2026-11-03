@@ -268,8 +268,10 @@ void setup() {
 #include "telemetry/telemetry.h"
 #include "web/web_remote.h"
 
-// Re-pull the server-computed SOC curve every 6h (boot pulls immediately).
+// Re-pull the server-computed SOC curve every 6h (boot pulls immediately), and
+// retry every 10 min while the pack is still on the factory baseline.
 #define BATTERY_CAL_REFRESH_MS (6UL * 60UL * 60UL * 1000UL)
+#define BATTERY_CAL_RETRY_MS   (10UL * 60UL * 1000UL)
 
 void web_server_task(void *param) {
   vTaskDelay(pdMS_TO_TICKS(1500));
@@ -316,15 +318,24 @@ void serial_debug_beacon_task(void *param) {
     // then refresh every 6h. This used to run only when someone tapped
     // "Sync Cloud", so the discharge history piling up in the DB never reached
     // this pack - it kept booting on whatever curve was last saved by hand.
-    static bool s_batt_sync_done = false;
+    static bool s_batt_sync_started = false;
     static uint32_t s_last_batt_sync_ms = 0;
-    const bool batt_sync_allowed = (WiFi.status() == WL_CONNECTED) &&
+    // The worker wakes the radio itself, so this must not wait for Wi-Fi.
+    const bool batt_sync_allowed =
         (secrets_has_cloud_consent() || secrets_has_custom_ini()) &&
         !ai_recording_active && !ai_upload_in_progress;
+    // Keep retrying while the pack is still on the factory baseline; once a
+    // server curve is active, refresh on the slow cadence instead.
+    const bool curve_from_cloud =
+        (strcmp(battery_get_cal_source(), "factory_baseline") != 0);
+    const uint32_t batt_sync_interval =
+        curve_from_cloud ? BATTERY_CAL_REFRESH_MS : BATTERY_CAL_RETRY_MS;
     if (batt_sync_allowed &&
-        (!s_batt_sync_done || (millis() - s_last_batt_sync_ms >= BATTERY_CAL_REFRESH_MS))) {
-      s_last_batt_sync_ms = millis();
-      if (battery_sync_from_cloud_async()) s_batt_sync_done = true;
+        (!s_batt_sync_started || (millis() - s_last_batt_sync_ms >= batt_sync_interval))) {
+      if (battery_sync_from_cloud_async()) {
+        s_batt_sync_started = true;
+        s_last_batt_sync_ms = millis();
+      }
     }
 
     // Collect snapshot according to configured interval (default 300s = 5m)

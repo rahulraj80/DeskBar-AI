@@ -383,6 +383,10 @@ bool battery_save_nvs_curve(const float *volts, const uint8_t *pcts, uint8_t cou
     return false;
 }
 
+// log_e only survives at CORE_DEBUG_LEVEL>=2, but a refused calibration must be
+// visible in the field, so every hard failure also prints to Serial.
+#define BATT_CAL_ERR(fmt, ...) do { log_e(fmt, ##__VA_ARGS__); Serial.printf(fmt "\n", ##__VA_ARGS__); } while (0)
+
 // One GET against the calibration service. table == NULL/empty asks for the
 // fleet average, which the service already computes from every device with a
 // usable discharge run - no need to wait for this pack to finish its own.
@@ -408,7 +412,7 @@ static bool battery_apply_cloud_curve(const char *table) {
 
     int httpCode = http.GET();
     if (httpCode != HTTP_CODE_OK) {
-        log_e("[BATT_CAL] HTTP GET failed: %d (%s)", httpCode, http.errorToString(httpCode).c_str());
+        BATT_CAL_ERR("[BATT_CAL] HTTP GET failed: %d (%s)", httpCode, http.errorToString(httpCode).c_str());
         http.end();
         return false;
     }
@@ -419,20 +423,20 @@ static bool battery_apply_cloud_curve(const char *table) {
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, payload);
     if (err) {
-        log_e("[BATT_CAL] JSON parsing error: %s", err.c_str());
+        BATT_CAL_ERR("[BATT_CAL] JSON parsing error: %s", err.c_str());
         return false;
     }
 
     const char *status = doc["status"] | "";
     if (strcmp(status, "ok") != 0) {
-        log_e("[BATT_CAL] Server response status not ok");
+        BATT_CAL_ERR("[BATT_CAL] Server response status not ok");
         return false;
     }
 
     JsonArray v_arr = doc["volts"].as<JsonArray>();
     JsonArray p_arr = doc["pcts"].as<JsonArray>();
     if (v_arr.size() != BATTERY_CURVE_PTS || p_arr.size() != BATTERY_CURVE_PTS) {
-        log_e("[BATT_CAL] Curve point count mismatch: got %u volts, %u pcts (expected %u)",
+        BATT_CAL_ERR("[BATT_CAL] Curve point count mismatch: got %u volts, %u pcts (expected %u)",
               v_arr.size(), p_arr.size(), BATTERY_CURVE_PTS);
         return false;
     }
@@ -448,8 +452,8 @@ static bool battery_apply_cloud_curve(const char *table) {
     // non-monotonic, out-of-range, or degenerate curves from the cloud so a
     // bad server payload can never map a full battery to a low percentage.
     if (!battery_curve_is_valid(new_volts, new_pcts, BATTERY_CURVE_PTS)) {
-        log_e("[BATT_CAL] Cloud curve invalid (100%%=%.3fV, 0%%=%.3fV) - keeping current curve",
-              new_volts[0], new_volts[BATTERY_CURVE_PTS - 1]);
+        BATT_CAL_ERR("[BATT_CAL] Cloud curve invalid (100%%=%.3fV, 50%%=%.3fV, 0%%=%.3fV) - keeping current curve",
+                     new_volts[0], new_volts[BATTERY_CURVE_PTS / 2], new_volts[BATTERY_CURVE_PTS - 1]);
         return false;
     }
 
@@ -481,15 +485,31 @@ bool battery_sync_from_cloud(const char *table_override) {
 
 static volatile bool s_sync_task_running = false;
 
+// The pull runs on its own task and brings the radio up itself: the power
+// profile parks Wi-Fi when the bar is idle, and a pull that silently refuses
+// while the radio is parked is exactly how the fleet curve never reached this
+// pack in the first place.
 static void battery_sync_worker(void *arg) {
-    battery_sync_from_cloud(NULL);
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[BATT_CAL] Wi-Fi parked - waking it for the calibration pull");
+        if (WiFi.getMode() == WIFI_OFF) {
+            WiFi.mode(WIFI_STA);
+        }
+        WiFi.begin();
+        uint32_t t0 = millis();
+        while (WiFi.status() != WL_CONNECTED && (millis() - t0 < 8000)) {
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+    }
+    const bool ok = battery_sync_from_cloud(NULL);
+    Serial.printf("[BATT_CAL] Cloud curve pull %s (active source: %s)\n",
+                  ok ? "APPLIED" : "FAILED", battery_get_cal_source());
     s_sync_task_running = false;
     vTaskDelete(NULL);
 }
 
 bool battery_sync_from_cloud_async(void) {
     if (s_sync_task_running) return false;
-    if (WiFi.status() != WL_CONNECTED) return false;
     s_sync_task_running = true;
     if (xTaskCreate(battery_sync_worker, "batt_cal", 10240, NULL, 2, NULL) != pdPASS) {
         s_sync_task_running = false;
