@@ -37,6 +37,9 @@ __pycache__/
 *.mp3
 *.pcm
 
+# Agent-local state (Autohand etc.) — never committed
+.autohand/
+
 # Root scratch scripts, logs, test files, and reverse-engineering references
 scratch/
 /*.py
