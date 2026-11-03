@@ -2,14 +2,24 @@
   "repo_id": "official",
   "releases": [
     {
+      "version": "2.6.2",
+      "type": "patch",
+      "build": 186,
+      "date": "Nov 04, 2026",
+      "title": "DeskBar AI v2.6.2: Battery SOC: validator accepted only flat curves; curve now pulled from the fleet automatically",
+      "changelog": "\u2022 Battery SOC: validator accepted only flat curves; curve now pulled from the fleet automatically",
+      "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.2.bin",
+      "size": 4200000
+    },
+    {
       "version": "2.6.1",
       "type": "patch",
-      "build": 83,
+      "build": 185,
       "date": "Oct 18, 2026",
       "title": "DeskBar AI v2.6.1: Fix scale and orientation label glyphs with clean ASCII +/-",
       "changelog": "\u2022 Fix scale and orientation label glyphs with clean ASCII +/-",
       "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.1.bin",
-      "size": 4200000
+      "size": 4283408
     },
     {
       "version": "2.6.0",
