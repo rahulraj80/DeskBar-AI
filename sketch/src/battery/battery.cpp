@@ -13,7 +13,7 @@ extern PCF85063 rtc;
 // Factory Golden Baseline SOC Curve (14-point piecewise linear)
 static const float FACTORY_VOLTS[BATTERY_CURVE_PTS] = {
   4.065f, 4.000f, 3.970f, 3.945f, 3.930f, 3.920f, 3.910f,
-  3.885f, 3.840f, 3.780f, 3.735f, 3.690f, 3.500f, 3.000f
+  3.885f, 3.840f, 3.780f, 3.735f, 3.690f, 3.500f, 3.100f
 };
 static const uint8_t FACTORY_PCTS[BATTERY_CURVE_PTS] = {
   100, 95, 90, 85, 80, 70, 60, 50, 40, 30, 20, 10, 5, 0
@@ -230,13 +230,10 @@ uint8_t voltageToBatteryPercent(float v) {
     }
 
     // Monotonic discharge clamp: battery percentage cannot jump upwards during
-    // discharge. The clamp is released when the battery is clearly charged:
-    // either the charging IC reports charge voltage at the ADC pin, OR the
-    // battery-side voltage itself is >= BATTERY_CHARGE_RESET_V. The voltage
-    // check is the authoritative one - the ADC charging threshold (1340 mV)
-    // sits only ~27 mV above a full 4.1V reading and can be missed by noise,
-    // which previously left the percentage stuck at a low value while the
-    // voltage recovered to 4.1V.
+    // discharge. It is released only for a real charge event: the charge-state
+    // machine reports CHARGING/FULL, or the pack is above the charge ceiling.
+    // A resting full pack reads ~4.09V, so the old ">= 4.0V means charging"
+    // release fired on a battery that was simply full and unplugged.
     if (bsp_is_battery_charging() || v >= BATTERY_CHARGE_RESET_V) {
         s_last_discharged_pct = 100;
         s_ratchet_low_v = v;
@@ -269,9 +266,103 @@ void getBatteryStatus(float *voltage_out, uint8_t *percent_out) {
     *percent_out = voltageToBatteryPercent(*voltage_out);
 }
 
+// ----------------------------------------------------------------------------
+// Charge-state detection
+// ----------------------------------------------------------------------------
+// This board gives the firmware no VBUS / CHRG / STAT line - the only battery
+// signal is the divider on ADC_BATT. So the previous test
+// (ADC >= 1340 mV, i.e. pack >= 4.02V) was not a charge detector at all:
+//   * a full pack resting unplugged at 4.09V read "charging", which kept the
+//     radio up and pinned the CPU at full clock on an idle desk bar;
+//   * a pack actually charging from 3.7V read "not charging", so telemetry
+//     parked Wi-Fi while on USB.
+// The state is derived from the voltage trend instead: a pack under charge
+// rises (or sits at the charge-termination ceiling), a pack on load falls.
+#define BATT_CHARGE_HIST_V         32
+#define BATT_CHARGE_SAMPLE_MS      60000UL                    // one row/minute
+#define BATT_CHARGE_TREND_MS       (12UL * 60UL * 1000UL)     // 12-minute slope
+#define BATT_CHARGE_RISE_V         0.012f  // +12mV across the window: charging
+#define BATT_CHARGE_FALL_V         0.008f  // -8mV across the window: on load
+#define BATT_CHARGE_CEILING_V      4.10f   // charge-termination plateau
+#define BATT_CHARGE_CEILING_BAND_V 0.030f  // headroom below the peak for "full"
+
+static float    s_chg_v[BATT_CHARGE_HIST_V];
+static uint32_t s_chg_t[BATT_CHARGE_HIST_V];
+static uint8_t  s_chg_next = 0;
+static uint8_t  s_chg_n = 0;
+static uint32_t s_chg_last_ms = 0;
+static battery_charge_state_t s_chg_state = BATT_CHARGE_UNKNOWN;
+
+static void battery_charge_record(float v) {
+    uint32_t now_ms = millis();
+    if (s_chg_n > 0 && (now_ms - s_chg_last_ms) < BATT_CHARGE_SAMPLE_MS) return;
+    s_chg_v[s_chg_next] = v;
+    s_chg_t[s_chg_next] = now_ms;
+    s_chg_next = (uint8_t)((s_chg_next + 1) % BATT_CHARGE_HIST_V);
+    if (s_chg_n < BATT_CHARGE_HIST_V) s_chg_n++;
+    s_chg_last_ms = now_ms;
+}
+
+battery_charge_state_t battery_charge_state(void) {
+    float v = readRawBatteryVoltage();
+    if (v <= 1.0f) return BATT_CHARGE_UNKNOWN;
+
+    battery_charge_record(v);
+    if (s_chg_n < 2) {
+        // No trend yet (first minute after boot): only a pack sitting at the
+        // charge ceiling may be called full/charging.
+        s_chg_state = (v >= BATT_CHARGE_CEILING_V) ? BATT_CHARGE_FULL : BATT_CHARGE_UNKNOWN;
+        return s_chg_state;
+    }
+
+    uint32_t now_ms = millis();
+    float v_ref = v, v_max = v;
+    bool have_ref = false;
+    for (uint8_t i = 0; i < s_chg_n; i++) {
+        uint8_t idx = (uint8_t)((s_chg_next + BATT_CHARGE_HIST_V - 1 - i) % BATT_CHARGE_HIST_V);
+        if (s_chg_v[idx] > v_max) v_max = s_chg_v[idx];
+        if (!have_ref && (now_ms - s_chg_t[idx]) >= BATT_CHARGE_TREND_MS) {
+            v_ref = s_chg_v[idx];   // oldest sample still inside the window
+            have_ref = true;
+        }
+    }
+    if (!have_ref) {
+        // Less than a full window of history: compare against the oldest row.
+        v_ref = s_chg_v[(s_chg_next + BATT_CHARGE_HIST_V - s_chg_n) % BATT_CHARGE_HIST_V];
+    }
+    const float dv = v - v_ref;
+
+    battery_charge_state_t st;
+    if (v >= BATT_CHARGE_CEILING_V && dv > -BATT_CHARGE_FALL_V &&
+        (v_max - v) < BATT_CHARGE_CEILING_BAND_V) {
+        st = BATT_CHARGE_FULL;          // plateau at the top of the CC/CV cycle
+    } else if (dv >= BATT_CHARGE_RISE_V) {
+        st = BATT_CHARGE_CHARGING;      // rising rail
+    } else if (dv <= -BATT_CHARGE_FALL_V) {
+        st = BATT_CHARGE_DISCHARGING;   // load is pulling it down
+    } else if (s_chg_state == BATT_CHARGE_CHARGING || s_chg_state == BATT_CHARGE_FULL) {
+        st = s_chg_state;               // hysteresis through a flat spot
+    } else {
+        st = BATT_CHARGE_UNKNOWN;       // at rest: not charging
+    }
+    s_chg_state = st;
+    return st;
+}
+
+const char* battery_charge_state_name(void) {
+    switch (battery_charge_state()) {
+        case BATT_CHARGE_CHARGING:    return "charging";
+        case BATT_CHARGE_FULL:        return "full";
+        case BATT_CHARGE_DISCHARGING: return "discharging";
+        default:                      return "unknown";
+    }
+}
+
 bool bsp_is_battery_charging(void) {
-    // When connected to USB power, charging IC holds battery rail at charge voltage (>= 1340 mV at ADC pin)
-    return (battery_read_adc_mv_safe() >= 1340);
+    // TRUE only while the pack is actually gaining charge or resting at the
+    // charge ceiling - never for a full pack that is simply off the charger.
+    const battery_charge_state_t st = battery_charge_state();
+    return (st == BATT_CHARGE_CHARGING || st == BATT_CHARGE_FULL);
 }
 
 // ----------------------------------------------------------------------------

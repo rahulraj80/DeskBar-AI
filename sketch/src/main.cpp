@@ -699,8 +699,8 @@ void serial_cli_task(void *param) {
             float volt = 0.0f; uint8_t pct = 0;
             getBatteryStatus(&volt, &pct);
             int raw = analogReadMilliVolts(ADC_BATT);
-            Serial.printf("[CLI BATT] ADC: %d mV | Vbat: %.2fV | Percent: %d%% | Curve: %s\n",
-                          raw, volt, pct, battery_get_cal_source());
+            Serial.printf("[CLI BATT] ADC: %d mV | Vbat: %.2fV | Percent: %d%% | Curve: %s | Charge: %s\n",
+                          raw, volt, pct, battery_get_cal_source(), battery_charge_state_name());
           } else if (cmd.equalsIgnoreCase("telemetry")) {
             Serial.printf("[CLI TELEMETRY] Buffered: %d / %d | Table: %s | Cadence: %us | Consent: %s\n",
                           (int)telemetry_get_buffered_count(), TELEMETRY_MAX_BUFFER,

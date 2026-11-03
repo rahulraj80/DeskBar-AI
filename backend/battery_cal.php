@@ -19,7 +19,7 @@ $target_pcts = [100, 95, 90, 85, 80, 70, 60, 50, 40, 30, 20, 10, 5, 0];
 
 // Fallback factory curve if nothing in DB
 $factory_curve = [
-    'volts' => [4.065, 4.000, 3.970, 3.945, 3.930, 3.920, 3.910, 3.885, 3.840, 3.780, 3.735, 3.690, 3.500, 3.000],
+    'volts' => [4.065, 4.000, 3.970, 3.945, 3.930, 3.920, 3.910, 3.885, 3.840, 3.780, 3.735, 3.690, 3.500, 3.100],
     'pcts'  => [100, 95, 90, 85, 80, 70, 60, 50, 40, 30, 20, 10, 5, 0]
 ];
 
@@ -174,7 +174,7 @@ function fit_14_point_curve($run, $target_pcts) {
     // is what turned a 60mV sliver into a curve whose 50% point sat at 4.135V
     // and whose final step fell 1.11V - i.e. "4.1V but 4%".
     $ref_volts = [4.065, 4.000, 3.970, 3.945, 3.930, 3.920, 3.910, 3.885,
-                  3.840, 3.780, 3.735, 3.690, 3.500, 3.000];
+                  3.840, 3.780, 3.735, 3.690, 3.500, 3.100];
     $v_first = $smoothed_v[0];
     $v_last  = $smoothed_v[count($smoothed_v) - 1];
     $soc_start = ref_soc_percent($v_first, $ref_volts, $target_pcts);
@@ -219,7 +219,10 @@ function fit_14_point_curve($run, $target_pcts) {
             if ($p >= $soc_start) $v = max($v, $v_first);
             if ($p <= $soc_end)   $v = min($v, $v_last);
         }
-        $fitted_volts[] = min(4.200, max(3.000, round($v, 3)));
+        // 0% is clamped at 3.10V: the pack is an 18650 that cuts out around
+        // 3.00-3.12V, so 3.0 as an empty anchor made the last 5% look deeper
+        // than the hardware goes. Everything below 3.10V is "empty".
+        $fitted_volts[] = min(4.200, max(3.100, round($v, 3)));
     }
 
     // Ensure strict monotonicity descending

@@ -8,11 +8,12 @@
 #define BATTERY_ADC_MAX   4095.0f // 12-bit ADC
 #define BATTERY_CURVE_PTS 14
 
-// Voltage (battery side) at which the monotonic discharge clamp is reset even
-// when the fragile ADC charging check (>= 1340 mV) momentarily fails due to
-// noise. 4.0V is clearly charged for a 4.2V LiPo, so a recovered battery can
-// never stay stuck at a low percentage.
-#define BATTERY_CHARGE_RESET_V 4.0f
+// Voltage (battery side) above which the monotonic discharge clamp is reset
+// unconditionally. This sits above the resting voltage of a full pack ("full"
+// off the charger measures ~4.09-4.12V), so it can only be reached while the
+// pack is actually held at the charge ceiling - the old 4.0V value released
+// the clamp on any full battery that was simply unplugged.
+#define BATTERY_CHARGE_RESET_V 4.15f
 
 // Discharge-clamp escape hatch below BATTERY_CHARGE_RESET_V. The clamp may only
 // ever fall, so a USB charge started at e.g. 3.6V kept the last discharge
@@ -41,6 +42,15 @@
 #define BATTERY_CURVE_MID_MIN_V  3.50f
 #define BATTERY_CURVE_MID_MAX_V  4.05f
 
+// Charge state derived from the voltage trend (this board exposes no charger
+// status pin to the firmware). CHARGING/FULL mean "on the charger".
+typedef enum {
+    BATT_CHARGE_UNKNOWN = 0,
+    BATT_CHARGE_DISCHARGING,
+    BATT_CHARGE_CHARGING,
+    BATT_CHARGE_FULL
+} battery_charge_state_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -51,6 +61,8 @@ float readBatteryVoltage(void);
 uint8_t voltageToBatteryPercent(float voltage);
 void getBatteryStatus(float *voltage_out, uint8_t *percent_out);
 bool bsp_is_battery_charging(void);
+battery_charge_state_t battery_charge_state(void);
+const char* battery_charge_state_name(void);
 uint32_t battery_read_adc_mv_safe(void);
 
 // 2-Point Breathing Sampling Accumulator
