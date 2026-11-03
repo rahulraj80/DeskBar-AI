@@ -6,5 +6,5 @@
 #define TUNEBAR_VERSION_PATCH 2
 #define TUNEBAR_VERSION_STR   "2.6.2"
 #define TUNEBAR_BUILD_NUM     186
-#define TUNEBAR_GIT_HASH      "71cdd7c"
+#define TUNEBAR_GIT_HASH      "0af2ef4"
 #define TUNEBAR_BUILD_DATE    "2026-11-04 00:54:48"

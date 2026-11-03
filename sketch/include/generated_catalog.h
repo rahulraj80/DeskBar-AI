@@ -14,61 +14,21 @@ struct CatalogItem {
   uint32_t size_bytes;
 };
 
-#define GENERATED_CATALOG_COUNT 6
+#define GENERATED_CATALOG_COUNT 1
 
-static const CatalogItem s_generated_catalog[6] = {
+static const CatalogItem s_generated_catalog[1] = {
   // [0] v2.6.2
   {
-    "v2.6.2", "PATCH", 0x00FF88, "Nov 04, 2026", "4.01 MB",
+    "v2.6.2", "PATCH", 0x00FF88, "Nov 04, 2026", "3.04 MB",
     "• Battery SOC: validator accepted only flat curves; curve now pulled from the fleet automatically",
     "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.2.bin",
-    4200000
-  },
-  // [1] v2.6.1
-  {
-    "v2.6.1", "PATCH", 0x00FF88, "Oct 18, 2026", "4.08 MB",
-    "• Fix scale and orientation label glyphs with clean ASCII +/-",
-    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.1.bin",
-    4283408
-  },
-  // [2] v2.6.0
-  {
-    "v2.6.0", "MINOR", 0x00B0FF, "Oct 18, 2026", "4.08 MB",
-    "• Enlarge spirit level raw IMU graph 12x with 3-axis traces, touch dynamic scale, and compact orientations",
-    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.0.bin",
-    4283408
-  },
-  // [3] v2.5.1
-  {
-    "v2.5.1", "PATCH", 0x00FF88, "Oct 17, 2026", "4.08 MB",
-    "• Exchange positions of timer and 30-day access badge in cloud modal",
-    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.5.1.bin",
-    4283408
-  },
-  // [4] v2.5.0
-  {
-    "v2.5.0", "MINOR", 0x00B0FF, "Oct 17, 2026", "4.08 MB",
-    "• Prominent two-column Cloud & PIN layout and Radio stream quality telemetry",
-    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.5.0.bin",
-    4283408
-  },
-  // [5] v2.4.0
-  {
-    "v2.4.0", "MINOR", 0x00B0FF, "Oct 17, 2026", "4.08 MB",
-    "• Add dynamic TOTP hardware cloud authentication and TB_DEVICE_AUTH table",
-    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.4.0.bin",
-    4283408
+    3189024
   }
 };
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.6.2\",\"type\":\"patch\",\"build\":186,\"date\":\"Nov 04, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Battery SOC: validator accepted only flat curves; curve now pulled from the fleet automatically\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.2.bin\"},";
-  j += "{\"version\":\"2.6.1\",\"type\":\"patch\",\"build\":185,\"date\":\"Oct 18, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Fix scale and orientation label glyphs with clean ASCII +/-\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.1.bin\"},";
-  j += "{\"version\":\"2.6.0\",\"type\":\"minor\",\"build\":82,\"date\":\"Oct 18, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Enlarge spirit level raw IMU graph 12x with 3-axis traces, touch dynamic scale, and compact orientations\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.0.bin\"},";
-  j += "{\"version\":\"2.5.1\",\"type\":\"patch\",\"build\":81,\"date\":\"Oct 17, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Exchange positions of timer and 30-day access badge in cloud modal\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.5.1.bin\"},";
-  j += "{\"version\":\"2.5.0\",\"type\":\"minor\",\"build\":77,\"date\":\"Oct 17, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Prominent two-column Cloud & PIN layout and Radio stream quality telemetry\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.5.0.bin\"},";
-  j += "{\"version\":\"2.4.0\",\"type\":\"minor\",\"build\":75,\"date\":\"Oct 17, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Add dynamic TOTP hardware cloud authentication and TB_DEVICE_AUTH table\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.4.0.bin\"}";
+  j += "{\"version\":\"2.6.2\",\"type\":\"patch\",\"build\":186,\"date\":\"Nov 04, 2026\",\"size\":\"3.04 MB\",\"size_bytes\":3189024,\"changelog\":\"• Battery SOC: validator accepted only flat curves; curve now pulled from the fleet automatically\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.2.bin\"}";
   j += "]}";
   return j;
 }
