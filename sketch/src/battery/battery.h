@@ -28,6 +28,19 @@
 // broken (the shape that maps a full battery to a low percentage).
 #define BATTERY_CURVE_JITTER_V   0.010f
 
+// Largest believable voltage drop for one 5% step of a saturated LiPo. The
+// cut-off knee is the steepest real segment (~0.5V from 5% to 0%), so anything
+// wider than this is a fit artefact - e.g. the server stretching a 60mV run
+// into a full 100->0 curve, whose last step fell 1.11V and whose 50% point sat
+// at 4.135V. That curve is what reported "4.1V but 4%".
+#define BATTERY_CURVE_MAX_STEP_V 0.75f
+
+// Sanity window for the 50% point of a curve. A LiPo sits near 3.9V at half
+// charge (load-dependent, hence the generous band); a "half charge" at 4.1V
+// means the curve was derived from a run that never actually discharged.
+#define BATTERY_CURVE_MID_MIN_V  3.50f
+#define BATTERY_CURVE_MID_MAX_V  4.05f
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -47,6 +60,10 @@ uint16_t battery_get_rolling_average_mv(void);
 
 // Dynamic Server-Assisted Battery Discharge Calibration
 bool battery_sync_from_cloud(const char *table_override);
+// Spawned variant for callers on small tasks (serial CLI, beacon loop): the
+// TLS handshake + JSON parse need ~8KB of stack, so the pull must not run
+// inline there. Returns false when offline or a sync is already in flight.
+bool battery_sync_from_cloud_async(void);
 const char* battery_get_cal_source(void);
 const char* battery_get_cal_source_label(void);
 const char* battery_get_cal_timestamp(void);

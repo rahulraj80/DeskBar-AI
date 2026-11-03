@@ -146,6 +146,19 @@ static bool battery_curve_is_valid(const float *volts, const uint8_t *pcts, uint
     for (int i = 0; i < count - 1; i++) {
         if (pcts[i] <= pcts[i + 1]) return false;
     }
+
+    // Shape sanity, independent of monotonicity: a fit computed from a run
+    // that only fell a few tens of mV gets stretched over the whole 100->0
+    // range, which puts 50% at ~4.1V and dumps the rest of the pack into one
+    // final step. That is the curve that reported 4.1V as 4%.
+    int mid = BATTERY_CURVE_PTS / 2;
+    for (int i = 0; i < count; i++) {
+        if (pcts[i] == 50) { mid = i; break; }
+    }
+    if (!(volts[mid] >= BATTERY_CURVE_MID_MIN_V && volts[mid] <= BATTERY_CURVE_MID_MAX_V)) return false;
+    for (int i = 0; i < count - 1; i++) {
+        if ((volts[i] - volts[i + 1]) > BATTERY_CURVE_MAX_STEP_V) return false;
+    }
     return true;
 }
 
@@ -370,15 +383,21 @@ bool battery_save_nvs_curve(const float *volts, const uint8_t *pcts, uint8_t cou
     return false;
 }
 
-bool battery_sync_from_cloud(const char *table_override) {
+// One GET against the calibration service. table == NULL/empty asks for the
+// fleet average, which the service already computes from every device with a
+// usable discharge run - no need to wait for this pack to finish its own.
+static bool battery_apply_cloud_curve(const char *table) {
     if (WiFi.status() != WL_CONNECTED) {
         log_w("[BATT_CAL] Wi-Fi not connected, cannot sync battery calibration");
         return false;
     }
 
-    const char *tbl = (table_override && strlen(table_override) > 0) ? table_override : secrets_get_telemetry_table();
     char url[128];
-    snprintf(url, sizeof(url), "https://autobots.my.to/battery_cal.php?table=%s", tbl);
+    if (table && strlen(table) > 0) {
+        snprintf(url, sizeof(url), "https://autobots.my.to/battery_cal.php?table=%s", table);
+    } else {
+        snprintf(url, sizeof(url), "https://autobots.my.to/battery_cal.php");
+    }
     log_i("[BATT_CAL] Requesting cloud calibration from: %s", url);
 
     WiFiClientSecure client;
@@ -437,8 +456,45 @@ bool battery_sync_from_cloud(const char *table_override) {
     const char *src = doc["source"] | "cloud_cal";
     bool saved = battery_save_nvs_curve(new_volts, new_pcts, BATTERY_CURVE_PTS, src);
     if (saved) {
-        log_i("[BATT_CAL] Successfully synced & applied curve from cloud! 100%%=%.3fV, 0%%=%.3fV",
-              new_volts[0], new_volts[BATTERY_CURVE_PTS - 1]);
+        log_i("[BATT_CAL] Successfully synced & applied curve from cloud! source=%s 100%%=%.3fV, 50%%=%.3fV, 0%%=%.3fV",
+              src, new_volts[0], new_volts[BATTERY_CURVE_PTS / 2], new_volts[BATTERY_CURVE_PTS - 1]);
     }
     return saved;
+}
+
+bool battery_sync_from_cloud(const char *table_override) {
+    const char *own = (table_override && strlen(table_override) > 0)
+                          ? table_override
+                          : secrets_get_telemetry_table();
+
+    if (battery_apply_cloud_curve(own)) return true;
+
+    // This pack's own history was unusable (not enough discharge, or a fit
+    // that failed shape validation). Fall back to the fleet average the same
+    // service already derives from the other devices' full curves.
+    if (own && strlen(own) > 0) {
+        log_w("[BATT_CAL] Device curve unusable for %s - requesting fleet average", own);
+        if (battery_apply_cloud_curve(NULL)) return true;
+    }
+    return false;
+}
+
+static volatile bool s_sync_task_running = false;
+
+static void battery_sync_worker(void *arg) {
+    battery_sync_from_cloud(NULL);
+    s_sync_task_running = false;
+    vTaskDelete(NULL);
+}
+
+bool battery_sync_from_cloud_async(void) {
+    if (s_sync_task_running) return false;
+    if (WiFi.status() != WL_CONNECTED) return false;
+    s_sync_task_running = true;
+    if (xTaskCreate(battery_sync_worker, "batt_cal", 10240, NULL, 2, NULL) != pdPASS) {
+        s_sync_task_running = false;
+        log_e("[BATT_CAL] Failed to start calibration worker");
+        return false;
+    }
+    return true;
 }

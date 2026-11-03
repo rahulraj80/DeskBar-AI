@@ -268,6 +268,9 @@ void setup() {
 #include "telemetry/telemetry.h"
 #include "web/web_remote.h"
 
+// Re-pull the server-computed SOC curve every 6h (boot pulls immediately).
+#define BATTERY_CAL_REFRESH_MS (6UL * 60UL * 60UL * 1000UL)
+
 void web_server_task(void *param) {
   vTaskDelay(pdMS_TO_TICKS(1500));
   for (;;) {
@@ -307,6 +310,21 @@ void serial_debug_beacon_task(void *param) {
       telemetry_collect_snapshot();
       telemetry_flush_batch();
       last_telemetry_flush = millis();
+    }
+
+    // Battery SOC curve: pull the server-computed curve as soon as Wi-Fi is up,
+    // then refresh every 6h. This used to run only when someone tapped
+    // "Sync Cloud", so the discharge history piling up in the DB never reached
+    // this pack - it kept booting on whatever curve was last saved by hand.
+    static bool s_batt_sync_done = false;
+    static uint32_t s_last_batt_sync_ms = 0;
+    const bool batt_sync_allowed = (WiFi.status() == WL_CONNECTED) &&
+        (secrets_has_cloud_consent() || secrets_has_custom_ini()) &&
+        !ai_recording_active && !ai_upload_in_progress;
+    if (batt_sync_allowed &&
+        (!s_batt_sync_done || (millis() - s_last_batt_sync_ms >= BATTERY_CAL_REFRESH_MS))) {
+      s_last_batt_sync_ms = millis();
+      if (battery_sync_from_cloud_async()) s_batt_sync_done = true;
     }
 
     // Collect snapshot according to configured interval (default 300s = 5m)
@@ -662,11 +680,16 @@ void serial_cli_task(void *param) {
             } else {
               Serial.printf("[CLI LAN] Failed to play track %d (valid range: 1..%d)\n", idx + 1, lan_get_file_count());
             }
+          } else if (cmd.equalsIgnoreCase("batt sync") || cmd.equalsIgnoreCase("batt cal")) {
+            bool started = battery_sync_from_cloud_async();
+            Serial.printf("[CLI BATT] Cloud curve sync %s - watch [BATT_CAL] logs\n",
+                          started ? "STARTED" : "REJECTED (offline or already running)");
           } else if (cmd.equalsIgnoreCase("batt")) {
             float volt = 0.0f; uint8_t pct = 0;
             getBatteryStatus(&volt, &pct);
             int raw = analogReadMilliVolts(ADC_BATT);
-            Serial.printf("[CLI BATT] ADC: %d mV | Vbat: %.2fV | Percent: %d%%\n", raw, volt, pct);
+            Serial.printf("[CLI BATT] ADC: %d mV | Vbat: %.2fV | Percent: %d%% | Curve: %s\n",
+                          raw, volt, pct, battery_get_cal_source());
           } else if (cmd.equalsIgnoreCase("telemetry")) {
             Serial.printf("[CLI TELEMETRY] Buffered: %d / %d | Table: %s | Cadence: %us | Consent: %s\n",
                           (int)telemetry_get_buffered_count(), TELEMETRY_MAX_BUFFER,
