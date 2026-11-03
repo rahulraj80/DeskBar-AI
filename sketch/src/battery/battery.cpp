@@ -129,11 +129,15 @@ static bool battery_curve_is_valid(const float *volts, const uint8_t *pcts, uint
     // The curve has to span a real discharge range, not be flat.
     if ((volts[0] - volts[count - 1]) < 0.3f) return false;
 
-    // Voltages must descend. A fleet average can legitimately repeat a point
-    // or wobble by a few mV; a larger adjacent inversion is a broken curve
-    // shape. (The interpolator handles the jittered segments itself.)
+    // Voltages must descend, and a fleet average can legitimately repeat a
+    // point or wobble up by a few mV. Only a rise beyond that jitter is a
+    // broken shape. (This check used to demand volts[i+1] >= volts[i] - jitter,
+    // i.e. that the curve stay near-flat: every real curve - factory, device
+    // history, fleet average - was rejected by it, while a degenerate
+    // flat-at-full payload sailed through. That is why no good curve could
+    // ever be applied.)
     for (int i = 0; i < count - 1; i++) {
-        if (!(volts[i + 1] >= volts[i] - BATTERY_CURVE_JITTER_V)) return false;
+        if (volts[i + 1] > volts[i] + BATTERY_CURVE_JITTER_V) return false;
     }
 
     // Percentages must be strictly monotonic descending, start near 100 and
