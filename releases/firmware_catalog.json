@@ -9,7 +9,7 @@
       "title": "DeskBar AI v2.6.3: Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V",
       "changelog": "\u2022 Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V",
       "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.3.bin",
-      "size": 3181696
+      "size": 3183344
     },
     {
       "version": "2.6.2",

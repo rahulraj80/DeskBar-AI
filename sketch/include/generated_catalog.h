@@ -19,10 +19,10 @@ struct CatalogItem {
 static const CatalogItem s_generated_catalog[2] = {
   // [0] v2.6.3
   {
-    "v2.6.3", "PATCH", 0x00FF88, "Nov 04, 2026", "3.03 MB",
+    "v2.6.3", "PATCH", 0x00FF88, "Nov 04, 2026", "3.04 MB",
     "• Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V",
     "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.3.bin",
-    3181696
+    3183344
   },
   // [1] v2.6.2
   {
@@ -35,7 +35,7 @@ static const CatalogItem s_generated_catalog[2] = {
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.6.3\",\"type\":\"patch\",\"build\":191,\"date\":\"Nov 04, 2026\",\"size\":\"3.03 MB\",\"size_bytes\":3181696,\"changelog\":\"• Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.3.bin\"},";
+  j += "{\"version\":\"2.6.3\",\"type\":\"patch\",\"build\":191,\"date\":\"Nov 04, 2026\",\"size\":\"3.04 MB\",\"size_bytes\":3183344,\"changelog\":\"• Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.3.bin\"},";
   j += "{\"version\":\"2.6.2\",\"type\":\"patch\",\"build\":190,\"date\":\"Nov 04, 2026\",\"size\":\"3.04 MB\",\"size_bytes\":3189024,\"changelog\":\"• Battery SOC: validator accepted only flat curves; curve now pulled from the fleet automatically\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.2.bin\"}";
   j += "]}";
   return j;
