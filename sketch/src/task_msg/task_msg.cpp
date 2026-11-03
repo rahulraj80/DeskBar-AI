@@ -20,9 +20,12 @@
 #include "alarm/alarm.h"
 
 #include "ESP32-audioI2S-master/Audio.h"
+#include <math.h>
+#include <string.h>
 Audio audio;
 extern uint8_t audio_volume;
 extern uint8_t mediaType;
+// is_display_deep_black() comes from ui/ui.h -> ui_events.h
 
 bool seeking_now = false;
 
@@ -141,9 +144,56 @@ void audioPlayHOST(const char *filename, const char *stationName) {
 const lv_img_dsc_t nixie[10] = {  // image 0 - 9
     ui_img_numbers_0_png, ui_img_numbers_1_png, ui_img_numbers_2_png, ui_img_numbers_3_png, ui_img_numbers_4_png, ui_img_numbers_5_png, ui_img_numbers_6_png, ui_img_numbers_7_png, ui_img_numbers_8_png, ui_img_numbers_9_png,
 };
+// --- Nixie clock layout (full hh:mm:ss vs compact hh:mm) ---------------------
+// Compact mode is used during deep-idle clock breathing so that the display
+// buffer is only invalidated once per minute instead of three times per second.
+// With disp_drv.full_refresh = 1 every invalidation costs a full 640x172 frame
+// re-render + QSPI transfer, so this is a meaningful power saving.
+static bool    s_clock_compact      = false;
+static bool    s_clock_layout_dirty = true;
+static uint8_t old_time[6]          = {255, 255, 255, 255, 255, 255};
+
+static void clock_apply_layout(void) {
+  lv_obj_t *const digits[8] = {
+    ui_Info_Image_hour0, ui_Info_Image_hour1, ui_Info_Image_colon0,
+    ui_Info_Image_minute0, ui_Info_Image_minute1, ui_Info_Image_colon1,
+    ui_Info_Image_second0, ui_Info_Image_second1,
+  };
+  // 64 px pitch, same as the SquareLine layout. Compact = first 5 widgets only.
+  static const int16_t full_x[8]    = {-224, -160, -96, -32, 32, 96, 160, 224};
+  static const int16_t compact_x[8] = {-128, -64,   0,  64, 128, 0,   0,   0};
+
+  for (int i = 0; i < 8; i++) {
+    if (digits[i] == NULL) continue;
+    lv_obj_set_x(digits[i], s_clock_compact ? compact_x[i] : full_x[i]);
+  }
+
+  lv_obj_t *const hidden[3] = {ui_Info_Image_colon1, ui_Info_Image_second0, ui_Info_Image_second1};
+  for (int i = 0; i < 3; i++) {
+    if (hidden[i] == NULL) continue;
+    if (s_clock_compact) lv_obj_add_flag(hidden[i], LV_OBJ_FLAG_HIDDEN);
+    else                 lv_obj_clear_flag(hidden[i], LV_OBJ_FLAG_HIDDEN);
+  }
+
+  // Force the seconds to be re-rendered when they become visible again.
+  old_time[4] = 255;
+  old_time[5] = 255;
+  s_clock_layout_dirty = false;
+}
+
+void nixie_clock_set_compact(bool compact) {
+  if (s_clock_compact == compact) return;
+  s_clock_compact      = compact;
+  s_clock_layout_dirty = true;
+  log_i("[CLOCK] Layout -> %s", compact ? "compact hh:mm" : "full hh:mm:ss");
+}
+
+bool nixie_clock_is_compact(void) { return s_clock_compact; }
+
 // update nixie clock panel
 void nixie_clock(uint8_t hour, uint8_t minute, uint8_t second) {
-  static uint8_t old_time[6] = {255, 255, 255, 255, 255, 255};
+  if (s_clock_layout_dirty) clock_apply_layout();
+
   uint8_t new_time[6] = {(uint8_t)(hour / 10), (uint8_t)(hour % 10), (uint8_t)(minute / 10), (uint8_t)(minute % 10), (uint8_t)(second / 10), (uint8_t)(second % 10)};
 
   if (new_time[0] != old_time[0]) {
@@ -162,6 +212,7 @@ void nixie_clock(uint8_t hour, uint8_t minute, uint8_t second) {
     lv_img_set_src(ui_Info_Image_minute1, &nixie[new_time[3]]);
     old_time[3] = new_time[3];
   }
+  if (s_clock_compact) return; // seconds hidden: nothing left to update
   if (new_time[4] != old_time[4]) {
     lv_img_set_src(ui_Info_Image_second0, &nixie[new_time[4]]);
     old_time[4] = new_time[4];
@@ -219,18 +270,38 @@ void process_ui_status_queue() {
       log_d("%s", datetimeBuf);
 
       switch (infoPageIndex) { // update date time by info panel page
-      case 0: // nixie clock (Page 0)
-        if (ui_Info_Label_DateNixie) lv_label_set_text(ui_Info_Label_DateNixie, dateBuf);
+      case 0: { // nixie clock (Page 0)
+        // Every string is compared against the previously applied one: with
+        // disp_drv.full_refresh = 1 an unnecessary lv_label_set_text() costs a
+        // complete 640x172 frame re-render + QSPI transfer.
+        static char s_last_date[40] = {0};
+        static char s_last_batt[32] = {0};
+
+        if (ui_Info_Label_DateNixie && strcmp(s_last_date, dateBuf) != 0) {
+          lv_label_set_text(ui_Info_Label_DateNixie, dateBuf);
+          snprintf(s_last_date, sizeof(s_last_date), "%s", dateBuf);
+        }
+
         nixie_clock(msg.hour, msg.minute, msg.second);
-        if (ui_Info_Label_BattStatus != NULL) {
+
+        // The panel is fully black for most of the deep-idle breathing cycle, so
+        // there is no point refreshing the battery label while it is invisible.
+        if (ui_Info_Label_BattStatus != NULL && !is_display_deep_black()) {
           float volt = 0.0f;
           uint8_t pct = 0;
           getBatteryStatus(&volt, &pct);
+          // Quantise to 20 mV: ADC noise is a few mV, which would otherwise
+          // change the string (and redraw the frame) every single second.
+          float vq = roundf(volt * 50.0f) / 50.0f;
           char batt_buf[32];
-          snprintf(batt_buf, sizeof(batt_buf), "%.2fV  %d%%", volt, pct);
-          lv_label_set_text(ui_Info_Label_BattStatus, batt_buf);
+          snprintf(batt_buf, sizeof(batt_buf), "%.2fV  %d%%", vq, pct);
+          if (strcmp(s_last_batt, batt_buf) != 0) {
+            lv_label_set_text(ui_Info_Label_BattStatus, batt_buf);
+            snprintf(s_last_batt, sizeof(s_last_batt), "%s", batt_buf);
+          }
         }
         break;
+      }
       case 1: // weather (Page 1)
         if (ui_Info_Label_DateTime) lv_label_set_text(ui_Info_Label_DateTime, datetimeBuf);
         break;

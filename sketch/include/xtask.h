@@ -911,16 +911,18 @@ void audio_loop_task(void *param) {
 
 
       static bool s_wifi_sleep_disabled = false;
-      if (audio.isRunning() || mediaType == 0 || mediaType == 1) {
+      if (audio.isRunning() || ai_recording_active) {
         if (!s_wifi_sleep_disabled && WiFi.status() == WL_CONNECTED) {
           WiFi.setSleep(false);
           esp_wifi_set_ps(WIFI_PS_NONE);
           s_wifi_sleep_disabled = true;
           log_i("[AUDIO/WIFI] High-throughput mode enabled (WiFi sleep OFF)");
         }
-      } else if (s_wifi_sleep_disabled && !audio.isRunning() && mediaType >= 2) {
+      } else if (s_wifi_sleep_disabled && !audio.isRunning() && !ai_recording_active) {
+        WiFi.setSleep(true);
         esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
         s_wifi_sleep_disabled = false;
+        log_i("[AUDIO/WIFI] Wi-Fi modem sleep re-enabled");
       }
 
       if (audio.isRunning()) {

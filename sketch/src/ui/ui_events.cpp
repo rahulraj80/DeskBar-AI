@@ -88,6 +88,17 @@ uint32_t g_last_user_interaction_ms = 0;
 bool g_boot_ntp_synced = false;
 extern uint8_t infoPageIndex;
 
+// --- Breathing CPU scaling --------------------------------------------------
+// The nixie digits are static during FULL_BLACK and nothing is flushed to the
+// panel, so the CPU can drop to 80 MHz. Anything that needs the radio, the I2S
+// bus or a backlight ramp keeps/returns to 240 MHz.
+static void clock_set_cpu_low(bool low) {
+  uint32_t want_mhz = low ? 80 : 240;
+  if (getCpuFrequencyMhz() == want_mhz) return;
+  setCpuFrequencyMhz(want_mhz);
+  log_i("[POWER] CPU -> %u MHz", (unsigned)want_mhz);
+}
+
 extern "C" void record_user_interaction(void) {
   g_last_user_interaction_ms = millis();
   if (getCpuFrequencyMhz() != 240) {
@@ -119,6 +130,8 @@ void enter_clock_breathing(void) {
   bsp_set_backlight_power(true);
   breath_state = BREATH_HOLD_HIGH;
   breath_timer_ms = millis();
+  clock_set_cpu_low(false);
+  nixie_clock_set_compact(false); // full hh:mm:ss while the user is still around
 
   uint8_t max_bl = (backlight_state == 0) ? 105 : ((backlight_state == 1) ? 120 : 150);
   log_i("[BREATH] Clock breathing active (Floor: 91, Max: %u, Inactivity-Tiered)", (unsigned)max_bl);
@@ -129,6 +142,8 @@ void exit_clock_breathing(void) {
   s_clock_interaction_ms = millis();
   if (!clock_face_active) return;
   clock_face_active = 0;
+  clock_set_cpu_low(false);
+  nixie_clock_set_compact(false);
 
   bsp_set_backlight_power(true);
   bsp_set_audio_amp_power(true);
@@ -149,6 +164,8 @@ extern "C" void on_clock_interaction_wake(void) {
     imu_sensor_wake();
   }
   screenPowerOn();
+  clock_set_cpu_low(false);
+  nixie_clock_set_compact(false);
 
   if (clock_face_active) {
     clock_face_active = 0;
@@ -217,10 +234,14 @@ void update_clock_breathing(void) {
   uint16_t ramp_down = pwr->ramp_down_ms;
   uint32_t full_black_ms = pwr->hold_dark_ms;
 
-  // Inactivity tiering: after 30 mins of no interaction, extend full black
-  if (pwr->inactivity_tier && g_last_user_interaction_ms > 0 && (now - g_last_user_interaction_ms >= 30 * 60 * 1000UL)) {
+  // Inactivity tiering: after 30 mins of no interaction, extend full black and
+  // switch the clock to the compact hh:mm layout (no per-second invalidations)
+  bool tiered = pwr->inactivity_tier && g_last_user_interaction_ms > 0 &&
+                (now - g_last_user_interaction_ms >= 30 * 60 * 1000UL);
+  if (tiered) {
     full_black_ms *= 2;
   }
+  nixie_clock_set_compact(tiered);
 
   static bool s_sampled_high = false;
   static bool s_sampled_dark = false;
@@ -246,6 +267,13 @@ void update_clock_breathing(void) {
         s_sampled_dark = true;
       }
 
+      // Nothing is being drawn and the backlight is off: drop to 80 MHz unless
+      // the charger, the radio or the audio path needs the extra headroom.
+      if (elapsed >= 3000) {
+        clock_set_cpu_low(!bsp_is_battery_charging() && WiFi.getMode() == WIFI_OFF &&
+                          !audio.isRunning() && !ai_recording_active);
+      }
+
       if (elapsed >= full_black_ms) {
         if (pwr->gate_sensors && imu_sensor_is_sleeping()) {
           imu_sensor_wake();
@@ -261,6 +289,7 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_FADE_IN:
+      clock_set_cpu_low(false);
       if (elapsed < ramp_up) {
         float progress = (float)elapsed / (float)ramp_up;
         uint8_t current_val = min_bl + (uint8_t)(progress * (float)(max_bl - min_bl));
@@ -275,6 +304,7 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_HOLD_HIGH:
+      clock_set_cpu_low(false);
       setUpduty(255 - max_bl);
 
       // Point 1: 2.0s after screen turned on (fade-in + 500ms into hold_high = 2.0s loaded)
@@ -292,6 +322,7 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_FADE_OUT:
+      clock_set_cpu_low(false);
       if (elapsed < ramp_down) {
         float progress = (float)elapsed / (float)ramp_down;
         uint8_t current_val = max_bl - (uint8_t)(progress * (float)(max_bl - min_bl));

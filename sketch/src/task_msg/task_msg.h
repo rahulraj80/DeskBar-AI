@@ -108,6 +108,11 @@ void audioSetVolume(int volume);
 void audioPlayFS(uint8_t source, const char *filename);
 void audioPlayHOST(const char *filename, const char *stationName);
 
+// Nixie clock compact layout (deep-idle breathing): hide seconds + second colon,
+// centre hh:mm. Called from the breathing state machine in ui_events.cpp.
+void nixie_clock_set_compact(bool compact);
+bool nixie_clock_is_compact(void);
+
 
 //Process queue in rtos task
 void process_ui_status_queue(); 
