@@ -31,6 +31,10 @@ static uint16_t s_accum_count = 0;
 static float    s_rolling_adc_mv = -1.0f;
 static SemaphoreHandle_t s_adc_mutex = NULL;
 
+// Forward declaration: battery_init() validates the NVS curve before the
+// full definition below (see "Curve validation" section).
+static bool battery_curve_is_valid(const float *volts, const uint8_t *pcts, uint8_t count);
+
 uint32_t battery_read_adc_mv_safe(void) {
     if (!s_adc_mutex) {
         s_adc_mutex = xSemaphoreCreateMutex();
@@ -59,12 +63,27 @@ void battery_init(void) {
             size_t p_len = sizeof(s_active_pcts);
             if (pref.getBytes("volts", s_active_volts, v_len) == v_len &&
                 pref.getBytes("pcts", s_active_pcts, p_len) == p_len) {
-                String src = pref.getString("source", "nvs_cached");
-                strncpy(s_cal_source, src.c_str(), sizeof(s_cal_source) - 1);
-                String t = pref.getString("cal_time", "Unknown");
-                strncpy(s_cal_timestamp, t.c_str(), sizeof(s_cal_timestamp) - 1);
-                log_i("[BATT] Loaded calibrated curve from NVS (Source: %s, Time: %s, 100%%=%.3fV, 0%%=%.3fV)",
-                      s_cal_source, s_cal_timestamp, s_active_volts[0], s_active_volts[BATTERY_CURVE_PTS - 1]);
+                if (battery_curve_is_valid(s_active_volts, s_active_pcts, BATTERY_CURVE_PTS)) {
+                    String src = pref.getString("source", "nvs_cached");
+                    strncpy(s_cal_source, src.c_str(), sizeof(s_cal_source) - 1);
+                    String t = pref.getString("cal_time", "Unknown");
+                    strncpy(s_cal_timestamp, t.c_str(), sizeof(s_cal_timestamp) - 1);
+                    log_i("[BATT] Loaded calibrated curve from NVS (Source: %s, Time: %s, 100%%=%.3fV, 0%%=%.3fV)",
+                          s_cal_source, s_cal_timestamp, s_active_volts[0], s_active_volts[BATTERY_CURVE_PTS - 1]);
+                } else {
+                    // Corrupt / out-of-range curve in NVS: fall back to the
+                    // factory baseline instead of mapping a full battery to a
+                    // low percentage. Capture the rejected values BEFORE the
+                    // overwrite so the boot log reports what was actually bad.
+                    float bad_100 = s_active_volts[0];
+                    float bad_0   = s_active_volts[BATTERY_CURVE_PTS - 1];
+                    memcpy(s_active_volts, FACTORY_VOLTS, sizeof(s_active_volts));
+                    memcpy(s_active_pcts, FACTORY_PCTS, sizeof(s_active_pcts));
+                    strncpy(s_cal_source, "factory_baseline", sizeof(s_cal_source));
+                    strncpy(s_cal_timestamp, "Factory", sizeof(s_cal_timestamp));
+                    log_w("[BATT] NVS curve invalid (100%%=%.3fV, 0%%=%.3fV) - falling back to factory baseline",
+                          bad_100, bad_0);
+                }
             }
         }
         pref.end();
@@ -76,6 +95,39 @@ void battery_init(void) {
         s_rolling_adc_mv = (float)initial_raw;
     }
     s_initialized = true;
+}
+
+// ----------------------------------------------------------------------------
+// Curve validation
+// ----------------------------------------------------------------------------
+// A usable SOC curve must be strictly monotonic descending in voltage and stay
+// inside the physical LiPo range. The cloud endpoint and NVS are both untrusted
+// inputs: a garbage curve (e.g. computed from a wrong capacity assumption) can
+// map a full 4.1V battery to a low percentage, which is exactly the "4.1V but
+// 4%" symptom. Rejecting bad curves here keeps the factory baseline active.
+static bool battery_curve_is_valid(const float *volts, const uint8_t *pcts, uint8_t count) {
+    if (!volts || !pcts || count < 2) return false;
+
+    // Physical LiPo bounds: 100% point must be a plausible full charge
+    // (4.0V..4.35V), 0% point a plausible empty (2.8V..3.3V).
+    if (volts[0] < 4.0f || volts[0] > 4.35f) return false;
+    if (volts[count - 1] < 2.8f || volts[count - 1] > 3.3f) return false;
+
+    // Strictly monotonic descending voltages with a minimum step so the
+    // piecewise interpolation never divides by (near) zero. 1 mV is enough to
+    // catch degenerate curves while still accepting tight empirical curves
+    // (the old Run-2 calibration had a 2 mV step between two points).
+    for (int i = 0; i < count - 1; i++) {
+        if (volts[i] <= volts[i + 1]) return false;
+        if ((volts[i] - volts[i + 1]) < 0.001f) return false;
+    }
+
+    // Percentages must be strictly monotonic descending, start at 100 and end at 0.
+    if (pcts[0] != 100 || pcts[count - 1] != 0) return false;
+    for (int i = 0; i < count - 1; i++) {
+        if (pcts[i] <= pcts[i + 1]) return false;
+    }
+    return true;
 }
 
 float readRawBatteryVoltage(void) {
@@ -120,8 +172,15 @@ uint8_t voltageToBatteryPercent(float v) {
         }
     }
 
-    // Monotonic discharge clamp: battery percentage cannot jump upwards during discharge
-    if (bsp_is_battery_charging()) {
+    // Monotonic discharge clamp: battery percentage cannot jump upwards during
+    // discharge. The clamp is released when the battery is clearly charged:
+    // either the charging IC reports charge voltage at the ADC pin, OR the
+    // battery-side voltage itself is >= BATTERY_CHARGE_RESET_V. The voltage
+    // check is the authoritative one - the ADC charging threshold (1340 mV)
+    // sits only ~27 mV above a full 4.1V reading and can be missed by noise,
+    // which previously left the percentage stuck at a low value while the
+    // voltage recovered to 4.1V.
+    if (bsp_is_battery_charging() || v >= BATTERY_CHARGE_RESET_V) {
         s_last_discharged_pct = 100;
         return pct;
     } else {
@@ -216,6 +275,15 @@ void battery_get_curve_points(float *out_volts, uint8_t *out_pcts, uint8_t *out_
 bool battery_save_nvs_curve(const float *volts, const uint8_t *pcts, uint8_t count, const char *source) {
     if (!volts || !pcts || count != BATTERY_CURVE_PTS) return false;
 
+    // Reject physically impossible curves before they reach NVS: a bad curve
+    // (e.g. from a wrong capacity assumption) is what maps a full 4.1V battery
+    // to a low percentage.
+    if (!battery_curve_is_valid(volts, pcts, count)) {
+        log_e("[BATT] Refusing to save invalid curve (Source: %s, 100%%=%.3fV, 0%%=%.3fV)",
+              source ? source : "custom", volts[0], volts[count - 1]);
+        return false;
+    }
+
     // Capture RTC timestamp
     rtc.getDateTime();
     if (now.year > 0 && now.month >= 1 && now.month <= 12) {
@@ -296,6 +364,15 @@ bool battery_sync_from_cloud(const char *table_override) {
     for (int i = 0; i < BATTERY_CURVE_PTS; i++) {
         new_volts[i] = v_arr[i].as<float>();
         new_pcts[i]  = p_arr[i].as<uint8_t>();
+    }
+
+    // Validate the curve BEFORE it can replace the active one: reject
+    // non-monotonic, out-of-range, or degenerate curves from the cloud so a
+    // bad server payload can never map a full battery to a low percentage.
+    if (!battery_curve_is_valid(new_volts, new_pcts, BATTERY_CURVE_PTS)) {
+        log_e("[BATT_CAL] Cloud curve invalid (100%%=%.3fV, 0%%=%.3fV) - keeping current curve",
+              new_volts[0], new_volts[BATTERY_CURVE_PTS - 1]);
+        return false;
     }
 
     const char *src = doc["source"] | "cloud_cal";

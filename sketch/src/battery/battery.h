@@ -8,6 +8,12 @@
 #define BATTERY_ADC_MAX   4095.0f // 12-bit ADC
 #define BATTERY_CURVE_PTS 14
 
+// Voltage (battery side) at which the monotonic discharge clamp is reset even
+// when the fragile ADC charging check (>= 1340 mV) momentarily fails due to
+// noise. 4.0V is clearly charged for a 4.2V LiPo, so a recovered battery can
+// never stay stuck at a low percentage.
+#define BATTERY_CHARGE_RESET_V 4.0f
+
 #ifdef __cplusplus
 extern "C" {
 #endif
