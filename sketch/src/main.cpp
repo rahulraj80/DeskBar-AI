@@ -416,6 +416,11 @@ void serial_cli_task(void *param) {
             Serial.println("  vol <0-21>            - Set audio volume");
             Serial.println("  ask <text>            - Query AI Voice Assistant and stream audio");
             Serial.println("  wifi <on|off>         - Enable or disable WiFi");
+            Serial.println("  wifi add <SSID> <PWD> - Add saved WiFi network");
+            Serial.println("  wifi list             - List saved WiFi networks");
+            Serial.println("  wifi scan             - Scan for available networks");
+            Serial.println("  wifi del <SSID>       - Delete saved WiFi network");
+            Serial.println("  wifi status           - Show WiFi connection status");
             Serial.println("  reboot                - Restart ESP32-S3");
 #ifdef LAUNCHER_BUILD
             Serial.println("  launcher              - Reboot into the Launcher");
@@ -1136,6 +1141,63 @@ void serial_cli_task(void *param) {
             WiFi.disconnect(false);
             WiFi.mode(WIFI_OFF);
             Serial.println("[CLI] OK: WiFi disabled");
+          } else if (strncasecmp(cmd.c_str(), "wifi add ", 9) == 0) {
+            String rest = cmd.substring(9);
+            rest.trim();
+            int spaceIdx = rest.indexOf(' ');
+            if (spaceIdx > 0) {
+              String ssid = rest.substring(0, spaceIdx);
+              String pwd = rest.substring(spaceIdx + 1);
+              ssid.trim();
+              pwd.trim();
+              uint8_t count = loadWifiList(wifiList);
+              count = addOrUpdateWifi(ssid.c_str(), pwd.c_str(), wifiList, count);
+              saveWifiList(wifiList, count);
+              Serial.printf("[CLI] OK: Added WiFi network '%s'\n", ssid.c_str());
+            } else {
+              Serial.println("[CLI] ERROR: Usage: wifi add <SSID> <PWD>");
+            }
+          } else if (cmd.equalsIgnoreCase("wifi list")) {
+            uint8_t count = loadWifiList(wifiList);
+            Serial.printf("[CLI] Saved WiFi networks (%d):\n", count);
+            for (uint8_t i = 0; i < count; i++) {
+              Serial.printf("  %d: %s (RSSI: %d)\n", i, wifiList[i].ssid, wifiList[i].rssi);
+            }
+          } else if (cmd.equalsIgnoreCase("wifi scan")) {
+            Serial.println("[CLI] Scanning WiFi networks...");
+            int n = WiFi.scanNetworks();
+            Serial.printf("[CLI] Found %d networks\n", n);
+            for (int i = 0; i < n; i++) {
+              Serial.printf("  %d: %s (RSSI: %d, %s)\n", i, WiFi.SSID(i).c_str(), WiFi.RSSI(i),
+                            WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "Open" : "Secured");
+            }
+            WiFi.scanDelete();
+          } else if (strncasecmp(cmd.c_str(), "wifi del ", 9) == 0) {
+            String ssid = cmd.substring(9);
+            ssid.trim();
+            uint8_t count = loadWifiList(wifiList);
+            uint8_t newCount = 0;
+            bool found = false;
+            for (uint8_t i = 0; i < count; i++) {
+              if (strcmp(wifiList[i].ssid, ssid.c_str()) != 0) {
+                if (newCount != i) wifiList[newCount] = wifiList[i];
+                newCount++;
+              } else {
+                found = true;
+              }
+            }
+            if (found) {
+              saveWifiList(wifiList, newCount);
+              Serial.printf("[CLI] OK: Deleted WiFi network '%s'\n", ssid.c_str());
+            } else {
+              Serial.println("[CLI] ERROR: Network not found");
+            }
+          } else if (cmd.equalsIgnoreCase("wifi status")) {
+            Serial.printf("[CLI] WiFi status: %s\n", WiFi.status() == WL_CONNECTED ? "CONNECTED" : "DISCONNECTED");
+            Serial.printf("[CLI]   IP: %s\n", WiFi.localIP().toString().c_str());
+            Serial.printf("[CLI]   Gateway: %s\n", WiFi.gatewayIP().toString().c_str());
+            Serial.printf("[CLI]   SSID: %s\n", WiFi.SSID().c_str());
+            Serial.printf("[CLI]   RSSI: %d dBm\n", WiFi.RSSI());
           } else if (cmd.equalsIgnoreCase("reboot")) {
             Serial.println("[CLI] OK: Rebooting ESP32-S3...");
             delay(100);
