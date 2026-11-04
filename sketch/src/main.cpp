@@ -420,6 +420,8 @@ void serial_cli_task(void *param) {
             Serial.println("  wifi list             - List saved WiFi networks");
             Serial.println("  wifi scan             - Scan for available networks");
             Serial.println("  wifi del <SSID>       - Delete saved WiFi network");
+            Serial.println("  wifi clear            - Clear all saved WiFi networks");
+            Serial.println("  wifi settings         - Open Settings → WiFi screen");
             Serial.println("  wifi status           - Show WiFi connection status");
             Serial.println("  reboot                - Restart ESP32-S3");
 #ifdef LAUNCHER_BUILD
@@ -1198,6 +1200,15 @@ void serial_cli_task(void *param) {
             Serial.printf("[CLI]   Gateway: %s\n", WiFi.gatewayIP().toString().c_str());
             Serial.printf("[CLI]   SSID: %s\n", WiFi.SSID().c_str());
             Serial.printf("[CLI]   RSSI: %d dBm\n", WiFi.RSSI());
+          } else if (cmd.equalsIgnoreCase("wifi clear")) {
+            uint8_t count = 0;
+            saveWifiList(wifiList, count);
+            Serial.println("[CLI] OK: Cleared all saved WiFi networks");
+          } else if (cmd.equalsIgnoreCase("wifi settings")) {
+            // Open Settings → WiFi screen by revealing ConfigPanel
+            _ui_flag_modify(ui_MainMenu_Tabview_ConfigPanel, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+            _ui_flag_modify(ui_MainMenu_Button_closeConfig, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+            Serial.println("[CLI] OK: Settings → WiFi screen opened");
           } else if (cmd.equalsIgnoreCase("reboot")) {
             Serial.println("[CLI] OK: Rebooting ESP32-S3...");
             delay(100);
