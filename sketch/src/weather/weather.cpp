@@ -4,13 +4,54 @@
 #include "ui/ui.h"
 #include "lvgl_port/lvgl_port.h"
 #include <Arduino.h>
+#include <WiFi.h>
 #include <ArduinoJson.h>
 #include "user_config.h"
 
 const char *weatherUrl = WEATHER_API_URL;
 const char *weatherApiKey = WEATHER_API_KEY;
 
+// Dedicated IP geolocation service (free, no API key, works over HTTP)
+// Used to resolve accurate lat/long before calling weatherapi.com,
+// since weatherapi.com's built-in "auto:ip" geolocation is often inaccurate.
+const char *geoUrl = "http://ip-api.com/json/";
+
 char query_parameter[64] = "auto:ip"; // auto detect by IP , or city name "Bangkok", or "lat,long" 13.6499579,100.4103726
+
+// Cached resolved coordinates from IP geolocation, so we don't re-resolve every cycle
+static char s_resolved_latlon[64] = {0};
+static bool s_geolocation_resolved = false;
+
+// Resolve the device's public IP to latitude/longitude using ip-api.com.
+// Returns true and writes "lat,lon" into outBuf on success.
+static bool resolveIPGeolocation(char *outBuf, size_t outBufSize) {
+  if (WiFi.status() != WL_CONNECTED) return false;
+
+  static char jsonBuf[1024];
+  if (!fetchUrlData(geoUrl, false, jsonBuf, sizeof(jsonBuf))) {
+    log_e("IP geolocation fetch failed");
+    return false;
+  }
+
+  static JsonDocument doc;
+  doc.clear();
+  DeserializationError error = deserializeJson(doc, jsonBuf);
+  if (error) {
+    log_e("IP geolocation JSON parse failed: %s", error.c_str());
+    return false;
+  }
+
+  const char *lat = doc["lat"] | "";
+  const char *lon = doc["lon"] | "";
+  if (lat[0] == '\0' || lon[0] == '\0') {
+    log_e("IP geolocation missing lat/lon");
+    return false;
+  }
+
+  snprintf(outBuf, outBufSize, "%s,%s", lat, lon);
+  log_i("IP geolocation resolved: %s", outBuf);
+  return true;
+}
 const int8_t UTC_offset_hour[27] = {14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12};
 const int8_t UTC_offset_minute[7] = {45, 30, 15, 0, -15, -30, -45};
 uint8_t temp_unit = 0; // unit index  0=celcius, 1 = farenheit
@@ -372,7 +413,28 @@ void updateWeatherPanelTask(void *parameter) {
 #define MAX_URL_LENGTH 512 // กำหนดขนาดบัฟเฟอร์สูงสุดที่ปลอดภัย
 #define JSON_BUF_SIZE 2048
   static char reqURL[MAX_URL_LENGTH];
-  snprintf(reqURL, MAX_URL_LENGTH, weatherUrl, weatherApiKey, query_parameter);
+
+  // Resolve IP geolocation when using "auto:ip", so weatherapi.com gets
+  // accurate lat/long instead of relying on its own (often poor) IP lookup.
+  char effective_query[64];
+  if (strcmp(query_parameter, "auto:ip") == 0) {
+    if (!s_geolocation_resolved) {
+      if (resolveIPGeolocation(s_resolved_latlon, sizeof(s_resolved_latlon))) {
+        s_geolocation_resolved = true;
+        log_i("Geolocation resolved, will refresh weather on next cycle");
+      } else {
+        log_w("Geolocation resolve failed, falling back to weatherapi.com auto:ip");
+        snprintf(effective_query, sizeof(effective_query), "%s", query_parameter);
+      }
+    }
+    if (s_geolocation_resolved) {
+      snprintf(effective_query, sizeof(effective_query), "%s", s_resolved_latlon);
+    }
+  } else {
+    snprintf(effective_query, sizeof(effective_query), "%s", query_parameter);
+  }
+
+  snprintf(reqURL, MAX_URL_LENGTH, weatherUrl, weatherApiKey, effective_query);
   log_d("Weather request URL: %s", reqURL);
 
   static char jsonBuf[JSON_BUF_SIZE];
@@ -659,6 +721,13 @@ void weatherAnimation(bool animate) {
 // force turn off weather animation
 void stopWeatherAnimation(lv_event_t *e) {
   weatherAnimation(false);
+}
+
+// Reset the IP geolocation cache so the next weather update re-resolves
+void weather_reset_geolocation(void) {
+  s_geolocation_resolved = false;
+  s_resolved_latlon[0] = '\0';
+  log_d("Geolocation cache reset");
 }
 
 //=============================================================================

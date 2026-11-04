@@ -34,6 +34,7 @@ extern void start_ai_voice_recording();
 extern void stop_ai_voice_recording_and_process();
 extern volatile bool ai_recording_active;
 extern volatile bool ai_upload_in_progress;
+extern void weather_reset_geolocation(void);
 uint8_t ai_rec_duration_sec = 6;
 static lv_timer_t *menu_audio_anim_timer = NULL;
 static void menu_audio_anim_cb(lv_timer_t *t);
@@ -1480,6 +1481,8 @@ void saveConfig(lv_event_t *e) {
     const char *lat = lv_textarea_get_text(ui_MainMenu_Textarea_Latitude);
     const char *lon = lv_textarea_get_text(ui_MainMenu_Textarea_Longitude);
     snprintf(query_parameter, sizeof(query_parameter), "%s,%s", lat, lon);
+    // Switching from auto:ip to manual coordinates: reset geolocation cache
+    weather_reset_geolocation();
   }
   log_d("Region saved: query_parameter = %s", query_parameter);
   pref.putBytes("query_parameter", query_parameter, strlen(query_parameter) + 1);
@@ -1751,6 +1754,7 @@ void updateAQIwidget(lv_event_t *e) {
 // set query paramter to auto detect IP address
 void set_query_para_autoip(lv_event_t *e) {
   strcpy(query_parameter, "auto:ip");
+  weather_reset_geolocation();
   SCREEN_OFF_TIMER = millis(); // reset timer
 }
 // number pad

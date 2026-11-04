@@ -17,3 +17,4 @@ extern uint8_t offset_minute_index;
 
 void updateWeatherPanel();
 void weatherAnimation(bool animate);
+void weather_reset_geolocation(void);
