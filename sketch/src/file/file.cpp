@@ -82,7 +82,7 @@ lv_fs_res_t fs_seek(lv_fs_drv_t *drv, void *file_p, uint32_t pos, lv_fs_whence_t
 #ifdef LAUNCHER_BUILD
 #define LITTLEFS_LABEL "littlefs" // see partitions/launcher_app5MB_littlefs.csv
 #else
-#define LITTLEFS_LABEL "spiffs"
+#define LITTLEFS_LABEL "littlefs" // see partitions/7MB_app_ota_2MB_littlefs.csv
 #endif
 void initLittleFS() {
   bool mounted = LittleFS.begin(false, "/littlefs", 10, LITTLEFS_LABEL);
