@@ -159,6 +159,12 @@ status              # battery, heap, Wi-Fi status
   (`spiffs` for non-launcher builds). Fixed 2026-11-04:
   `file.cpp` non-launcher branch → `"spiffs"`,
   `partitions/7MB_app_ota_2MB_littlefs.csv` → label `"spiffs"`.
+- **Weather shows wrong location**: `auto:ip` relies on weatherapi.com's
+  built-in (often inaccurate) IP geolocation. Fixed 2026-11-04: added
+  `ip-api.com/json/` geolocation step before weatherapi.com call
+  (`src/weather/weather.cpp`, `src/weather/weather.h`,
+  `src/ui/ui_events.cpp`). Coordinates cached per boot; reset on settings
+  change.
 - **Clock breathing saves nothing**: seconds digits still updating every
   second → enable compact mode (>30 min inactivity).
 - **NVS erased**: Wi-Fi credentials lost → re-enter via UI or restore
