@@ -144,6 +144,14 @@ status              # battery, heap, Wi-Fi status
 
 # DeskBar serial output (115200 baud on /dev/ttyACM0)
 # Watch for: ESP_ERR_WIFI_SSID (no credentials), LittleFS mount errors
+
+# DeskBar CLI WiFi management commands:
+wifi status         # Show connection status, IP, SSID, RSSI
+wifi scan           # Scan for available networks
+wifi list           # List saved networks in /wifi.json
+wifi add <SSID> <PWD>  # Add a saved WiFi network
+wifi del <SSID>       # Delete a saved WiFi network
+wifi <on|off>         # Enable or disable WiFi
 ```
 
 ### Key files to read first
