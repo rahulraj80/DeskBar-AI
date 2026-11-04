@@ -12,7 +12,7 @@ extern PCF85063 rtc;
 
 // Factory Golden Baseline SOC Curve (14-point piecewise linear)
 static const float FACTORY_VOLTS[BATTERY_CURVE_PTS] = {
-  4.065f, 4.000f, 3.970f, 3.945f, 3.930f, 3.920f, 3.910f,
+  4.080f, 4.030f, 3.995f, 3.945f, 3.930f, 3.920f, 3.910f,
   3.885f, 3.840f, 3.780f, 3.735f, 3.690f, 3.500f, 3.100f
 };
 static const uint8_t FACTORY_PCTS[BATTERY_CURVE_PTS] = {
@@ -298,7 +298,9 @@ static void battery_charge_record(float v) {
     if (s_chg_n > 0 && (now_ms - s_chg_last_ms) < BATT_CHARGE_SAMPLE_MS) return;
     s_chg_v[s_chg_next] = v;
     s_chg_t[s_chg_next] = now_ms;
+
     s_chg_next = (uint8_t)((s_chg_next + 1) % BATT_CHARGE_HIST_V);
+
     if (s_chg_n < BATT_CHARGE_HIST_V) s_chg_n++;
     s_chg_last_ms = now_ms;
 }

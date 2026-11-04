@@ -15,9 +15,7 @@ header('Access-Control-Allow-Origin: *');
 
 $target_table = isset($_GET['table']) ? strtoupper(trim($_GET['table'])) : '';
 // Standard 14-point SOC percentage target vector
-$target_pcts = [100, 95, 90, 85, 80, 70, 60, 50, 40, 30, 20, 10, 5, 0];
-
-// Fallback factory curve if nothing in DB
+$target_pcts = [100, 95, 90, 85, 80, 70, 60, 50, 40, 30, 20, 10, 5, 0];    // Fallback factory curve if nothing in DB
 $factory_curve = [
     'volts' => [4.065, 4.000, 3.970, 3.945, 3.930, 3.920, 3.910, 3.885, 3.840, 3.780, 3.735, 3.690, 3.500, 3.100],
     'pcts'  => [100, 95, 90, 85, 80, 70, 60, 50, 40, 30, 20, 10, 5, 0]
@@ -219,12 +217,14 @@ function fit_14_point_curve($run, $target_pcts) {
             $v = ref_voltage_for($p, $ref_volts, $target_pcts);
             if ($p >= $soc_start) $v = max($v, $v_first);
             if ($p <= $soc_end)   $v = min($v, $v_last);
-        }
-        // Top anchor: the charger terminates at 4.09-4.12V and a full pack
+        }        // Top anchor: the charger terminates at 4.09-4.12V and a full pack
         // settles to ~4.08V under load, so a fit that puts 100% at 4.13V means
         // the bar can never show 100% while discharging - it tops out near 92%.
         // Pin the top three points to what the fleet actually measures.
-        $top_anchor = [100 => 4.080, 95 => 4.040, 90 => 4.010];
+        // Fleet average today: 100%=4.080V, 95%=4.029V, 90%=3.995V. The 90% anchor
+        // was lowered from 4.010V to the fleet mean 3.995V (the 90% pinning was the
+        // point not supported by the data) - i.e. no source still hard-pins 90% at 4.010V.
+        $top_anchor = [100 => 4.080, 95 => 4.030, 90 => 3.995];
         if (isset($top_anchor[$p])) $v = min($v, $top_anchor[$p]);
         // After pinning, keep the descent monotone: an inverted pair would make
         // the firmware validator reject the whole curve.
