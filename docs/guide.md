@@ -151,6 +151,7 @@ wifi scan           # Scan for available networks
 wifi list           # List saved networks in /wifi.json
 wifi add <SSID> <PWD>  # Add a saved WiFi network
 wifi del <SSID>       # Delete a saved WiFi network
+wifi settings         # Open Settings → WiFi panel via serial CLI
 wifi <on|off>         # Enable or disable WiFi
 ```
 
