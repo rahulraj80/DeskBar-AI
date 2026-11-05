@@ -59,6 +59,72 @@ void updateWiFiOption(const char *status) {
   xQueueSend(ui_status_queue, &msg, 0);
 }
 
+// ------------------------------------------
+// Settings -> Wi-Fi panel: render from live state.
+// The connect task only writes the status label while it is running; once it
+// exits (successfully connected) the label keeps whatever it last said, which
+// is how a connected device ended up showing "No network matched.".
+// This function reads WiFi.status()/SSID()/localIP() directly and is called
+// from the periodic wifi check timer, so the panel can never drift from the CLI.
+void uiRefreshWifiPanel(void) {
+  if (!ui_MainMenu_Label_connectStatus) return;
+
+  const bool connected = (WiFi.status() == WL_CONNECTED);
+  const char *shown = lv_label_get_text(ui_MainMenu_Label_connectStatus);
+  char buf[96];
+
+  // NOTE: WiFi.SSID() returns a String by value - keep it alive. A bare
+  // .c_str() on the temporary dangles and reads back as an empty SSID.
+  String ssidStr = WiFi.SSID();
+  const char *ssid = ssidStr.c_str();
+  if (!ssid || !*ssid) ssid = "";
+
+  if (connected) {
+    IPAddress ip = WiFi.localIP();
+    snprintf(buf, sizeof(buf), "Connected to %s (%u.%u.%u.%u)", ssid, ip[0], ip[1], ip[2], ip[3]);
+    if (!shown || strcmp(shown, buf) != 0) {
+      lv_label_set_text(ui_MainMenu_Label_connectStatus, buf);
+    }
+    lv_obj_set_style_text_color(ui_MainMenu_Label_connectStatus, lv_color_hex(0x00FF00), LV_PART_MAIN);
+  } else {
+    const char *text = (!wifiEnable || WiFi.getMode() == WIFI_OFF) ? "Wi-Fi is off" : "Disconnected";
+    if (!shown || strcmp(shown, text) != 0) {
+      lv_label_set_text(ui_MainMenu_Label_connectStatus, text);
+    }
+    lv_obj_set_style_text_color(ui_MainMenu_Label_connectStatus, lv_color_hex(0xFF0000), LV_PART_MAIN);
+  }
+
+  // Keep the SSID dropdown showing the network we are actually on.
+  if (connected && ui_MainMenu_Dropdown_NetworkList) {
+    const char *opts = lv_dropdown_get_options(ui_MainMenu_Dropdown_NetworkList);
+    if (ssid[0] && (!opts || !strstr(opts, ssid))) {
+      char newOpts[384];
+      if (opts && opts[0]) {
+        snprintf(newOpts, sizeof(newOpts), "%s\n%s", ssid, opts);
+      } else {
+        snprintf(newOpts, sizeof(newOpts), "%s", ssid);
+      }
+      lv_dropdown_set_options(ui_MainMenu_Dropdown_NetworkList, newOpts);
+    }
+    // Select the option that matches the connected SSID.
+    const char *cur = lv_dropdown_get_options(ui_MainMenu_Dropdown_NetworkList);
+    if (cur) {
+      uint16_t idx = 0;
+      const char *p = cur;
+      while (p && *p) {
+        const char *eol = strchr(p, '\n');
+        size_t len = eol ? (size_t)(eol - p) : strlen(p);
+        if (len == strlen(ssid) && strncmp(p, ssid, len) == 0) {
+          lv_dropdown_set_selected(ui_MainMenu_Dropdown_NetworkList, idx);
+          break;
+        }
+        idx++;
+        p = eol ? eol + 1 : NULL;
+      }
+    }
+  }
+}
+
 // Audio  Control
 void audioSetAudioFilePosition(uint16_t pos) {
       AudioCommandPayload msg = {

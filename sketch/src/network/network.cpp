@@ -291,6 +291,19 @@ void wifi_connect_task(void *param) {
 
   while (wifi_need_connect) {
 
+    // Already associated (NVS credentials or an earlier cycle): report live
+    // state instead of scanning again and racing to "No network matched.".
+    if (WiFi.status() == WL_CONNECTED) {
+      IPAddress ip = WiFi.localIP();
+      char connectedMsg[128];
+      snprintf(connectedMsg, sizeof(connectedMsg), "Connected to %s (%u.%u.%u.%u)",
+               WiFi.SSID().c_str(), ip[0], ip[1], ip[2], ip[3]);
+      log_i("%s", connectedMsg);
+      updateWiFiStatus(connectedMsg, 0x00FF00, 0x0000FF);
+      wifi_need_connect = false;
+      break;
+    }
+
     if (WiFi.getMode() != WIFI_STA) WiFi.mode(WIFI_STA);
     vTaskDelay(pdMS_TO_TICKS(100));
     uint8_t wifiCount = loadWifiList(wifiList);
@@ -368,7 +381,7 @@ void wifi_connect_task(void *param) {
             esp_wifi_set_ps(WIFI_PS_NONE);
             char connectedMsg[128];
             IPAddress ip = WiFi.localIP();
-            snprintf(connectedMsg, sizeof(connectedMsg), "Connected to %s (IP: %u.%u.%u.%u)", networkName, ip[0], ip[1], ip[2], ip[3]);
+            snprintf(connectedMsg, sizeof(connectedMsg), "Connected to %s (%u.%u.%u.%u)", networkName, ip[0], ip[1], ip[2], ip[3]);
             log_i("%s", connectedMsg);
             updateWiFiStatus(connectedMsg, 0x00FF00, 0x0000FF);
 

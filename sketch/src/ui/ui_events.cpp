@@ -343,6 +343,9 @@ void update_clock_breathing(void) {
 extern bool telemetry_is_flushing(void);
 
 void lvgl_wifi_check_cb(lv_timer_t *t) {
+  // Keep the Settings -> Wi-Fi panel in sync with the live WiFi stack.
+  uiRefreshWifiPanel();
+
   // If telemetry burst upload is in progress, do not disconnect Wi-Fi
   if (telemetry_is_flushing()) return;
 

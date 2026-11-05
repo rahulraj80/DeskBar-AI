@@ -99,6 +99,11 @@ extern QueueHandle_t ui_status_queue;
 void updateSDCARDStatus(const char *status,  const uint32_t wifiColor);
 void updateWiFiStatus(const char *status, const uint32_t labelColor, const uint32_t wifiColor);
 void updateWiFiOption(const char *status);
+
+// Re-render the Settings -> Wi-Fi panel from the *live* WiFi stack so what the
+// screen shows always agrees with `status` / `wifi status` on the CLI.
+// Must be called from the LVGL task (or with the LVGL lock held).
+void uiRefreshWifiPanel(void);
 void audioSetAudioFilePosition(uint16_t pos);
 void audioSetPlayTime(uint16_t pos);
 void audioStopSong();

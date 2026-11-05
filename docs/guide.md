@@ -62,6 +62,20 @@ releases/         — published firmware binaries + catalogue
 - **Compact clock layout** hides seconds during deep-idle breathing,
   eliminating per-second full-frame invalidations
 
+### Wi-Fi settings panel must mirror live state
+The Settings → Wi-Fi panel used to show whatever `wifi_connect_task()`
+last wrote. That task exits as soon as it connects, so a connected device
+could keep displaying a stale `No network matched.` forever.
+`uiRefreshWifiPanel()` (`src/task_msg/task_msg.cpp`) now renders the panel
+from `WiFi.status()` / `WiFi.SSID()` / `WiFi.localIP()` and runs from
+`lvgl_wifi_check_cb()` every 5 s plus on `wifi settings`. Use `wifi panel`
+to dump the exact on-screen strings and compare with `status`.
+
+Gotcha: never hold `.c_str()` from an Arduino `String` return value
+(`WiFi.SSID().c_str()`) — the temporary dies at the end of the statement
+and the pointer reads as an empty string. Assign the `String` to a local
+first.
+
 ---
 
 ## 15-Minute Deep Dive
@@ -152,6 +166,7 @@ wifi list           # List saved networks in /wifi.json
 wifi add <SSID> <PWD>  # Add a saved WiFi network
 wifi del <SSID>       # Delete a saved WiFi network
 wifi settings         # Open Settings → WiFi panel via serial CLI
+wifi panel            # Print exactly what the WiFi panel is showing
 wifi <on|off>         # Enable or disable WiFi
 ```
 

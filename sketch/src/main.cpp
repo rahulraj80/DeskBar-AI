@@ -421,7 +421,9 @@ void serial_cli_task(void *param) {
             Serial.println("  wifi scan             - Scan for available networks");
             Serial.println("  wifi del <SSID>       - Delete saved WiFi network");
             Serial.println("  wifi clear            - Clear all saved WiFi networks");
+            Serial.println("  wifi reconnect        - Reconnect to saved WiFi network");
             Serial.println("  wifi settings         - Open Settings → WiFi screen");
+            Serial.println("  wifi panel            - Print what the WiFi panel shows");
             Serial.println("  wifi status           - Show WiFi connection status");
             Serial.println("  reboot                - Restart ESP32-S3");
 #ifdef LAUNCHER_BUILD
@@ -1204,11 +1206,33 @@ void serial_cli_task(void *param) {
             uint8_t count = 0;
             saveWifiList(wifiList, count);
             Serial.println("[CLI] OK: Cleared all saved WiFi networks");
+          } else if (cmd.equalsIgnoreCase("wifi reconnect")) {
+            wifi_need_connect = true;
+            wifiConnect();
+            Serial.println("[CLI] OK: WiFi reconnect triggered");
           } else if (cmd.equalsIgnoreCase("wifi settings")) {
-            // Open Settings → WiFi screen by revealing ConfigPanel
+            // Open Settings → Wi-Fi screen and render it from live WiFi state
             _ui_flag_modify(ui_MainMenu_Tabview_ConfigPanel, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
             _ui_flag_modify(ui_MainMenu_Button_closeConfig, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+            if (lvgl_port_lock(500)) {
+              uiRefreshWifiPanel();
+              lv_obj_invalidate(ui_MainMenu_Tabpage_network);
+              lvgl_port_unlock();
+            }
             Serial.println("[CLI] OK: Settings → WiFi screen opened");
+          } else if (cmd.equalsIgnoreCase("wifi panel")) {
+            // Print exactly what the Settings → Wi-Fi panel is showing right now
+            if (lvgl_port_lock(500)) {
+              uiRefreshWifiPanel();
+              const char *st = ui_MainMenu_Label_connectStatus ? lv_label_get_text(ui_MainMenu_Label_connectStatus) : "(no label)";
+              const char *opts = ui_MainMenu_Dropdown_NetworkList ? lv_dropdown_get_options(ui_MainMenu_Dropdown_NetworkList) : "";
+              char sel[64] = {0};
+              if (ui_MainMenu_Dropdown_NetworkList) lv_dropdown_get_selected_str(ui_MainMenu_Dropdown_NetworkList, sel, sizeof(sel));
+              Serial.printf("[CLI] PANEL status=\"%s\" ssid=\"%s\" options=\"%s\" switch=%d\n",
+                            st, sel, opts ? opts : "",
+                            ui_MainMenu_Switch_Wifi ? (int)lv_obj_has_state(ui_MainMenu_Switch_Wifi, LV_STATE_CHECKED) : -1);
+              lvgl_port_unlock();
+            }
           } else if (cmd.equalsIgnoreCase("reboot")) {
             Serial.println("[CLI] OK: Rebooting ESP32-S3...");
             delay(100);
