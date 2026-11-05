@@ -345,9 +345,10 @@ void update_clock_breathing(void) {
         setUpduty(255 - current_val);
       } else {
         setUpduty(255 - bl_black);
-        // Disable touch polling during full dark to save battery
-        // (boost rail stays on so we can change PWM duty without I2C re-enable)
-        BL_OFF = true;
+        // Boost rail stays on during full dark — only PWM duty changes,
+        // avoiding I2C re-enable failure. Touch polling stays active so
+        // BL_OFF never goes true, keeping lv_timer_handler() running so
+        // the breathing state machine can cycle FULL_BLACK -> FADE_IN.
         breath_state    = BREATH_FULL_BLACK;
         breath_timer_ms = millis();
         s_sampled_dark  = false;
@@ -536,6 +537,10 @@ void init_main_menu_task(lv_timer_t *timer) {
 
   // Check and show Community Cloud Consent Modal on cold first boot
   ui_consent_modal_show_if_needed();
+
+  // Start clock breathing (idempotent — guarded by clock_face_active so safe
+  // to call from both setup() and the boot-screen LV_EVENT_SCREEN_LOADED path)
+  enter_clock_breathing();
 }
 
 // ################# App start here after screen initialized ##############################
