@@ -156,7 +156,6 @@ void exit_clock_breathing(void) {
 
 extern "C" void on_clock_interaction_wake(void) {
   record_user_interaction();
-  s_clock_interaction_ms = millis();
   SCREEN_OFF_TIMER = millis();
   BL_OFF = false;
   bsp_set_backlight_power(true);
@@ -169,10 +168,11 @@ extern "C" void on_clock_interaction_wake(void) {
   nixie_clock_set_compact(false);
 
   if (clock_face_active) {
+    s_clock_interaction_ms = millis(); // only reset breathing timer when exiting breathing
     clock_face_active = 0;
     log_i("[BREATH] User interaction/rotation -> breathing paused, steady brightness restored");
   } else {
-    log_i("[BREATH] User interaction -> idle timeout reset (15s)");
+    log_i("[BREATH] User interaction -> idle timeout keeps running");
   }
 }
 
@@ -276,6 +276,9 @@ void update_clock_breathing(void) {
       }
 
       if (elapsed >= full_black_ms) {
+        // Restore boost rail and re-enable touch polling before fading in
+        bsp_set_backlight_power(true);
+        BL_OFF = false;
         if (pwr->gate_sensors && imu_sensor_is_sleeping()) {
           imu_sensor_wake();
         }
@@ -330,6 +333,9 @@ void update_clock_breathing(void) {
         setUpduty(255 - current_val);
       } else {
         setUpduty(255 - bl_black);
+        // Cut boost rail and disable touch polling during full dark to save battery
+        bsp_set_backlight_power(false);
+        BL_OFF = true;
         breath_state    = BREATH_FULL_BLACK;
         breath_timer_ms = millis();
         s_sampled_dark  = false;

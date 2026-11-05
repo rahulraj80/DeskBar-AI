@@ -151,6 +151,15 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    battery voltage quantised to 20 mV; battery label skipped during
    `FULL_BLACK`.
 
+5. **Touchscreen polling disabled during `BREATH_FULL_BLACK`**: The touch
+   controller (`AXS15231B` over I2C) was polled every LVGL tick (~30ms) even
+   while the panel was dark. Now `BL_OFF` is set to `true` and the AP3032
+   boost rail is cut during `BREATH_FULL_BLACK`, which makes the touch
+   callback return early without I2C reads. Touch polling and the boost rail
+   are restored during `BREATH_FADE_IN` before the backlight fades back up.
+   No tap-to-wake during dark — BOOT button wake only. This was previously
+   wasted current during the multi-second dark phase of every breathing cycle.
+
 ### Partition table
 
 | Label | Type | Offset | Size |
