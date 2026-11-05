@@ -151,11 +151,14 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    battery voltage quantised to 20 mV; battery label skipped during
    `FULL_BLACK`.
 
-5. **Touchscreen polling disabled during `BREATH_FULL_BLACK`**: The touch
-   controller (`AXS15231B` over I2C) was polled every LVGL tick (~30ms) even
-   while the panel was dark. Now `BL_OFF` is set to `true` during full dark,
-   which makes the touch callback return early without I2C reads. Touch polling
-   is restored during `BREATH_FADE_IN` before the backlight fades back up.
+5. **Touchscreen polling stays active during `BREATH_FULL_BLACK`**: The touch
+   controller (`AXS15231B` over I2C) continues to be polled every LVGL tick
+   (~30ms) even while the panel is dark. `BL_OFF` is NOT set to `true` during
+   full dark, because doing so makes the LVGL port task skip `lv_timer_handler()`,
+   freezing the `breath_timer` and trapping the screen in `BREATH_FULL_BLACK`
+   forever (never transitions to `BREATH_FADE_IN`). Touch polling was restored
+   during `BREATH_FADE_IN` before the backlight fades back up — but with today's
+   fix it was never disabled in the first place.
 
    **Important**: The AP3032 backlight boost rail is NO LONGER cut during full
    dark. Previously `bsp_set_backlight_power(false)` cut the rail via I2C
@@ -165,7 +168,9 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    `setUpduty(0)` = full on, `setUpduty(255)` = full off).
 
    No tap-to-wake during dark — BOOT button wake only. This saves power during
-   the multi-second dark phase of every breathing cycle.
+   the multi-second dark phase of every breathing cycle (touch polling remains
+   active but the panel is dark, so taps are not visually acknowledged until
+   fade-in).
 
    **Safety net**: If the display is stuck in `BREATH_FULL_BLACK` for more than
    30 seconds, it forces a wake to `BREATH_HOLD_HIGH` (steady brightness).
@@ -176,17 +181,20 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    is called directly from `setup()` after `lvgl_port_init()`. The original
    path via `appStart()` → boot screen `LV_EVENT_SCREEN_LOADED` did not
    reliably fire during `ui_init()`, leaving `breath_timer` uncreated and the
-   clock permanently at steady brightness.
+   clock permanently at steady brightness. Additionally, `enter_clock_breathing()`
+   is now called at the end of `init_main_menu_task()` itself (idempotent —
+   guarded by `clock_face_active`), so the state machine is guaranteed to start
+   regardless of which call path reaches `init_main_menu_task()` first.
 
-    **Camera verification** (laptop camera, /dev/video0, manual exposure=10000us,
-    60s capture at 3s intervals): Brightness alternates clearly:
-    - t=0-6s: BRIGHT (mean~35-37, bright%~4%) — screen lit, OCR reads "9202"
-      (nixie clock time digits)
-    - t=9s: TRANSITION (mean=14.5) — fading to dark
-    - t=12-60s: DARK (mean~6-6.5, bright%=0%) — FULL_BLACK, boost rail cut
-      (bsp_set_backlight_power(false), BL_OFF=true), OCR produces only noise
-    - Confirms BL_OFF + boost rail cut during BREATH_FULL_BLACK works as intended,
-      and screen displays clock content during lit phase.
+   **Camera verification** (laptop camera, /dev/video0, manual exposure=10000us,
+   60s capture at 5s intervals): Brightness alternates clearly:
+   - t=0-35s: BRIGHT (mean~38, bright%~4.5%) — screen lit, nixie clock visible
+   - t=35-40s: TRANSITION — fading from bright to dark
+   - t=40-60s: DARK (mean~6, bright%=0%) — `BREATH_FULL_BLACK`, boost rail
+     stays ON (only PWM duty changes to `bl_black` via inverted PWM), touch
+     polling stays active (no `BL_OFF` gate)
+   - Confirms breathing cycles bright → dark → bright; screen displays clock
+     content during lit phase.
 
 **Setup-time backlight**: `setup()` calls `bsp_set_backlight_power(true)` and
 `setUpduty(0)` at end to ensure the AP3032 boost rail is on and PWM duty is
