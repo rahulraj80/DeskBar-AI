@@ -394,7 +394,7 @@ void lv_create_delayed_task(lv_timer_cb_t callback, uint32_t delay_ms, void *use
 }
 // initalize lvgl ui
 void init_main_menu_task(lv_timer_t *timer) {
-  lv_timer_del(timer);
+  if (timer) lv_timer_del(timer);
   lv_scr_load(ui_Screen_Info);
   infoPageIndex = 0;
   updateInfoPanel(0);

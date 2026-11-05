@@ -149,6 +149,8 @@ static const char* reset_reason_to_str(esp_reset_reason_t r) {
 }
 
 // ############################################################
+extern void init_main_menu_task(lv_timer_t *timer);
+
 void setup() {
   
   // message que init — depth 10 is ample (LVGL processes every 5ms)
@@ -262,6 +264,9 @@ void setup() {
   // Core 0 (System Core - lower priority than LVGL priority 5)
   createTaskChecked(serial_cli_task, "serial_cli", 6 * 1024, 2, 0);
   createTaskChecked(web_server_task, "web_server", 8 * 1024, 2, 0);
+
+  // Initialize clock screen + breathing timer
+  init_main_menu_task(NULL);
 
 }
 

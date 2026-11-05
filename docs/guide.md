@@ -160,6 +160,14 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    No tap-to-wake during dark — BOOT button wake only. This was previously
    wasted current during the multi-second dark phase of every breathing cycle.
 
+6. **Clock breathing initialization**: `init_main_menu_task()` (which loads
+   the info screen, calls `enter_clock_breathing()`, and creates the
+   `breath_timer` LVGL timer running `update_clock_breathing()` every 30ms)
+   is called directly from `setup()` after `lvgl_port_init()`. The original
+   path via `appStart()` → boot screen `LV_EVENT_SCREEN_LOADED` did not
+   reliably fire during `ui_init()`, leaving `breath_timer` uncreated and the
+   clock permanently at steady brightness.
+
 ### Partition table
 
 | Label | Type | Offset | Size |
