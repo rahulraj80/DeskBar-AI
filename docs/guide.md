@@ -168,10 +168,15 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    reliably fire during `ui_init()`, leaving `breath_timer` uncreated and the
    clock permanently at steady brightness.
 
-    **Camera verification** (laptop camera, /dev/video0): 30s capture at 2s
-    intervals confirms FULL_BLACK transition at t=30s (mean 50→19, file
-    55KB→41KB, dark% 74→91, bright% 7→0.5), validating BL_OFF + boost rail
-    cut during `BREATH_FULL_BLACK`.
+    **Camera verification** (laptop camera, /dev/video0, manual exposure=10000us,
+    60s capture at 3s intervals): Brightness alternates clearly:
+    - t=0-6s: BRIGHT (mean~35-37, bright%~4%) — screen lit, OCR reads "9202"
+      (nixie clock time digits)
+    - t=9s: TRANSITION (mean=14.5) — fading to dark
+    - t=12-60s: DARK (mean~6-6.5, bright%=0%) — FULL_BLACK, boost rail cut
+      (bsp_set_backlight_power(false), BL_OFF=true), OCR produces only noise
+    - Confirms BL_OFF + boost rail cut during BREATH_FULL_BLACK works as intended,
+      and screen displays clock content during lit phase.
 
 ### Partition table
 
