@@ -265,7 +265,11 @@ void setup() {
   createTaskChecked(serial_cli_task, "serial_cli", 6 * 1024, 2, 0);
   createTaskChecked(web_server_task, "web_server", 8 * 1024, 2, 0);
 
-  // Initialize clock screen + breathing timer
+  // Initialize clock screen + breathing timer. init_main_menu_task() is also
+  // called from the boot-screen LV_EVENT_SCREEN_LOADED path, but call it here
+  // too to guarantee breath_timer exists even if the boot-screen event is
+  // delayed or missed. enter_clock_breathing() is idempotent (guarded by
+  // clock_face_active), so calling it from both places is safe.
   init_main_menu_task(NULL);
 
 }

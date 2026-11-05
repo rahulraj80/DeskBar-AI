@@ -168,6 +168,11 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    reliably fire during `ui_init()`, leaving `breath_timer` uncreated and the
    clock permanently at steady brightness.
 
+    **Camera verification** (laptop camera, /dev/video0): 30s capture at 2s
+    intervals confirms FULL_BLACK transition at t=30s (mean 50→19, file
+    55KB→41KB, dark% 74→91, bright% 7→0.5), validating BL_OFF + boost rail
+    cut during `BREATH_FULL_BLACK`.
+
 ### Partition table
 
 | Label | Type | Offset | Size |
