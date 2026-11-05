@@ -425,6 +425,10 @@ void serial_cli_task(void *param) {
             Serial.println("  wifi settings         - Open Settings → WiFi screen");
             Serial.println("  wifi panel            - Print what the WiFi panel shows");
             Serial.println("  wifi status           - Show WiFi connection status");
+            Serial.println("  weather geo on|off    - Enable/disable IP geolocation before weather");
+            Serial.println("  weather geo ip-api.com- Set IP geolocation provider");
+            Serial.println("  weather provider X    - Set weather provider (met.no|open-meteo|weatherapi.com)");
+            Serial.println("  weather settings      - Show current weather/geo configuration");
             Serial.println("  reboot                - Restart ESP32-S3");
 #ifdef LAUNCHER_BUILD
             Serial.println("  launcher              - Reboot into the Launcher");
@@ -560,7 +564,53 @@ void serial_cli_task(void *param) {
               _ui_screen_change(&ui_Screen_Info, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 0, 0, &ui_Screen_Info_screen_init);
               lvgl_port_unlock();
             }
+            updateWeatherPanel();
             Serial.println("[CLI] OK: Switched to Weather");
+          } else if (cmd.startsWith("weather geo")) {
+            String rest = cmd.substring(12); // after "weather geo "
+            rest.trim();
+            rest.toLowerCase();
+            Serial.printf("[CLI WEATHER DEBUG] rest='%s'\n", rest.c_str());
+            if (rest == "on" || rest == "true" || rest == "1") {
+              secrets_set_weather_geo_enabled(true);
+              Serial.println("[CLI WEATHER] Geo location ENABLED");
+            } else if (rest == "off" || rest == "false" || rest == "0") {
+              secrets_set_weather_geo_enabled(false);
+              Serial.println("[CLI WEATHER] Geo location DISABLED");
+            } else if (rest == "ip-api.com") {
+              secrets_set_weather_geo_provider("ip-api.com");
+              Serial.println("[CLI WEATHER] Geo provider: ip-api.com");
+            } else if (rest == "status") {
+              Serial.printf("[CLI WEATHER] Geo enabled: %s | Geo provider: %s | Weather provider: %s\n",
+                            secrets_get_weather_geo_enabled(),
+                            secrets_get_weather_geo_provider(),
+                            secrets_get_weather_provider());
+            } else {
+              Serial.println("[CLI WEATHER] Usage: weather geo on|off|ip-api.com|status");
+            }
+          } else if (cmd.startsWith("weather provider")) {
+            String arg = cmd.substring(cmd.indexOf(' ', 14) + 1);
+            arg.trim();
+            arg.toLowerCase();
+            if (arg == "met.no") {
+              secrets_set_weather_provider("met.no");
+              Serial.println("[CLI WEATHER] Weather provider: met.no");
+            } else if (arg == "open-meteo") {
+              secrets_set_weather_provider("open-meteo");
+              Serial.println("[CLI WEATHER] Weather provider: open-meteo");
+            } else if (arg == "weatherapi.com") {
+              secrets_set_weather_provider("weatherapi.com");
+              Serial.println("[CLI WEATHER] Weather provider: weatherapi.com");
+            } else {
+              Serial.println("[CLI WEATHER] Usage: weather provider met.no|open-meteo|weatherapi.com");
+            }
+          } else if (cmd.equalsIgnoreCase("weather settings")) {
+            Serial.printf("[CLI WEATHER SETTINGS]\n");
+            Serial.printf("  Geo enabled : %s\n", secrets_get_weather_geo_enabled());
+            Serial.printf("  Geo provider: %s\n", secrets_get_weather_geo_provider());
+            Serial.printf("  Geo URL     : %s\n", secrets_get_weather_geo_url());
+            Serial.printf("  Provider    : %s\n", secrets_get_weather_provider());
+            Serial.println();
           } else if (cmd.equalsIgnoreCase("menu")) {
             log_i("[CLI] Switching to Main Menu...");
             exit_clock_breathing();

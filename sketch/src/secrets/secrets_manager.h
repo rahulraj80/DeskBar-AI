@@ -26,6 +26,10 @@ const char* secrets_get_telemetry_endpoint(void);
 const char* secrets_get_telemetry_table(void);
 uint32_t    secrets_get_telemetry_interval(void);
 const char* secrets_get_weather_key(void);
+const char* secrets_get_weather_geo_enabled(void);
+const char* secrets_get_weather_geo_provider(void);
+const char* secrets_get_weather_geo_url(void);
+const char* secrets_get_weather_provider(void);
 const char* secrets_get_device_hash(void);
 const char* secrets_get_master_pin(void);
 
@@ -48,6 +52,12 @@ bool secrets_calculate_totp(uint32_t *out_code, uint32_t *out_remaining_sec);
 // Web Remote INI editor helpers
 bool secrets_write_ini_file(const char *ai_url, const char *telem_url, const char *table, uint32_t interval, const char *pin, bool consent);
 bool secrets_delete_ini_file(void);
+
+// Weather/Geo settings (runtime overrides, persisted to /secrets.ini)
+void secrets_set_weather_geo_enabled(bool enabled);
+void secrets_set_weather_geo_provider(const char *provider);
+void secrets_set_weather_geo_url(const char *url);
+void secrets_set_weather_provider(const char *provider);
 
 #ifdef __cplusplus
 }

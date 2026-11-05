@@ -147,25 +147,35 @@
 
 /**
  * ==============================================================================
- * SERVICE 3: WEATHER & AIR QUALITY INDEX (WeatherAPI.com)
+ * SERVICE 3: WEATHER & AIR QUALITY INDEX
  * ==============================================================================
- * Provides live weather conditions, temperature, humidity, and atmospheric pollutant
- * concentrations used by the Info screen and ambient weather animations.
+ * Provides live weather conditions used by the Info screen and ambient weather
+ * animations. Supported providers (no API key required):
+ *   - open-meteo.com  : https://api.open-meteo.com/v1/forecast
+ *   - met.no          : https://api.met.no/weatherapi/locationforecast/2.0/compact
  *
- * PROVIDER:
- * - Free API keys available at: https://www.weatherapi.com/
+ * IP GEOLOCATION (free, no API key):
+ *   - ip-api.com      : http://ip-api.com/json/
  *
- * INVOCATION METHOD:
- * - HTTP Method: GET
- * - Query format: /v1/current.json?key=<API_KEY>&q=<LOCATION>&aqi=yes
- *   where <LOCATION> is dynamically formatted with "auto:ip", coordinates "lat,lon",
- *   or a city name ("Tokyo").
- *
- * EXPECTED FIELDS:
- * - current.temp_c (temperature)
- * - current.condition.code (mapped to weather icons)
- * - current.air_quality (PM2.5, PM10, CO, NO2, O3, SO2) used to compute US EPA AQI.
+ * These defaults can be overridden at runtime via /secrets.ini on LittleFS
+ * or through the Web Remote / Serial CLI settings.
  */
+#ifndef WEATHER_GEO_ENABLED
+#define WEATHER_GEO_ENABLED      true   // Resolve IP geolocation before weather lookup
+#endif
+
+#ifndef WEATHER_GEO_PROVIDER
+#define WEATHER_GEO_PROVIDER     "ip-api.com"
+#endif
+
+#ifndef WEATHER_GEO_URL
+#define WEATHER_GEO_URL          "http://ip-api.com/json/"
+#endif
+
+#ifndef WEATHER_PROVIDER
+#define WEATHER_PROVIDER         "open-meteo"
+#endif
+
 #ifndef WEATHER_API_KEY
 #define WEATHER_API_KEY          "YOUR_WEATHERAPI_COM_KEY"
 #endif

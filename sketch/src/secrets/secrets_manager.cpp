@@ -14,6 +14,10 @@ static char s_telemetry_endpoint[192] = {0};
 static char s_weather_key[64] = {0};
 static char s_master_pin[32] = {0};
 static char s_totp_seed[33] = {0};
+static char s_weather_geo_enabled[8] = {0};      // "true"/"false"
+static char s_weather_geo_provider[32] = {0};    // "ip-api.com"
+static char s_weather_geo_url[192] = {0};        // "http://ip-api.com/json/"
+static char s_weather_provider[32] = {0};        // "met.no", "open-meteo"
 static uint32_t s_telemetry_interval = 300; // default 5 minutes (300s)
 static bool s_has_custom_ini = false;
 static bool s_cloud_consent = false;
@@ -76,6 +80,10 @@ void secrets_manager_reload(void) {
     strncpy(s_ai_url, AI_ASSISTANT_URL, sizeof(s_ai_url) - 1);
     strncpy(s_telemetry_endpoint, TELEMETRY_ENDPOINT, sizeof(s_telemetry_endpoint) - 1);
     strncpy(s_weather_key, WEATHER_API_KEY, sizeof(s_weather_key) - 1);
+    strncpy(s_weather_geo_enabled, WEATHER_GEO_ENABLED ? "true" : "false", sizeof(s_weather_geo_enabled) - 1);
+    strncpy(s_weather_geo_provider, WEATHER_GEO_PROVIDER, sizeof(s_weather_geo_provider) - 1);
+    strncpy(s_weather_geo_url, WEATHER_GEO_URL, sizeof(s_weather_geo_url) - 1);
+    strncpy(s_weather_provider, WEATHER_PROVIDER, sizeof(s_weather_provider) - 1);
     s_telemetry_interval = 300;
     s_has_custom_ini = false;
 
@@ -194,6 +202,18 @@ void secrets_manager_reload(void) {
                     strncpy(s_weather_key, val, sizeof(s_weather_key) - 1);
                     log_i("[SECRETS] Weather API key override applied");
                 }
+            } else if (strcasecmp(key, "geo_enabled") == 0) {
+                strncpy(s_weather_geo_enabled, val, sizeof(s_weather_geo_enabled) - 1);
+                log_i("[SECRETS] Weather geo-enabled override: %s", s_weather_geo_enabled);
+            } else if (strcasecmp(key, "geo_provider") == 0) {
+                strncpy(s_weather_geo_provider, val, sizeof(s_weather_geo_provider) - 1);
+                log_i("[SECRETS] Weather geo-provider override: %s", s_weather_geo_provider);
+            } else if (strcasecmp(key, "geo_url") == 0) {
+                strncpy(s_weather_geo_url, val, sizeof(s_weather_geo_url) - 1);
+                log_i("[SECRETS] Weather geo-URL override: %s", s_weather_geo_url);
+            } else if (strcasecmp(key, "provider") == 0) {
+                strncpy(s_weather_provider, val, sizeof(s_weather_provider) - 1);
+                log_i("[SECRETS] Weather provider override: %s", s_weather_provider);
             }
         } else if (strcasecmp(current_section, "security") == 0) {
             if (strcasecmp(key, "master_pin") == 0 || strcasecmp(key, "pin") == 0) {
@@ -230,6 +250,45 @@ uint32_t secrets_get_telemetry_interval(void) {
 
 const char* secrets_get_weather_key(void) {
     return s_weather_key;
+}
+
+const char* secrets_get_weather_geo_enabled(void) {
+    return s_weather_geo_enabled;
+}
+
+const char* secrets_get_weather_geo_provider(void) {
+    return s_weather_geo_provider;
+}
+
+const char* secrets_get_weather_geo_url(void) {
+    return s_weather_geo_url;
+}
+
+const char* secrets_get_weather_provider(void) {
+    return s_weather_provider;
+}
+
+void secrets_set_weather_geo_enabled(bool enabled) {
+    strncpy(s_weather_geo_enabled, enabled ? "true" : "false", sizeof(s_weather_geo_enabled) - 1);
+    log_i("[SECRETS] Weather geo-enabled set to: %s", s_weather_geo_enabled);
+}
+
+void secrets_set_weather_geo_provider(const char *provider) {
+    if (!provider) return;
+    strncpy(s_weather_geo_provider, provider, sizeof(s_weather_geo_provider) - 1);
+    log_i("[SECRETS] Weather geo-provider set to: %s", s_weather_geo_provider);
+}
+
+void secrets_set_weather_geo_url(const char *url) {
+    if (!url) return;
+    strncpy(s_weather_geo_url, url, sizeof(s_weather_geo_url) - 1);
+    log_i("[SECRETS] Weather geo-URL set to: %s", s_weather_geo_url);
+}
+
+void secrets_set_weather_provider(const char *provider) {
+    if (!provider) return;
+    strncpy(s_weather_provider, provider, sizeof(s_weather_provider) - 1);
+    log_i("[SECRETS] Weather provider set to: %s", s_weather_provider);
 }
 
 const char* secrets_get_device_hash(void) {
@@ -311,6 +370,11 @@ bool secrets_write_ini_file(const char *ai_url, const char *telem_url, const cha
     if (pin && strlen(pin) > 0) {
         f.printf("[security]\nmaster_pin=%s\n\n", pin);
     }
+    f.printf("[weather]\n");
+    f.printf("geo_enabled=%s\n", s_weather_geo_enabled);
+    f.printf("geo_provider=%s\n", s_weather_geo_provider);
+    f.printf("geo_url=%s\n", s_weather_geo_url);
+    f.printf("provider=%s\n\n", s_weather_provider);
     f.close();
     secrets_manager_reload();
     return true;

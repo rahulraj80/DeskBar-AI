@@ -18,6 +18,7 @@
 #include "lvgl_port/lvgl_port.h"
 #include "ui/ui.h"
 #include "ui/ui_events.h"
+#include "secrets/secrets_manager.h"
 #include "user_config.h"
 #include "secrets/secrets_manager.h"
 #include "imu/imu_service.h"
@@ -399,11 +400,23 @@ static void handle_secrets() {
         String pin = server.hasArg("pin") ? server.arg("pin") : "";
         bool consent = server.hasArg("consent") ? (server.arg("consent") == "1" || server.arg("consent") == "true") : true;
 
+        // Weather/Geo settings
+        String geo_enabled = server.hasArg("geo_enabled") ? server.arg("geo_enabled") : "";
+        String geo_provider = server.hasArg("geo_provider") ? server.arg("geo_provider") : "";
+        String geo_url = server.hasArg("geo_url") ? server.arg("geo_url") : "";
+        String weather_provider = server.hasArg("weather_provider") ? server.arg("weather_provider") : "";
+
         if (server.hasArg("action") && server.arg("action") == "restore") {
             secrets_delete_ini_file();
             server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Restored firmware defaults\"}");
             return;
         }
+
+        // Apply runtime weather/geo setters if provided
+        if (geo_enabled.length()) secrets_set_weather_geo_enabled(geo_enabled == "true" || geo_enabled == "1");
+        if (geo_provider.length()) secrets_set_weather_geo_provider(geo_provider.c_str());
+        if (geo_url.length()) secrets_set_weather_geo_url(geo_url.c_str());
+        if (weather_provider.length()) secrets_set_weather_provider(weather_provider.c_str());
 
         bool ok = secrets_write_ini_file(
             ai_url.length() ? ai_url.c_str() : secrets_get_ai_url(),
@@ -423,10 +436,12 @@ static void handle_secrets() {
     }
 
     // GET: return current secrets configuration
-    char json_buf[1024];
+    char json_buf[1536];
     snprintf(json_buf, sizeof(json_buf),
         "{\"ai_url\":\"%s\",\"telem_endpoint\":\"%s\",\"telem_table\":\"%s\",\"interval\":%u,"
-        "\"custom_ini\":%d,\"consent\":%d,\"consent_decided\":%d,\"pin\":\"%s\"}",
+        "\"custom_ini\":%d,\"consent\":%d,\"consent_decided\":%d,\"pin\":\"%s\","
+        "\"weather_geo_enabled\":\"%s\",\"weather_geo_provider\":\"%s\",\"weather_geo_url\":\"%s\","
+        "\"weather_provider\":\"%s\"}",
         secrets_get_ai_url(),
         secrets_get_telemetry_endpoint(),
         secrets_get_telemetry_table(),
@@ -434,7 +449,11 @@ static void handle_secrets() {
         secrets_has_custom_ini() ? 1 : 0,
         secrets_has_cloud_consent() ? 1 : 0,
         secrets_has_decided_consent() ? 1 : 0,
-        secrets_get_master_pin()
+        secrets_get_master_pin(),
+        secrets_get_weather_geo_enabled(),
+        secrets_get_weather_geo_provider(),
+        secrets_get_weather_geo_url(),
+        secrets_get_weather_provider()
     );
     server.send(200, "application/json", json_buf);
 }

@@ -82,6 +82,40 @@ System info surface: Utility → System info now opens with header
 `DeskBar-AI v<version> (Rahul Mod)` (renamed from `TuneBar v1.2.6`). The
 placeholder label uses `DeskBar-AI (Rahul Mod)`.
 
+### Weather & geo settings (configurable via /secrets.ini or CLI)
+
+Weather and geo settings can be overridden at runtime via `/secrets.ini` on
+LittleFS or through the serial CLI / Web Remote. No recompile required.
+
+**Defaults** (baked into `sketch/include/secrets_example.h`):
+- Geo enabled: `true` — resolve IP geolocation before weather lookup
+- Geo provider: `ip-api.com` — `http://ip-api.com/json/`
+- Weather provider: `open-meteo` — `https://api.open-meteo.com/v1/forecast`
+
+**Providers** (all free, no API key required):
+| Provider | Response size | Pressure | Notes |
+|---|---|---|---|
+| open-meteo | ~700 bytes | ❌ (not in `current`) | Default; small, reliable response |
+| met.no | ~40 KB | ✅ (`air_pressure_at_sea_level`) | May have memory issues on ESP32-S3 |
+| weatherapi.com | variable | ✅ | Requires API key; placeholder only |
+
+**Serial CLI commands:**
+```
+weather geo on|off        # Enable/disable IP geolocation
+weather geo ip-api.com    # Set IP geolocation provider
+weather geo status        # Show current geo config
+weather provider met.no   # Set weather provider
+weather provider open-meteo
+weather provider weatherapi.com
+weather settings          # Show full weather/geo configuration
+```
+
+**Web Remote:** `GET/POST /api/secrets` includes `weather_geo_enabled`,
+`weather_geo_provider`, `weather_geo_url`, `weather_provider` fields.
+
+**Geo fallback:** When IP geolocation fails (e.g. `ip-api.com` unreachable),
+falls back to hardcoded Patna coordinates (25.5943, 85.1352).
+
 ---
 
 ## 15-Minute Deep Dive

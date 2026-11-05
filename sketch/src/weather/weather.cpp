@@ -3,33 +3,64 @@
 #include "pcf85063/pcf85063.h"
 #include "ui/ui.h"
 #include "lvgl_port/lvgl_port.h"
+#include "secrets/secrets_manager.h"
 #include <Arduino.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
+#include "esp_heap_caps.h"
 #include "user_config.h"
 
-const char *weatherUrl = WEATHER_API_URL;
-const char *weatherApiKey = WEATHER_API_KEY;
-
 // Dedicated IP geolocation service (free, no API key, works over HTTP)
-// Used to resolve accurate lat/long before calling weatherapi.com,
+// Used to resolve accurate lat/long before calling weather provider,
 // since weatherapi.com's built-in "auto:ip" geolocation is often inaccurate.
-const char *geoUrl = "http://ip-api.com/json/";
-
-char query_parameter[64] = "auto:ip"; // auto detect by IP , or city name "Bangkok", or "lat,long" 13.6499579,100.4103726
+static char s_geo_url[192] = {0};
+static char s_geo_provider[32] = {0};
+static bool s_geo_enabled = true;
 
 // Cached resolved coordinates from IP geolocation, so we don't re-resolve every cycle
 static char s_resolved_latlon[64] = {0};
 static bool s_geolocation_resolved = false;
 
-// Resolve the device's public IP to latitude/longitude using ip-api.com.
+// Weather provider selection: "met.no" or "open-meteo" or "weatherapi.com"
+static char s_weather_provider[32] = {0};
+
+// weatherapi.com fallback (requires API key)
+static char s_weather_url[512] = {0};
+static char s_weather_api_key[64] = {0};
+
+// Query parameter for weather lookup: "auto:ip" or "lat,lon" or city name
+char query_parameter[64] = "auto:ip";
+
+// Default fallback location (Patna, India) when geolocation is unavailable
+static const char *DEFAULT_LATLON = "25.5943,85.1352";
+
+// Initialize provider settings from secrets (baked defaults or /secrets.ini overrides)
+static void weather_init_providers(void) {
+    const char *geo_enabled = secrets_get_weather_geo_enabled();
+    s_geo_enabled = (strcasecmp(geo_enabled, "true") == 0);
+    const char *geo_provider = secrets_get_weather_geo_provider();
+    strncpy(s_geo_provider, geo_provider, sizeof(s_geo_provider) - 1);
+    const char *geo_url = secrets_get_weather_geo_url();
+    strncpy(s_geo_url, geo_url, sizeof(s_geo_url) - 1);
+    const char *provider = secrets_get_weather_provider();
+    strncpy(s_weather_provider, provider, sizeof(s_weather_provider) - 1);
+
+    const char *weather_url = WEATHER_API_URL;
+    const char *weather_key = WEATHER_API_KEY;
+    strncpy(s_weather_url, weather_url, sizeof(s_weather_url) - 1);
+    strncpy(s_weather_api_key, weather_key, sizeof(s_weather_api_key) - 1);
+}
+
+// Resolve the device's public IP to latitude/longitude using the configured geo provider.
 // Returns true and writes "lat,lon" into outBuf on success.
 static bool resolveIPGeolocation(char *outBuf, size_t outBufSize) {
   if (WiFi.status() != WL_CONNECTED) return false;
 
-  static char jsonBuf[1024];
-  if (!fetchUrlData(geoUrl, false, jsonBuf, sizeof(jsonBuf))) {
-    log_e("IP geolocation fetch failed");
+  static char jsonBuf[2048];
+  if (!fetchUrlData(s_geo_url, false, jsonBuf, sizeof(jsonBuf))) {
+    Serial.printf("[WEATHER DEBUG] IP geolocation fetch failed (%s)\n", s_geo_url);
     return false;
   }
 
@@ -44,13 +75,31 @@ static bool resolveIPGeolocation(char *outBuf, size_t outBufSize) {
   const char *lat = doc["lat"] | "";
   const char *lon = doc["lon"] | "";
   if (lat[0] == '\0' || lon[0] == '\0') {
-    log_e("IP geolocation missing lat/lon");
+    Serial.printf("[WEATHER DEBUG] IP geolocation missing lat/lon from %s\n", s_geo_provider);
     return false;
   }
 
   snprintf(outBuf, outBufSize, "%s,%s", lat, lon);
-  log_i("IP geolocation resolved: %s", outBuf);
+  Serial.printf("[WEATHER DEBUG] IP geolocation resolved (%s): %s\n", s_geo_provider, outBuf);
   return true;
+}
+
+// Map met.no symbol_code to weatherapi.com condition code (for UI icons/backgrounds)
+static uint16_t metno_symbol_to_code(const char *symbol) {
+    if (!symbol) return 1000;
+    if (strstr(symbol, "clearsky_day"))   return 1000;
+    if (strstr(symbol, "clearsky_night")) return 1000;
+    if (strstr(symbol, "fair_day"))       return 1003;
+    if (strstr(symbol, "fair_night"))     return 1003;
+    if (strstr(symbol, "partlycloudy_day")) return 1003;
+    if (strstr(symbol, "partlycloudy_night")) return 1003;
+    if (strstr(symbol, "cloudy"))         return 1006;
+    if (strstr(symbol, "fog"))            return 1030;
+    if (strstr(symbol, "rain"))           return 1063;
+    if (strstr(symbol, "sleet"))          return 1066;
+    if (strstr(symbol, "snow"))           return 1066;
+    if (strstr(symbol, "thunder"))        return 1087;
+    return 1000;
 }
 const int8_t UTC_offset_hour[27] = {14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12};
 const int8_t UTC_offset_minute[7] = {45, 30, 15, 0, -15, -30, -45};
@@ -408,76 +457,178 @@ void parseAQI(float co, float no2, float o3, float so2, float pm2_5, float pm10)
 
 //=============   update state, US AQI, dominant pollutant icon and text ===========================
 void updateWeatherPanelTask(void *parameter) {
-  log_i("fetch weather data");
+  Serial.printf("[WEATHER DEBUG] Task started, provider=%s geo_enabled=%d\n",
+                s_weather_provider, s_geo_enabled ? 1 : 0);
 
-#define MAX_URL_LENGTH 512 // กำหนดขนาดบัฟเฟอร์สูงสุดที่ปลอดภัย
+  // Initialize provider settings from secrets (baked defaults or /secrets.ini overrides)
+  weather_init_providers();
+  Serial.printf("[WEATHER DEBUG] After init: provider=%s geo_enabled=%d geo_url=%s\n",
+                s_weather_provider, s_geo_enabled ? 1 : 0, s_geo_url);
+
+#define MAX_URL_LENGTH 512
 #define JSON_BUF_SIZE 2048
   static char reqURL[MAX_URL_LENGTH];
 
-  // Resolve IP geolocation when using "auto:ip", so weatherapi.com gets
+  // Resolve IP geolocation when enabled and using auto:ip, so weather provider gets
   // accurate lat/long instead of relying on its own (often poor) IP lookup.
   char effective_query[64];
-  if (strcmp(query_parameter, "auto:ip") == 0) {
+  bool geo_resolved = false;
+  if (s_geo_enabled && strcmp(query_parameter, "auto:ip") == 0) {
     if (!s_geolocation_resolved) {
       if (resolveIPGeolocation(s_resolved_latlon, sizeof(s_resolved_latlon))) {
         s_geolocation_resolved = true;
-        log_i("Geolocation resolved, will refresh weather on next cycle");
+        geo_resolved = true;
+        log_i("Geolocation resolved (%s), will refresh weather on next cycle", s_geo_provider);
       } else {
-        log_w("Geolocation resolve failed, falling back to weatherapi.com auto:ip");
+        log_w("Geolocation resolve failed, falling back to %s auto:ip", s_geo_provider);
         snprintf(effective_query, sizeof(effective_query), "%s", query_parameter);
       }
     }
     if (s_geolocation_resolved) {
       snprintf(effective_query, sizeof(effective_query), "%s", s_resolved_latlon);
+      geo_resolved = true;
     }
   } else {
     snprintf(effective_query, sizeof(effective_query), "%s", query_parameter);
   }
 
-  snprintf(reqURL, MAX_URL_LENGTH, weatherUrl, weatherApiKey, effective_query);
-  log_d("Weather request URL: %s", reqURL);
+  // Parse "lat,lon" from effective_query for provider URLs
+  float weather_lat = 0.0f, weather_lon = 0.0f;
+  int parsed = sscanf(effective_query, "%f,%f", &weather_lat, &weather_lon);
+  Serial.printf("[WEATHER DEBUG] effective_query='%s' parsed=%d lat=%.4f lon=%.4f provider=%s geo_enabled=%d\n",
+        effective_query, parsed, weather_lat, weather_lon, s_weather_provider, s_geo_enabled ? 1 : 0);
+
+  // Fallback to default location if coordinates are invalid
+  if (parsed < 2 || (weather_lat == 0.0f && weather_lon == 0.0f)) {
+    Serial.printf("[WEATHER DEBUG] Using default location: %s\n", DEFAULT_LATLON);
+    sscanf(DEFAULT_LATLON, "%f,%f", &weather_lat, &weather_lon);
+  }
+
+  // Build provider-specific request URL
+  bool use_ssl = false;
+  if (strcasecmp(s_weather_provider, "met.no") == 0) {
+    snprintf(reqURL, MAX_URL_LENGTH,
+             "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=%.4f&lon=%.4f",
+             weather_lat, weather_lon);
+    use_ssl = true;
+  } else if (strcasecmp(s_weather_provider, "open-meteo") == 0) {
+    snprintf(reqURL, MAX_URL_LENGTH,
+             "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
+             "&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,"
+             "precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
+             weather_lat, weather_lon);
+    use_ssl = true;
+  } else {
+    // Default: weatherapi.com
+    snprintf(reqURL, MAX_URL_LENGTH, s_weather_url, s_weather_api_key, effective_query);
+  }
+
+  Serial.printf("[WEATHER DEBUG] Fetching URL: %s ssl=%d provider=%s\n",
+                reqURL, use_ssl ? 1 : 0, s_weather_provider);
 
   static char jsonBuf[JSON_BUF_SIZE];
   static JsonDocument doc;
   doc.clear();
 
-  // fetch weather condition data from weather API
-  if (fetchUrlData(reqURL, false, jsonBuf, JSON_BUF_SIZE)) {
-    sanitizeJson(jsonBuf);
-    DeserializationError error = deserializeJson(doc, jsonBuf, strlen(jsonBuf));
+  if (!fetchUrlData(reqURL, use_ssl, jsonBuf, JSON_BUF_SIZE)) {
+    Serial.printf("[WEATHER DEBUG] fetchUrlData failed for provider=%s\n", s_weather_provider);
+    weatherTask = NULL;
+    vTaskDelete(NULL);
+    return;
+  }
+  Serial.printf("[WEATHER DEBUG] fetchUrlData OK, json len=%d\n", strlen(jsonBuf));
 
-    if (error) {
-      log_e("Weather JSON parse failed: %s", error.c_str());    
-      weatherTask = NULL;
-      vTaskDelete(NULL);
-      return;
+  sanitizeJson(jsonBuf);
+  DeserializationError error = deserializeJson(doc, jsonBuf, strlen(jsonBuf));
+
+  if (error) {
+    Serial.printf("[WEATHER DEBUG] JSON parse failed: %s\n", error.c_str());
+    weatherTask = NULL;
+    vTaskDelete(NULL);
+    return;
+  }
+  Serial.printf("[WEATHER DEBUG] JSON parse OK\n");
+
+  if (error) {
+    Serial.printf("[WEATHER DEBUG] JSON parse failed: %s\n", error.c_str());
+    weatherTask = NULL;
+    vTaskDelete(NULL);
+    return;
+  }
+  Serial.printf("[WEATHER DEBUG] JSON parse OK\n");
+
+  Weather_JSON data;
+  memset(&data, 0, sizeof(data));
+  data.usepa_index = 1; // default "Good" when AQI not available from provider
+  data.name = us_epa_index_names[0];
+
+  // Provider-specific parsing
+  Serial.printf("[WEATHER DEBUG] Provider branch: %s\n", s_weather_provider);
+  if (strcasecmp(s_weather_provider, "met.no") == 0) {
+    // met.no: properties.timeseries[0].data.instant.details.{...}
+    JsonArray timeseries = doc["properties"]["timeseries"].as<JsonArray>();
+    if (!timeseries.isNull() && timeseries.size() > 0) {
+      JsonObject instant = timeseries[0]["data"]["instant"]["details"].as<JsonObject>();
+      data.temp_c = instant["air_temperature"] | 0.0f;
+      data.temp_f = data.temp_c * 9.0f / 5.0f + 32.0f;
+      data.humidity = instant["relative_humidity"] | 0.0f;
+      data.pressure_mb = instant["air_pressure_at_sea_level"] | 0.0f;
+      data.pressure_in = data.pressure_mb * 0.02953f;
+      float wind_ms = instant["wind_speed"] | 0.0f;
+      data.wind_kph = wind_ms * 3.6f;
+      data.wind_mph = wind_ms * 2.237f;
+      data.wind_degree = instant["wind_from_direction"] | 0.0f;
+      data.cloud = instant["cloud_area_fraction"] | 0.0f;
+      data.precip_mm = 0.0f;
+      data.precip_in = 0.0f;
+      data.feelslike_c = data.temp_c;
+      data.feelslike_f = data.temp_f;
+      data.uv = 0.0f;
+      const char *symbol = timeseries[0]["data"]["instant"]["details"]["symbol_code"] | "";
+      // symbol_code is actually in next_1_hours.summary, not instant.details
+      // Try next_1_hours for symbol_code
+      JsonObject next1 = timeseries[0]["next_1_hours"]["summary"].as<JsonObject>();
+      symbol = next1["symbol_code"] | "";
+      data.code = metno_symbol_to_code(symbol);
+      data.is_day = (strstr(symbol, "_day") != NULL) ? 1 : 0;
+      snprintf(data.state, sizeof(data.state), "%.4f,%.4f", weather_lat, weather_lon);
+      strncpy(data.last_updated, timeseries[0]["time"] | "", sizeof(data.last_updated));
+      strncpy(data.wind_dir, "", sizeof(data.wind_dir));
+      data.co = 0; data.no2 = 0; data.o3 = 0; data.so2 = 0; data.pm2_5 = 0; data.pm10 = 0;
+      data.cloud = instant["cloud_area_fraction"] | 0.0f;
     }
+  } else if (strcasecmp(s_weather_provider, "open-meteo") == 0) {
+    // open-meteo: current.{temperature_2m,relative_humidity_2m,weather_code,...}
+    JsonObject current = doc["current"].as<JsonObject>();
+    data.temp_c = current["temperature_2m"] | 0.0f;
+    data.temp_f = data.temp_c * 9.0f / 5.0f + 32.0f;
+    data.humidity = current["relative_humidity_2m"] | 0.0f;
+    data.pressure_mb = current["pressure_msl"] | 0.0f;
+    data.pressure_in = data.pressure_mb * 0.02953f;
+    data.wind_kph = current["wind_speed_10m"] | 0.0f;
+    data.wind_mph = data.wind_kph * 0.621371f;
+    data.wind_degree = current["wind_direction_10m"] | 0.0f;
+    data.cloud = current["cloud_cover"] | 0.0f;
+    data.precip_mm = current["precipitation"] | 0.0f;
+    data.precip_in = data.precip_mm / 25.4f;
+    data.feelslike_c = current["apparent_temperature"] | data.temp_c;
+    data.feelslike_f = data.feelslike_c * 9.0f / 5.0f + 32.0f;
+    data.uv = 0.0f;
+    data.code = current["weather_code"] | 1000;
+    data.is_day = current["is_day"] | 1;
+    snprintf(data.state, sizeof(data.state), "%.4f,%.4f", weather_lat, weather_lon);
+    strncpy(data.last_updated, current["time"] | "", sizeof(data.last_updated));
+    strncpy(data.wind_dir, "", sizeof(data.wind_dir));
+    data.co = 0; data.no2 = 0; data.o3 = 0; data.so2 = 0; data.pm2_5 = 0; data.pm10 = 0;
+  } else {
+    // weatherapi.com (original format)
+    strncpy(data.last_updated, doc["current"]["last_updated"] | "", sizeof(data.last_updated));
+    snprintf(data.state, sizeof(data.state), "%s, %s", doc["location"]["name"] | "", doc["location"]["region"] | "");
 
-    // check of error  {"error":{"code":1006,"message":"No matching location found."}}
-    uint8_t usepa_index = doc["current"]["air_quality"]["us-epa-index"].as<uint8_t>();
-    int errorCode = doc["error"]["code"].as<int>();
-    if (errorCode != 0 || usepa_index == 0) { // error occure
-      log_e("Error code: %d %s", errorCode, doc["error"]["message"].as<const char *>());
-      if (lvgl_port_lock(1000)) {
-        lv_label_set_text(ui_Info_Label_AQIlocation, "No data available");
-        lv_img_set_src(ui_Info_Image_AQIimage, ""); // icon
-        lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(0x777777), LV_PART_MAIN);
-        lv_label_set_text(ui_Info_Label_AQIrate, "Please try select another city");
-        lv_label_set_text(ui_Info_Label_AQIvalue, "-");
-        lv_label_set_text(ui_Info_Label_AQIdominant, "");
-        lvgl_port_unlock();
-      }
-
-    } else { // dadta available
-
-      Weather_JSON data;
-      // parsing data
-      strncpy(data.last_updated, doc["current"]["last_updated"] | "", sizeof(data.last_updated));
-      snprintf(data.state, sizeof(data.state), "%s, %s", doc["location"]["name"] | "", doc["location"]["region"] | "");
-
-      // AQI
-      data.usepa_index = doc["current"]["air_quality"]["us-epa-index"].as<uint8_t>();
-      data.name = us_epa_index_names[data.usepa_index - 1]; // name of aqi level
+    // AQI
+    data.usepa_index = doc["current"]["air_quality"]["us-epa-index"].as<uint8_t>();
+    if (data.usepa_index == 0) data.usepa_index = 1;
+    data.name = us_epa_index_names[data.usepa_index - 1];
       data.co = doc["current"]["air_quality"]["co"].as<float>();
       data.no2 = doc["current"]["air_quality"]["no2"].as<float>();
       data.o3 = doc["current"]["air_quality"]["o3"].as<float>();
@@ -504,70 +655,68 @@ void updateWeatherPanelTask(void *parameter) {
       // code
       data.code = doc["current"]["condition"]["code"].as<uint16_t>();
       data.is_day = doc["current"]["is_day"].as<uint8_t>();
-
-      log_d("Weather code: %d  Is day: %d", data.code, data.is_day);
-
-      // 3. calculate & update AQI values
-      parseAQI(data.co, data.no2, data.o3, data.so2, data.pm2_5, data.pm10);
-
-      // 4. update weather panel
-      bool isNight = (data.is_day == 0);
-      const lv_img_dsc_t *iconImg = getWeatherIconImage(data.code, isNight);
-      const lv_img_dsc_t *homeImg = getHomeIconImage(data.code, isNight, now.month);
-
-      char temp[32]; // fixed buffer on stack; zero heap usage
-      if (temp_unit == 0) {
-        snprintf(temp, sizeof(temp), "%.1f°c", data.temp_c);
-      } else {
-        snprintf(temp, sizeof(temp), "%.1f°F", data.temp_f);
-      }
-
-      char details[256]; // adjust size if UI text grows
-      if (temp_unit == 0) {
-        // Celsius version
-        snprintf(details, sizeof(details),
-                 "Feel like : %.1f°C\n"
-                 "Wind     : %.0f km/h %s\n"
-                 "Humidity : %.0f%%\n"
-                 "Pressure : %.0f mb\n"
-                 "UV Index : %.0f",
-                 data.feelslike_c, data.wind_kph, data.wind_dir, data.humidity, data.pressure_mb, data.uv);
-      } else {
-        // Fahrenheit version
-        snprintf(details, sizeof(details),
-                 "Feel like : %.1f°F\n"
-                 "Wind     : %.0f m/h %s\n"
-                 "Humidity : %.0f%%\n"
-                 "Pressure : %.2f in\n"
-                 "UV Index : %.0f",
-                 data.feelslike_f, data.wind_kph, data.wind_dir, data.humidity, data.pressure_in, data.uv);
-      }
-
-      char lastupdated[64];
-      snprintf(lastupdated, sizeof(lastupdated), "Last Updated: %s", data.last_updated);
-
-      if (lvgl_port_lock(1000)) {
-        // 4.1 udpate AQI pollution widget
-        lv_img_set_src(ui_Info_Image_AQIimage, &us_epa_index_icon[data.usepa_index - 1]); // icon
-        lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(us_epa_index_colors[data.usepa_index - 1]), LV_PART_MAIN); // widget color
-        lv_label_set_text(ui_Info_Label_AQIlocation, data.state);
-        lv_label_set_text(ui_Info_Label_AQIvalue, USAQI);
-        lv_label_set_text(ui_Info_Label_AQIrate, data.name);
-        lv_label_set_text(ui_Info_Label_AQIdominant, dominantPollutant);
-        lv_label_set_text(ui_Info_Label_LastUpdated, lastupdated);
-
-        // 4.2 udpate weather condition widget
-        lv_label_set_text(ui_Info_Label_Temp, temp);
-        lv_img_set_src(ui_Info_Image_WeatherIcon, iconImg); // icon
-        lv_img_set_src(ui_Info_Image_Home, homeImg); // icon
-        lv_label_set_text(ui_Info_Label_Detail, details);
-        setWeatherPanelBgColor(data.code, isNight); // set wallpaper
-        lvgl_port_unlock();
-      }
     }
-  } else {
-    log_e("Failed to fetch weather data from URL");
-  }
+
+    Serial.printf("[WEATHER DEBUG] Parsed: code=%d is_day=%d temp=%.1f humidity=%.0f pressure=%.0f\n",
+          data.code, data.is_day, data.temp_c, data.humidity, data.pressure_mb);
+
+    // 3. calculate & update AQI values
+    parseAQI(data.co, data.no2, data.o3, data.so2, data.pm2_5, data.pm10);
+
+    // 4. update weather panel
+    bool isNight = (data.is_day == 0);
+    const lv_img_dsc_t *iconImg = getWeatherIconImage(data.code, isNight);
+    const lv_img_dsc_t *homeImg = getHomeIconImage(data.code, isNight, now.month);
+
+    char temp[32]; // fixed buffer on stack; zero heap usage
+    if (temp_unit == 0) {
+      snprintf(temp, sizeof(temp), "%.1f°c", data.temp_c);
+    } else {
+      snprintf(temp, sizeof(temp), "%.1f°F", data.temp_f);
+    }
+
+    char details[256]; // adjust size if UI text grows
+    if (temp_unit == 0) {
+      // Celsius version
+      snprintf(details, sizeof(details),
+               "Feel like : %.1f°C\n"
+               "Wind     : %.0f km/h %s\n"
+               "Humidity : %.0f%%\n"
+               "Pressure : %.0f mb\n"
+               "UV Index : %.0f",
+               data.feelslike_c, data.wind_kph, data.wind_dir, data.humidity, data.pressure_mb, data.uv);
+    } else {
+      // Fahrenheit version
+      snprintf(details, sizeof(details),
+               "Feel like : %.1f°F\n"
+               "Wind     : %.0f m/h %s\n"
+               "Humidity : %.0f%%\n"
+               "Pressure : %.2f in\n"
+               "UV Index : %.0f",
+               data.feelslike_f, data.wind_kph, data.wind_dir, data.humidity, data.pressure_in, data.uv);
+    }
+
+    char lastupdated[64];
+    snprintf(lastupdated, sizeof(lastupdated), "Last Updated: %s", data.last_updated);
+
+    if (lvgl_port_lock(1000)) {
+      // 4.1 udpate AQI pollution widget
+      lv_img_set_src(ui_Info_Image_AQIimage, &us_epa_index_icon[data.usepa_index - 1]); // icon
+      lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(us_epa_index_colors[data.usepa_index - 1]), LV_PART_MAIN); // widget color
+      lv_label_set_text(ui_Info_Label_AQIlocation, data.state);
+      lv_label_set_text(ui_Info_Label_AQIvalue, USAQI);
+      lv_label_set_text(ui_Info_Label_AQIrate, data.name);
+      lv_label_set_text(ui_Info_Label_AQIdominant, dominantPollutant);
+      lv_label_set_text(ui_Info_Label_LastUpdated, lastupdated);
+
+      // 4.2 udpate weather condition widget
+      lv_label_set_text(ui_Info_Label_Temp, temp);
+      lv_img_set_src(ui_Info_Image_WeatherIcon, iconImg); // icon
+      lv_img_set_src(ui_Info_Image_Home, homeImg); // icon
+      lv_label_set_text(ui_Info_Label_Detail, details);
+      setWeatherPanelBgColor(data.code, isNight); // set wallpaper
+      lvgl_port_unlock();
+    }
   UBaseType_t hwm = uxTaskGetStackHighWaterMark(NULL);
   log_d("{ Task stack remaining MIN: %u bytes }", hwm);
 
