@@ -153,12 +153,22 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
 
 5. **Touchscreen polling disabled during `BREATH_FULL_BLACK`**: The touch
    controller (`AXS15231B` over I2C) was polled every LVGL tick (~30ms) even
-   while the panel was dark. Now `BL_OFF` is set to `true` and the AP3032
-   boost rail is cut during `BREATH_FULL_BLACK`, which makes the touch
-   callback return early without I2C reads. Touch polling and the boost rail
-   are restored during `BREATH_FADE_IN` before the backlight fades back up.
-   No tap-to-wake during dark — BOOT button wake only. This was previously
-   wasted current during the multi-second dark phase of every breathing cycle.
+   while the panel was dark. Now `BL_OFF` is set to `true` during full dark,
+   which makes the touch callback return early without I2C reads. Touch polling
+   is restored during `BREATH_FADE_IN` before the backlight fades back up.
+
+   **Important**: The AP3032 backlight boost rail is NO LONGER cut during full
+   dark. Previously `bsp_set_backlight_power(false)` cut the rail via I2C
+   (TCA9554 expander), but once cut it could not be re-enabled, leaving the
+   screen permanently dark. The boost rail now stays on during `BREATH_FULL_BLACK`
+   and only PWM duty is set to `bl_black` (dark via inverted PWM:
+   `setUpduty(0)` = full on, `setUpduty(255)` = full off).
+
+   No tap-to-wake during dark — BOOT button wake only. This saves power during
+   the multi-second dark phase of every breathing cycle.
+
+   **Safety net**: If the display is stuck in `BREATH_FULL_BLACK` for more than
+   30 seconds, it forces a wake to `BREATH_HOLD_HIGH` (steady brightness).
 
 6. **Clock breathing initialization**: `init_main_menu_task()` (which loads
    the info screen, calls `enter_clock_breathing()`, and creates the
@@ -177,6 +187,11 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
       (bsp_set_backlight_power(false), BL_OFF=true), OCR produces only noise
     - Confirms BL_OFF + boost rail cut during BREATH_FULL_BLACK works as intended,
       and screen displays clock content during lit phase.
+
+**Setup-time backlight**: `setup()` calls `bsp_set_backlight_power(true)` and
+`setUpduty(0)` at end to ensure the AP3032 boost rail is on and PWM duty is
+full brightness (inverted PWM: duty 0 = LED on, duty 255 = LED off) before
+`init_main_menu_task()` starts breathing.
 
 ### Partition table
 

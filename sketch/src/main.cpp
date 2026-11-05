@@ -272,6 +272,11 @@ void setup() {
   // clock_face_active), so calling it from both places is safe.
   init_main_menu_task(NULL);
 
+  // Ensure backlight is on after init (enter_clock_breathing() sets this, but
+  // make sure regardless of timing):
+  bsp_set_backlight_power(true);
+  setUpduty(0); // Full brightness (duty 0 = LED on in inverted PWM)
+
 }
 
 #include "telemetry/telemetry.h"

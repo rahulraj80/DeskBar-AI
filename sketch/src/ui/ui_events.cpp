@@ -235,6 +235,12 @@ void update_clock_breathing(void) {
   uint16_t ramp_down = pwr->ramp_down_ms;
   uint32_t full_black_ms = pwr->hold_dark_ms;
 
+  // Ensure backlight rail is on during all non-dark breathing states
+  if (breath_state != BREATH_FULL_BLACK) {
+    bsp_set_backlight_power(true);
+    BL_OFF = false;
+  }
+
   // Inactivity tiering: after 30 mins of no interaction, extend full black and
   // switch the clock to the compact hh:mm layout (no per-second invalidations)
   bool tiered = pwr->inactivity_tier && g_last_user_interaction_ms > 0 &&
@@ -276,8 +282,7 @@ void update_clock_breathing(void) {
       }
 
       if (elapsed >= full_black_ms) {
-        // Restore boost rail and re-enable touch polling before fading in
-        bsp_set_backlight_power(true);
+        // Restore touch polling before fading in (boost rail stayed on)
         BL_OFF = false;
         if (pwr->gate_sensors && imu_sensor_is_sleeping()) {
           imu_sensor_wake();
@@ -289,6 +294,13 @@ void update_clock_breathing(void) {
         breath_timer_ms = millis();
         s_sampled_dark  = false;
         log_i("[BREATH] State -> FADE_IN | From: %u -> To: %u (%ums)", min_bl, max_bl, ramp_up);
+      } else if (elapsed >= 30000) {
+        // Safety net: force wake if stuck in dark for more than 30 seconds
+        BL_OFF = false;
+        breath_state    = BREATH_HOLD_HIGH;
+        breath_timer_ms = millis();
+        s_sampled_high  = false;
+        log_i("[BREATH] FORCE_WAKE after %ums in FULL_BLACK", elapsed);
       }
       break;
 
@@ -333,8 +345,8 @@ void update_clock_breathing(void) {
         setUpduty(255 - current_val);
       } else {
         setUpduty(255 - bl_black);
-        // Cut boost rail and disable touch polling during full dark to save battery
-        bsp_set_backlight_power(false);
+        // Disable touch polling during full dark to save battery
+        // (boost rail stays on so we can change PWM duty without I2C re-enable)
         BL_OFF = true;
         breath_state    = BREATH_FULL_BLACK;
         breath_timer_ms = millis();
