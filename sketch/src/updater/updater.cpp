@@ -456,7 +456,7 @@ void systemInfo(char *buf, size_t len) {
   float pct_free = (float)(total - used) * 100.0f / (float)total;
   uint64_t mac = ESP.getEfuseMac();
   snprintf(buf, len,
-           "TuneBar v%s (Rahul Mod)\n"
+           "DeskBar-AI v%s (Rahul Mod)\n"
            "Build  : #%d (%s)\n"
            "MAC    : %04X%08X\n"
            "Flash  : %u / %u KB (%.0f%% free)",

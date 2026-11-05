@@ -1211,12 +1211,26 @@ void serial_cli_task(void *param) {
             wifiConnect();
             Serial.println("[CLI] OK: WiFi reconnect triggered");
           } else if (cmd.equalsIgnoreCase("wifi settings")) {
-            // Open Settings → Wi-Fi screen and render it from live WiFi state
-            _ui_flag_modify(ui_MainMenu_Tabview_ConfigPanel, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
-            _ui_flag_modify(ui_MainMenu_Button_closeConfig, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
+            // Open Settings → Wi-Fi screen (switch to the menu screen, show the
+            // config panel, select the Wi-Fi tab) and render it from live state.
+            exit_clock_breathing();
+            screenPowerOn();
+            resetScreenOffTimer(NULL);
+            {
+              UIStatusPayload ui_msg = {.type = STATUS_SCREEN_UNLOCK};
+              xQueueSend(ui_status_queue, &ui_msg, 100);
+            }
             if (lvgl_port_lock(500)) {
+              _ui_screen_change(&ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_TOP, 0, 0, &ui_Screen_MainMenu_screen_init);
+              if (ui_MainMenu_Tabview_ConfigPanel) {
+                lv_obj_clear_flag(ui_MainMenu_Tabview_ConfigPanel, LV_OBJ_FLAG_HIDDEN);
+                lv_tabview_set_act(ui_MainMenu_Tabview_ConfigPanel, 0, LV_ANIM_OFF);
+              }
+              if (ui_MainMenu_Button_closeConfig) {
+                lv_obj_clear_flag(ui_MainMenu_Button_closeConfig, LV_OBJ_FLAG_HIDDEN);
+              }
               uiRefreshWifiPanel();
-              lv_obj_invalidate(ui_MainMenu_Tabpage_network);
+              if (ui_MainMenu_Tabpage_network) lv_obj_invalidate(ui_MainMenu_Tabpage_network);
               lvgl_port_unlock();
             }
             Serial.println("[CLI] OK: Settings → WiFi screen opened");

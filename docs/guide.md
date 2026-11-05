@@ -68,13 +68,19 @@ last wrote. That task exits as soon as it connects, so a connected device
 could keep displaying a stale `No network matched.` forever.
 `uiRefreshWifiPanel()` (`src/task_msg/task_msg.cpp`) now renders the panel
 from `WiFi.status()` / `WiFi.SSID()` / `WiFi.localIP()` and runs from
-`lvgl_wifi_check_cb()` every 5 s plus on `wifi settings`. Use `wifi panel`
-to dump the exact on-screen strings and compare with `status`.
+`lvgl_wifi_check_cb()` every 5 s plus on `wifi settings`. `wifi settings`
+now switches to the menu screen and opens the Wi-Fi tab (it used to report
+"screen opened" while the clock stayed visible). Use `wifi panel` to dump
+the exact on-screen strings and compare with `status`.
 
 Gotcha: never hold `.c_str()` from an Arduino `String` return value
 (`WiFi.SSID().c_str()`) — the temporary dies at the end of the statement
 and the pointer reads as an empty string. Assign the `String` to a local
 first.
+
+System info surface: Utility → System info now opens with header
+`DeskBar-AI v<version> (Rahul Mod)` (renamed from `TuneBar v1.2.6`). The
+placeholder label uses `DeskBar-AI (Rahul Mod)`.
 
 ---
 

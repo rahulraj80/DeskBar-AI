@@ -360,7 +360,7 @@ void ui_Screen_Utility_screen_init(void)
     lv_obj_set_x(ui_Utility_Label_Build, 24);
     lv_obj_set_y(ui_Utility_Label_Build, 16);
     lv_obj_set_align(ui_Utility_Label_Build, LV_ALIGN_TOP_LEFT);
-    lv_label_set_text(ui_Utility_Label_Build, "TuneBar v1.2.6 (Rahul Mod)\nBuild  : Loading...\nMAC    : Loading...\nFlash  : Loading...");
+    lv_label_set_text(ui_Utility_Label_Build, "DeskBar-AI (Rahul Mod)\nBuild  : Loading...\nMAC    : Loading...\nFlash  : Loading...");
     lv_obj_set_style_text_color(ui_Utility_Label_Build, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_Utility_Label_Build, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui_Utility_Label_Build, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
