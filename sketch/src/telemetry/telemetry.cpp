@@ -346,8 +346,8 @@ bool telemetry_flush_batch(void) {
     if (telemetry_count == 0) {
         return false;
     }
-    if (!wifiEnable) {
-        log_w("[TELEMETRY] WiFi disabled in settings, cannot flush");
+    if (!wifiEnable && WiFi.status() != WL_CONNECTED) {
+        log_w("[TELEMETRY] WiFi disabled in settings and not connected, cannot flush");
         return false;
     }
 

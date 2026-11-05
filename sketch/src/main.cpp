@@ -1380,7 +1380,7 @@ void serial_cli_task(void *param) {
             Serial.printf("  Consent Granted : %s\n", secrets_has_cloud_consent() ? "GRANTED" : "DECLINED / OFFLINE");
             Serial.printf("  Custom INI File : %s\n", secrets_has_custom_ini() ? "ACTIVE (/secrets.ini)" : "NONE (Using Firmware Defaults)");
             Serial.printf("  Telemetry Table : %s\n", secrets_get_telemetry_table());
-            Serial.printf("  Telemetry URL   : https://autobots.my.to/telemetry.php?table=%s\n", secrets_get_telemetry_table());
+            Serial.printf("  Telemetry URL   : %s?table=%s\n", secrets_get_telemetry_endpoint(), secrets_get_telemetry_table());
             Serial.printf("  AI Assistant URL: %s\n", secrets_get_ai_url());
             Serial.println("===================================================\n");
           } else if (cmd.equalsIgnoreCase("consent accept")) {

@@ -129,7 +129,7 @@
  * }
  */
 #ifndef TELEMETRY_HOST
-#define TELEMETRY_HOST           "api.your-domain.com"
+#define TELEMETRY_HOST           "autobots.my.to"
 #endif
 
 #ifndef TELEMETRY_PORT

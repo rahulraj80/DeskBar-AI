@@ -199,3 +199,18 @@ wifi <on|off>         # Enable or disable WiFi
   second → enable compact mode (>30 min inactivity).
 - **NVS erased**: Wi-Fi credentials lost → re-enter via UI or restore
   from full-chip backup.
+- **Telemetry not uploading** (`connection refused`): The baked-in default
+  endpoint used to be the placeholder `https://api.your-domain.com/myapi.php`
+  (meant to be overridden by `/secrets.ini` on LittleFS). With no
+  `/secrets.ini` present, flushes failed with
+  `start_ssl_client: connect failed: -1` / `connection refused`.
+  The default is now `https://autobots.my.to/myapi.php` (the real telemetry
+  API accepting batch JSON POST, returning `{"status":"ok"}`). Users can still
+  override via their own `/secrets.ini` (`[telemetry] endpoint=...`).
+  `telemetry_flush_batch()` now proceeds whenever Wi-Fi is actually
+  connected, even if the `wifiEnable` setting is false. Verify with
+  `telemetry` (buffered count) and `telemetry flush` from the serial CLI.
+- **Device resets on serial port open**: pyserial defaults to DTR=True which
+  triggers the ESP32-S3 `rst:0x15 USB_UART_CHIP_RESET` on /dev/ttyACM0.
+  Open the port with `DTR=False` (see `tools/deskbar_serial.py`) before
+  sending CLI commands.
