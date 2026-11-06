@@ -156,8 +156,10 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    The charger term is not part of it: `bsp_is_battery_charging()` returns
    true for `BATT_CHARGE_FULL` as well as `BATT_CHARGE_CHARGING`, so a fully
    charged pack that is simply sitting off the charger counts as "charging".
-   That is also why `lvgl_wifi_check_cb()` never parked the radio on a full
-   battery ("keep Wi-Fi connected continuously" early return).
+   `lvgl_wifi_check_cb()` used to keep the radio up whenever that returned
+   true, so a full pack (off the charger) never parked; the keep-alive now
+   tests `battery_charge_state() == BATT_CHARGE_CHARGING` instead, so only a
+   genuinely rising pack holds Wi-Fi open.
 
 3. **Wi-Fi modem sleep**: `WIFI_PS_NONE` only when `audio.isRunning()` or
    `ai_recording_active`; otherwise `WIFI_PS_MIN_MODEM` with

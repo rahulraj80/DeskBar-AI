@@ -378,8 +378,11 @@ void lvgl_wifi_check_cb(lv_timer_t *t) {
   // If telemetry burst upload is in progress, do not disconnect Wi-Fi
   if (telemetry_is_flushing()) return;
 
-  // If connected to USB charger, keep Wi-Fi connected continuously
-  if (bsp_is_battery_charging()) {
+  // Keep Wi-Fi up continuously only while the pack is genuinely charging
+  // (rising rail). bsp_is_battery_charging() also reports BATT_CHARGE_FULL —
+  // a resting full pack that is off the charger — which kept the radio alive
+  // forever on a charged device and stopped it from ever parking.
+  if (battery_charge_state() == BATT_CHARGE_CHARGING) {
     if (wifiEnable) {
       if (WiFi.status() != WL_CONNECTED && wifiTaskHandle == NULL && WiFi.getMode() != WIFI_OFF) {
         wifi_need_connect = true;
