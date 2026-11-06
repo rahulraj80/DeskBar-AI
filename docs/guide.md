@@ -167,9 +167,11 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
 
    **Wi-Fi parking** (`lvgl_wifi_check_cb`, every 5 s): the radio is turned
    off (`WiFi.disconnect(true)` + `WiFi.mode(WIFI_OFF)`) only when all of
-   these hold — the clock face is breathing (`clock_face_active`), NTP has
-   synced at least once (`g_boot_ntp_synced`), `gate_wifi` is enabled in the
-   power profile, and the device has been idle for 2 minutes. It is *not*
+   these hold — the clock face is breathing (`clock_face_active`), NTP has had
+   its chance (either `g_boot_ntp_synced` is set, or the device has been up for
+   2 minutes — the flag is only set by `wifi_connect_task`, and the link can
+   also come up through direct `WiFi.begin()` paths), `gate_wifi` is enabled in
+   the power profile, and the device has been idle for 2 minutes. It is *not*
    parked while the pack is genuinely charging
    (`battery_charge_state() == BATT_CHARGE_CHARGING`), which is what keeps
    the web remote and OTA reachable on USB power. Any user interaction wakes

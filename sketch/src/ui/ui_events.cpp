@@ -408,8 +408,13 @@ void lvgl_wifi_check_cb(lv_timer_t *t) {
     return;
   }
 
-  // Allow Wi-Fi to connect and sync NTP time upon startup/reset before suppressing it in clock mode
-  if (clock_face_active && g_boot_ntp_synced && (!audio.isRunning() || mediaType >= 2)) {
+  // Allow Wi-Fi to connect and sync NTP time upon startup/reset before
+  // suppressing it in clock mode. g_boot_ntp_synced is only set by
+  // wifi_connect_task, but the link also comes up through direct WiFi.begin()
+  // paths (telemetry cloud pull, battery calibration), so treat two minutes of
+  // uptime as "NTP has had its chance" and do not tie parking to the flag.
+  const bool ntp_settled = g_boot_ntp_synced || millis() >= 120000UL;
+  if (clock_face_active && ntp_settled && (!audio.isRunning() || mediaType >= 2)) {
     // If 2 mins of inactivity reached in clock mode, gate Wi-Fi OFF if enabled in power profile
     if (power_profile_get()->gate_wifi && g_last_user_interaction_ms > 0 && (millis() - g_last_user_interaction_ms >= 120000UL)) {
       if (WiFi.getMode() != WIFI_OFF) {
