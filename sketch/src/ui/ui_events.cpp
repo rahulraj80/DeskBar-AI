@@ -153,7 +153,6 @@ void exit_clock_breathing(void) {
 
 extern "C" void on_clock_interaction_wake(void) {
   record_user_interaction();
-  s_clock_interaction_ms = millis();
   SCREEN_OFF_TIMER = millis();
   BL_OFF = false;
   bsp_set_backlight_power(true);
@@ -165,10 +164,14 @@ extern "C" void on_clock_interaction_wake(void) {
   clock_set_cpu_low(false);
 
   if (clock_face_active) {
+    // Only restart the idle countdown when we actually leave breathing.
+    s_clock_interaction_ms = millis();
     clock_face_active = 0;
     log_i("[BREATH] User interaction/rotation -> breathing paused, steady brightness restored");
   } else {
-    log_i("[BREATH] User interaction -> idle timeout reset (15s)");
+    // Not breathing: leave the countdown alone so a stray touch or an IMU
+    // rotation cannot push the re-engage out by a whole timeout.
+    log_i("[BREATH] User interaction -> idle timeout keeps running");
   }
 }
 
