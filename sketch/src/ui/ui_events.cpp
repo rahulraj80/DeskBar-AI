@@ -222,6 +222,15 @@ void update_clock_breathing(void) {
     return;
   }
 
+  // Exp step 4: breathing is the parked state. Hold 80 MHz for the whole
+  // cycle instead of flipping 240/80 every fade — the cycle is static
+  // imagery once the digits are drawn. Anything that genuinely needs the
+  // clock back (audio, radio, charger, AI recording) wins, and any user
+  // interaction clears clock_face_active and goes through
+  // record_user_interaction(), which restores 240 MHz.
+  clock_set_cpu_low(!bsp_is_battery_charging() && WiFi.getMode() == WIFI_OFF &&
+                    !audio.isRunning() && !ai_recording_active);
+
   const power_profile_t *pwr = power_profile_get();
   uint8_t min_bl = pwr->bl_start;
   uint8_t max_bl = pwr->bl_end;
@@ -260,16 +269,15 @@ void update_clock_breathing(void) {
         s_sampled_dark = true;
       }
 
-      // Exp step 3: nothing is drawn and nothing is flushed, so drop to
-      // 80 MHz unless the charger, radio or audio path needs the headroom.
-      if (elapsed >= 3000) {
-        clock_set_cpu_low(!bsp_is_battery_charging() && WiFi.getMode() == WIFI_OFF &&
-                          !audio.isRunning() && !ai_recording_active);
-      }
-
       if (elapsed >= full_black_ms) {
         // Exp step 1: restore touch polling before the fade-in starts.
         BL_OFF = false;
+        // Exp step 4: while BL_OFF was set, flush_cb answered with
+        // lv_disp_flush_ready() and dropped the pixels, so the panel still
+        // holds the frame from before the dark phase (stale timestamp).
+        // Re-mark the whole screen dirty so the first visible frame is the
+        // current one.
+        lv_obj_invalidate(lv_scr_act());
         if (pwr->gate_sensors && imu_sensor_is_sleeping()) {
           imu_sensor_wake();
         }
@@ -284,7 +292,6 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_FADE_IN:
-      clock_set_cpu_low(false);
       if (elapsed < ramp_up) {
         float progress = (float)elapsed / (float)ramp_up;
         uint8_t current_val = min_bl + (uint8_t)(progress * (float)(max_bl - min_bl));
@@ -299,7 +306,6 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_HOLD_HIGH:
-      clock_set_cpu_low(false);
       setUpduty(255 - max_bl);
 
       // Point 1: 2.0s after screen turned on (fade-in + 500ms into hold_high = 2.0s loaded)
@@ -317,7 +323,6 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_FADE_OUT:
-      clock_set_cpu_low(false);
       if (elapsed < ramp_down) {
         float progress = (float)elapsed / (float)ramp_down;
         uint8_t current_val = max_bl - (uint8_t)(progress * (float)(max_bl - min_bl));
