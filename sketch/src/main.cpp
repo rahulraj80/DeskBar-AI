@@ -364,7 +364,12 @@ void serial_cli_task(void *param) {
         if (cmd.length() > 0) {
           record_user_interaction();
           log_i("[CLI CMD] '%s'", cmd.c_str());
-          if (cmd.equalsIgnoreCase("ping")) {
+          if (cmd.startsWith("compact ")) {
+            extern void nixie_clock_set_compact(bool);
+            bool on = cmd.substring(8).toInt() != 0;
+            nixie_clock_set_compact(on);
+            Serial.printf("[CLI] compact=%d\n", (int)on);
+          } else if (cmd.equalsIgnoreCase("ping")) {
             Serial.println("[CLI] PONG");
           } else if (cmd.equalsIgnoreCase("help")) {
             Serial.println("[CLI] Available Commands:");

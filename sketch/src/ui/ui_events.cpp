@@ -83,6 +83,7 @@ static BreathState breath_state   = BREATH_HOLD_HIGH;
 static uint32_t   breath_timer_ms = 0;
 extern lv_obj_t  *last_active_screen;
 extern "C" void bsp_set_backlight_power(bool enable);
+void nixie_clock_set_compact(bool compact);
 static uint32_t s_clock_interaction_ms = 0;
 uint32_t g_last_user_interaction_ms = 0;
 bool g_boot_ntp_synced = false;
@@ -131,6 +132,7 @@ void enter_clock_breathing(void) {
   breath_state = BREATH_HOLD_HIGH;
   breath_timer_ms = millis();
   clock_set_cpu_low(false);
+  nixie_clock_set_compact(false); // full hh:mm:ss while the user is around
 
   uint8_t max_bl = (backlight_state == 0) ? 105 : ((backlight_state == 1) ? 120 : 150);
   log_i("[BREATH] Clock breathing active (Floor: 91, Max: %u, Inactivity-Tiered)", (unsigned)max_bl);
@@ -142,6 +144,7 @@ void exit_clock_breathing(void) {
   if (!clock_face_active) return;
   clock_face_active = 0;
   clock_set_cpu_low(false);
+  nixie_clock_set_compact(false);
 
   bsp_set_backlight_power(true);
   bsp_set_audio_amp_power(true);
@@ -162,6 +165,7 @@ extern "C" void on_clock_interaction_wake(void) {
   }
   screenPowerOn();
   clock_set_cpu_low(false);
+  nixie_clock_set_compact(false);
 
   if (clock_face_active) {
     // Only restart the idle countdown when we actually leave breathing.
@@ -246,10 +250,14 @@ void update_clock_breathing(void) {
   uint16_t ramp_down = pwr->ramp_down_ms;
   uint32_t full_black_ms = pwr->hold_dark_ms;
 
-  // Inactivity tiering: after 30 mins of no interaction, extend full black
-  if (pwr->inactivity_tier && g_last_user_interaction_ms > 0 && (now - g_last_user_interaction_ms >= 30 * 60 * 1000UL)) {
+  // Inactivity tiering: after 30 mins of no interaction, extend full black and
+  // switch the clock to the compact hh:mm layout (no per-second invalidations)
+  bool tiered = pwr->inactivity_tier && g_last_user_interaction_ms > 0 &&
+                (now - g_last_user_interaction_ms >= 30 * 60 * 1000UL);
+  if (tiered) {
     full_black_ms *= 2;
   }
+  nixie_clock_set_compact(tiered);
 
   static bool s_sampled_high = false;
   static bool s_sampled_dark = false;
