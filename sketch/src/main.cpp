@@ -367,6 +367,39 @@ void serial_cli_task(void *param) {
           if (cmd.equalsIgnoreCase("cpulog clear")) {
             LittleFS.remove("/cpumon.log");
             Serial.println("[CLI] cpulog cleared");
+          } else if (cmd.equalsIgnoreCase("cpulog stats")) {
+            File f = LittleFS.open("/cpumon.log", FILE_READ);
+            if (!f) {
+              Serial.println("[CLI] no /cpumon.log");
+            } else {
+              unsigned long n = 0, m80 = 0, m240 = 0, mother = 0;
+              unsigned long chg0 = 0, chg1 = 0, chg0_80 = 0, chg0_240 = 0;
+              unsigned long dark = 0, bright = 0;
+              unsigned long first_t = 0, last_t = 0, boots = 1;
+              long prev_t = -1;
+              while (f.available()) {
+                String l = f.readStringUntil('\n');
+                l.trim();
+                if (l.length() == 0) continue;
+                unsigned long t; unsigned mhz; int st; unsigned bloff, wm, ws, chg, aud, rec; long si;
+                if (sscanf(l.c_str(), "%lu,%u,%d,%u,%u,%u,%u,%u,%u,%ld",
+                           &t, &mhz, &st, &bloff, &wm, &ws, &chg, &aud, &rec, &si) != 10) continue;
+                if (n == 0) first_t = t;
+                if (prev_t >= 0 && (long)t < prev_t) boots++;
+                prev_t = (long)t;
+                last_t = t;
+                n++;
+                if (mhz == 80) m80++; else if (mhz == 240) m240++; else mother++;
+                if (chg) chg1++; else { chg0++; if (mhz == 80) chg0_80++; else if (mhz == 240) chg0_240++; }
+                if (st == 0) dark++; else bright++;
+              }
+              f.close();
+              Serial.printf("[CLI] CPULOG STATS rows=%lu boots=%lu window=%lu..%lu\n", n, boots, first_t, last_t);
+              Serial.printf("  mhz: 80=%lu 240=%lu other=%lu\n", m80, m240, mother);
+              Serial.printf("  chg: 1=%lu 0=%lu   (untethered: 80=%lu 240=%lu)\n", chg1, chg0, chg0_80, chg0_240);
+              Serial.printf("  state: dark=%lu bright=%lu\n", dark, bright);
+              Serial.println("[CLI] END cpulog stats");
+            }
           } else if (cmd.equalsIgnoreCase("cpulog")) {
             File f = LittleFS.open("/cpumon.log", FILE_READ);
             if (!f) {
