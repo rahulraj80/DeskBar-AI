@@ -139,9 +139,17 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    invalidation drops from 3×/second to 1×/minute (with `full_refresh=1`,
    each invalidation re-renders the entire 640×172 frame).
 
-2. **CPU 240→80 MHz**: During `BREATH_FULL_BLACK` (panel dark), CPU drops
-   to 80 MHz unless charging, radio active, or audio running. Restored to
-   240 MHz on any interaction.
+2. **CPU 240→80 MHz**: While clock breathing is active the CPU is held at
+   80 MHz for the **whole cycle**, bright phase included — the digits are
+   static imagery once drawn. It returns to 240 MHz for audio playback, AI
+   recording, or any user interaction (`record_user_interaction()`).
+
+   The Wi-Fi and charger terms that used to gate this were removed, because
+   both are effectively never true in clock mode: Wi-Fi parking needs an NTP
+   sync that never happens when the AP is unreachable, and
+   `bsp_is_battery_charging()` (ADC ≥ 1340 mV) reads true almost always.
+   Between them the drop never fired once. Measured after the change:
+   301/301 samples at 80 MHz across 966 s, including 5 minutes on battery.
 
 3. **Wi-Fi modem sleep**: `WIFI_PS_NONE` only when `audio.isRunning()` or
    `ai_recording_active`; otherwise `WIFI_PS_MIN_MODEM` with
@@ -167,6 +175,20 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    No tap-to-wake during dark — BOOT button wake only. This saves power during
    the multi-second dark phase of every breathing cycle.
 
+   **Why the LVGL task must keep ticking**: `BL_OFF` also gates
+   `lv_timer_handler()` in `lvgl_port.cpp`. Stopping the scheduler on `BL_OFF`
+   during breathing dark also stops the breath timer that clears `BL_OFF`, so
+   the clock parks in `FULL_BLACK` forever. The gate is therefore
+   `if (BL_OFF && !clock_face_active)`: the scheduler keeps running during
+   breathing, while the flush callback and the touch read still return early
+   on `BL_OFF` — no QSPI traffic, no touch I2C polling.
+
+   **Repaint on wake**: while `BL_OFF` is set, the flush callback answers
+   `lv_disp_flush_ready()` and drops the pixels, so the panel keeps the frame
+   from before the dark phase. When the dark phase ends the active screen is
+   marked dirty (`lv_obj_invalidate(lv_scr_act())`) so the first visible frame
+   of the fade-in shows the current time rather than the stale timestamp.
+
    **Safety net**: If the display is stuck in `BREATH_FULL_BLACK` for more than
    30 seconds, it forces a wake to `BREATH_HOLD_HIGH` (steady brightness).
 
@@ -176,20 +198,27 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    is called directly from `setup()` after `lvgl_port_init()`. The original
    path via `appStart()` → boot screen `LV_EVENT_SCREEN_LOADED` did not
    reliably fire during `ui_init()`, leaving `breath_timer` uncreated and the
-   clock permanently at steady brightness. Additionally, `enter_clock_breathing()`
-   is now called at the end of `init_main_menu_task()` itself (idempotent —
-   guarded by `clock_face_active`), so the state machine is guaranteed to start
-   regardless of which call path reaches `init_main_menu_task()` first.
+   clock permanently at steady brightness. `enter_clock_breathing()` is
+   called from `updateInfoPanel(0)` when the clock page is shown, and is
+   idempotent (guarded by `clock_face_active`).
 
-   **Camera verification** (laptop camera, /dev/video0, manual exposure=10000us,
-   60s capture at 5s intervals): Brightness alternates clearly:
-   - t=0-35s: BRIGHT (mean~38, bright%~4.5%) — screen lit, nixie clock visible
-   - t=35-40s: TRANSITION — fading from bright to dark
-   - t=40-60s: DARK (mean~6, bright%=0%) — `BREATH_FULL_BLACK`, boost rail
-     stays ON (only PWM duty changes to `bl_black` via inverted PWM), touch
-     polling stays active (no `BL_OFF` gate)
-   - Confirms breathing cycles bright → dark → bright; screen displays clock
-     content during lit phase.
+   **Verification** (laptop camera, /dev/video0, continuous host-timestamped
+   frames — 3 s stills alias a 15 s cycle and camera auto-exposure flattens a
+   dim cycle):
+
+   - measured cycle at the reference profile (`bl_start` 91, `bl_end` 96,
+     ramp 1250 ms, hold 2500 ms, dark 5000 ms): **5.00 s bright / 10.10 s dark**
+     when the 30-minute inactivity tier doubles the dark hold, 5 s dark otherwise
+   - `BL_OFF` is 1 for exactly the dark phase and 0 for the bright phase while
+     the state machine keeps advancing
+   - the first frame of the fade-in carries the current time (e.g. last frame
+     before dark 20:23:18, first frame after 20:23:24)
+   - serial state trace: `FADE_OUT → FULL_BLACK (5 s) → FADE_IN → HOLD_HIGH`,
+     repeating
+
+   Note: opening `/dev/ttyACM0` can reset the ESP32-S3 (USB-CDC DTR), so a
+   measurement run should either hold one connection open or use the camera
+   only.
 
 **Setup-time backlight**: `setup()` calls `bsp_set_backlight_power(true)` and
 `setUpduty(0)` at end to ensure the AP3032 boost rail is on and PWM duty is
