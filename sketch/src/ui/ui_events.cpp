@@ -234,33 +234,6 @@ void update_clock_breathing(void) {
   // samples while tethered, so between them the drop never once fired.
   clock_set_cpu_low(!audio.isRunning() && !ai_recording_active);
 
-  // ---- TEMP DEBUG (step 5 verification, remove before merge) --------------
-  // One line per second across the whole breathing cycle: the frequency we
-  // actually run at, the state we are in, and every flag the 80 MHz policy
-  // depends on.
-  static uint32_t s_cpumon_ms = 0;
-  if (now - s_cpumon_ms >= 3000) {
-    s_cpumon_ms = now;
-    long since_int = (g_last_user_interaction_ms > 0)
-                       ? (long)((now - g_last_user_interaction_ms) / 1000) : -1;
-    char mon[160];
-    snprintf(mon, sizeof(mon),
-             "%lu,%u,%d,%u,%d,%d,%u,%u,%u,%ld",
-             (unsigned long)(now / 1000), (unsigned)getCpuFrequencyMhz(),
-             (int)breath_state, (unsigned)BL_OFF, (int)WiFi.getMode(),
-             (int)WiFi.status(), (unsigned)bsp_is_battery_charging(),
-             (unsigned)audio.isRunning(), (unsigned)ai_recording_active, since_int);
-    log_i("[CPUMON] %s", mon);
-    // Persist to flash so the trace survives USB removal and any reset.
-    static uint32_t s_mon_lines = 0;
-    File monf = LittleFS.open("/cpumon.log", FILE_APPEND);
-    if (monf) {
-      if (s_mon_lines < 300) { monf.println(mon); s_mon_lines++; }
-      monf.close();
-    }
-  }
-  // ---- end TEMP DEBUG ----------------------------------------------------
-
   const power_profile_t *pwr = power_profile_get();
   uint8_t min_bl = pwr->bl_start;
   uint8_t max_bl = pwr->bl_end;

@@ -364,61 +364,7 @@ void serial_cli_task(void *param) {
         if (cmd.length() > 0) {
           record_user_interaction();
           log_i("[CLI CMD] '%s'", cmd.c_str());
-          if (cmd.equalsIgnoreCase("cpulog clear")) {
-            LittleFS.remove("/cpumon.log");
-            Serial.println("[CLI] cpulog cleared");
-          } else if (cmd.equalsIgnoreCase("cpulog stats")) {
-            File f = LittleFS.open("/cpumon.log", FILE_READ);
-            if (!f) {
-              Serial.println("[CLI] no /cpumon.log");
-            } else {
-              struct BootStat {
-                unsigned long rows, m80, m240, other, chg0, chg1, t0, t1;
-              } bs[8];
-              int nb = 0;
-              long prev_t = -1;
-              while (f.available()) {
-                String l = f.readStringUntil('\n');
-                l.trim();
-                if (l.length() == 0) continue;
-                unsigned long t; unsigned mhz; int st; unsigned bloff, wm, ws, chg, aud, rec; long si;
-                if (sscanf(l.c_str(), "%lu,%u,%d,%u,%u,%u,%u,%u,%u,%ld",
-                           &t, &mhz, &st, &bloff, &wm, &ws, &chg, &aud, &rec, &si) != 10) continue;
-                if (nb == 0 || (long)t < prev_t) {
-                  if (nb < 8) {
-                    bs[nb].rows = bs[nb].m80 = bs[nb].m240 = bs[nb].other = 0;
-                    bs[nb].chg0 = bs[nb].chg1 = 0;
-                    bs[nb].t0 = t;
-                  }
-                  nb++;
-                }
-                prev_t = (long)t;
-                if (nb > 8) continue;
-                int b = nb - 1;
-                bs[b].rows++; bs[b].t1 = t;
-                if (mhz == 80) bs[b].m80++; else if (mhz == 240) bs[b].m240++; else bs[b].other++;
-                if (chg) bs[b].chg1++; else bs[b].chg0++;
-              }
-              f.close();
-              Serial.printf("[CLI] CPULOG STATS boots=%d\n", nb);
-              for (int i = 0; i < nb && i < 8; i++) {
-                Serial.printf("  boot%d rows=%lu t=%lu..%lu 80=%lu 240=%lu oth=%lu chg1=%lu chg0=%lu\n",
-                              i, bs[i].rows, bs[i].t0, bs[i].t1, bs[i].m80, bs[i].m240,
-                              bs[i].other, bs[i].chg1, bs[i].chg0);
-              }
-              Serial.println("[CLI] END cpulog stats");
-            }
-          } else if (cmd.equalsIgnoreCase("cpulog")) {
-            File f = LittleFS.open("/cpumon.log", FILE_READ);
-            if (!f) {
-              Serial.println("[CLI] no /cpumon.log");
-            } else {
-              Serial.printf("[CLI] cpulog bytes=%u\n", (unsigned)f.size());
-              while (f.available()) Serial.write(f.read());
-              f.close();
-              Serial.println("[CLI] END cpulog");
-            }
-          } else if (cmd.equalsIgnoreCase("ping")) {
+          if (cmd.equalsIgnoreCase("ping")) {
             Serial.println("[CLI] PONG");
           } else if (cmd.equalsIgnoreCase("help")) {
             Serial.println("[CLI] Available Commands:");
