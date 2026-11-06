@@ -291,6 +291,23 @@ void update_clock_breathing(void) {
         breath_timer_ms = millis();
         s_sampled_dark  = false;
         log_i("[BREATH] State -> FADE_IN | From: %u -> To: %u (%ums)", min_bl, max_bl, ramp_up);
+      } else if (elapsed >= 30000) {
+        // Safety net: the dark phase should never last longer than the profile
+        // says (5 s, 10 s when tiered). If it does — runaway state, a bad
+        // profile value, or a future regression like the BL_OFF one — force
+        // the display back on rather than sitting in the dark forever.
+        log_i("[BREATH] FORCE_WAKE after %ums in FULL_BLACK", (unsigned)elapsed);
+        BL_OFF = false;
+        lv_obj_invalidate(lv_scr_act());
+        if (pwr->gate_sensors && imu_sensor_is_sleeping()) {
+          imu_sensor_wake();
+        }
+        if (pwr->gate_audio && !bsp_get_audio_amp_power()) {
+          bsp_set_audio_amp_power(true);
+        }
+        breath_state    = BREATH_HOLD_HIGH;
+        breath_timer_ms = millis();
+        s_sampled_high  = false;
       }
       break;
 
