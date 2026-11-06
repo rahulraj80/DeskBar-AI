@@ -142,14 +142,19 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
 2. **CPU 240→80 MHz**: While clock breathing is active the CPU is held at
    80 MHz for the **whole cycle**, bright phase included — the digits are
    static imagery once drawn. It returns to 240 MHz for audio playback, AI
-   recording, or any user interaction (`record_user_interaction()`).
+   recording, any user interaction (`record_user_interaction()`), **and
+   whenever the radio is up**.
 
-   The Wi-Fi and charger terms that used to gate this were removed, because
-   both are effectively never true in clock mode: Wi-Fi parking needs an NTP
-   sync that never happens when the AP is unreachable, and
-   `bsp_is_battery_charging()` (ADC ≥ 1340 mV) reads true almost always.
-   Between them the drop never fired once. Measured after the change:
-   301/301 samples at 80 MHz across 966 s, including 5 minutes on battery.
+   The radio is a precondition, not an afterthought: running Wi-Fi
+   association, DHCP, NTP or an HTTP fetch on the parked CPU starves the
+   ESP32-S3 Wi-Fi stack and produces `4WAY_HANDSHAKE_TIMEOUT` failures. The
+   policy is therefore `!audio && !ai_recording && WiFi.getMode() == WIFI_OFF`
+   — 240 MHz while Wi-Fi is in STA, 80 MHz only once Wi-Fi is genuinely
+   parked (NTP synced + 2 minutes idle in clock mode). A unit that cannot
+   reach its AP stays at 240 MHz rather than dropping and thrashing the link.
+
+   The charger term is not part of it: `bsp_is_battery_charging()`
+   (ADC ≥ 1340 mV) reads true almost always and is not a usable power state.
 
 3. **Wi-Fi modem sleep**: `WIFI_PS_NONE` only when `audio.isRunning()` or
    `ai_recording_active`; otherwise `WIFI_PS_MIN_MODEM` with
