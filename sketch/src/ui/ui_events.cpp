@@ -88,6 +88,17 @@ uint32_t g_last_user_interaction_ms = 0;
 bool g_boot_ntp_synced = false;
 extern uint8_t infoPageIndex;
 
+// --- Exp step 3: breathing CPU scaling --------------------------------------
+// During FULL_BLACK nothing is drawn and nothing is flushed, so the CPU can
+// drop to 80 MHz. Anything that needs the radio, the I2S bus or a backlight
+// ramp returns to 240 MHz.
+static void clock_set_cpu_low(bool low) {
+  uint32_t want_mhz = low ? 80 : 240;
+  if (getCpuFrequencyMhz() == want_mhz) return;
+  setCpuFrequencyMhz(want_mhz);
+  log_i("[POWER] CPU -> %u MHz", (unsigned)want_mhz);
+}
+
 extern "C" void record_user_interaction(void) {
   g_last_user_interaction_ms = millis();
   if (getCpuFrequencyMhz() != 240) {
@@ -119,6 +130,7 @@ void enter_clock_breathing(void) {
   bsp_set_backlight_power(true);
   breath_state = BREATH_HOLD_HIGH;
   breath_timer_ms = millis();
+  clock_set_cpu_low(false);
 
   uint8_t max_bl = (backlight_state == 0) ? 105 : ((backlight_state == 1) ? 120 : 150);
   log_i("[BREATH] Clock breathing active (Floor: 91, Max: %u, Inactivity-Tiered)", (unsigned)max_bl);
@@ -129,6 +141,7 @@ void exit_clock_breathing(void) {
   s_clock_interaction_ms = millis();
   if (!clock_face_active) return;
   clock_face_active = 0;
+  clock_set_cpu_low(false);
 
   bsp_set_backlight_power(true);
   bsp_set_audio_amp_power(true);
@@ -149,6 +162,7 @@ extern "C" void on_clock_interaction_wake(void) {
     imu_sensor_wake();
   }
   screenPowerOn();
+  clock_set_cpu_low(false);
 
   if (clock_face_active) {
     clock_face_active = 0;
@@ -246,6 +260,13 @@ void update_clock_breathing(void) {
         s_sampled_dark = true;
       }
 
+      // Exp step 3: nothing is drawn and nothing is flushed, so drop to
+      // 80 MHz unless the charger, radio or audio path needs the headroom.
+      if (elapsed >= 3000) {
+        clock_set_cpu_low(!bsp_is_battery_charging() && WiFi.getMode() == WIFI_OFF &&
+                          !audio.isRunning() && !ai_recording_active);
+      }
+
       if (elapsed >= full_black_ms) {
         // Exp step 1: restore touch polling before the fade-in starts.
         BL_OFF = false;
@@ -263,6 +284,7 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_FADE_IN:
+      clock_set_cpu_low(false);
       if (elapsed < ramp_up) {
         float progress = (float)elapsed / (float)ramp_up;
         uint8_t current_val = min_bl + (uint8_t)(progress * (float)(max_bl - min_bl));
@@ -277,6 +299,7 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_HOLD_HIGH:
+      clock_set_cpu_low(false);
       setUpduty(255 - max_bl);
 
       // Point 1: 2.0s after screen turned on (fade-in + 500ms into hold_high = 2.0s loaded)
@@ -294,6 +317,7 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_FADE_OUT:
+      clock_set_cpu_low(false);
       if (elapsed < ramp_down) {
         float progress = (float)elapsed / (float)ramp_down;
         uint8_t current_val = max_bl - (uint8_t)(progress * (float)(max_bl - min_bl));
