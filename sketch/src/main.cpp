@@ -372,10 +372,10 @@ void serial_cli_task(void *param) {
             if (!f) {
               Serial.println("[CLI] no /cpumon.log");
             } else {
-              unsigned long n = 0, m80 = 0, m240 = 0, mother = 0;
-              unsigned long chg0 = 0, chg1 = 0, chg0_80 = 0, chg0_240 = 0;
-              unsigned long dark = 0, bright = 0;
-              unsigned long first_t = 0, last_t = 0, boots = 1;
+              struct BootStat {
+                unsigned long rows, m80, m240, other, chg0, chg1, t0, t1;
+              } bs[8];
+              int nb = 0;
               long prev_t = -1;
               while (f.available()) {
                 String l = f.readStringUntil('\n');
@@ -384,20 +384,28 @@ void serial_cli_task(void *param) {
                 unsigned long t; unsigned mhz; int st; unsigned bloff, wm, ws, chg, aud, rec; long si;
                 if (sscanf(l.c_str(), "%lu,%u,%d,%u,%u,%u,%u,%u,%u,%ld",
                            &t, &mhz, &st, &bloff, &wm, &ws, &chg, &aud, &rec, &si) != 10) continue;
-                if (n == 0) first_t = t;
-                if (prev_t >= 0 && (long)t < prev_t) boots++;
+                if (nb == 0 || (long)t < prev_t) {
+                  if (nb < 8) {
+                    bs[nb].rows = bs[nb].m80 = bs[nb].m240 = bs[nb].other = 0;
+                    bs[nb].chg0 = bs[nb].chg1 = 0;
+                    bs[nb].t0 = t;
+                  }
+                  nb++;
+                }
                 prev_t = (long)t;
-                last_t = t;
-                n++;
-                if (mhz == 80) m80++; else if (mhz == 240) m240++; else mother++;
-                if (chg) chg1++; else { chg0++; if (mhz == 80) chg0_80++; else if (mhz == 240) chg0_240++; }
-                if (st == 0) dark++; else bright++;
+                if (nb > 8) continue;
+                int b = nb - 1;
+                bs[b].rows++; bs[b].t1 = t;
+                if (mhz == 80) bs[b].m80++; else if (mhz == 240) bs[b].m240++; else bs[b].other++;
+                if (chg) bs[b].chg1++; else bs[b].chg0++;
               }
               f.close();
-              Serial.printf("[CLI] CPULOG STATS rows=%lu boots=%lu window=%lu..%lu\n", n, boots, first_t, last_t);
-              Serial.printf("  mhz: 80=%lu 240=%lu other=%lu\n", m80, m240, mother);
-              Serial.printf("  chg: 1=%lu 0=%lu   (untethered: 80=%lu 240=%lu)\n", chg1, chg0, chg0_80, chg0_240);
-              Serial.printf("  state: dark=%lu bright=%lu\n", dark, bright);
+              Serial.printf("[CLI] CPULOG STATS boots=%d\n", nb);
+              for (int i = 0; i < nb && i < 8; i++) {
+                Serial.printf("  boot%d rows=%lu t=%lu..%lu 80=%lu 240=%lu oth=%lu chg1=%lu chg0=%lu\n",
+                              i, bs[i].rows, bs[i].t0, bs[i].t1, bs[i].m80, bs[i].m240,
+                              bs[i].other, bs[i].chg1, bs[i].chg0);
+              }
               Serial.println("[CLI] END cpulog stats");
             }
           } else if (cmd.equalsIgnoreCase("cpulog")) {
