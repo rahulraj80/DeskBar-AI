@@ -179,6 +179,10 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    for the 80 MHz CPU tier, so this gate is what the breathing power saving
    depends on.
 
+   Measured on hardware: park at 132.3 s (2 min idle) → `CPU -> 80 MHz` in the
+   same tick; a touch restores `CPU -> 240 MHz` immediately and the link
+   re-associates ~5 s later.
+
 4. **Label guards**: Date and battery labels only update on string change;
    battery voltage quantised to 20 mV; battery label skipped during
    `FULL_BLACK`.
