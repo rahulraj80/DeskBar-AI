@@ -538,10 +538,6 @@ void init_main_menu_task(lv_timer_t *timer) {
 
   // Check and show Community Cloud Consent Modal on cold first boot
   ui_consent_modal_show_if_needed();
-
-  // Start clock breathing (idempotent — guarded by clock_face_active so safe
-  // to call from both setup() and the boot-screen LV_EVENT_SCREEN_LOADED path)
-  enter_clock_breathing();
 }
 
 // ################# App start here after screen initialized ##############################
