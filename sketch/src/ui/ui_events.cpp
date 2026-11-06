@@ -222,14 +222,17 @@ void update_clock_breathing(void) {
     return;
   }
 
-  // Exp step 4: breathing is the parked state. Hold 80 MHz for the whole
+  // Exp step 5: breathing is the parked state. Hold 80 MHz for the whole
   // cycle instead of flipping 240/80 every fade — the cycle is static
-  // imagery once the digits are drawn. Anything that genuinely needs the
-  // clock back (audio, radio, charger, AI recording) wins, and any user
-  // interaction clears clock_face_active and goes through
+  // imagery once the digits are drawn. Audio and AI recording still get 240;
+  // user interaction clears clock_face_active and goes through
   // record_user_interaction(), which restores 240 MHz.
-  clock_set_cpu_low(!bsp_is_battery_charging() && WiFi.getMode() == WIFI_OFF &&
-                    !audio.isRunning() && !ai_recording_active);
+  //
+  // The Wi-Fi and charger terms are deliberately gone: the 300 s trace showed
+  // wifiMode pinned to STA (never parked, because parking needs an NTP sync
+  // that never happens when the AP is unreachable) and chg=1 on 77/81
+  // samples while tethered, so between them the drop never once fired.
+  clock_set_cpu_low(!audio.isRunning() && !ai_recording_active);
 
   // ---- TEMP DEBUG (step 5 verification, remove before merge) --------------
   // One line per second across the whole breathing cycle: the frequency we
@@ -240,11 +243,21 @@ void update_clock_breathing(void) {
     s_cpumon_ms = now;
     long since_int = (g_last_user_interaction_ms > 0)
                        ? (long)((now - g_last_user_interaction_ms) / 1000) : -1;
-    log_i("[CPUMON] %3u MHz | state=%d | BL_OFF=%u | wifiMode=%d | wifiStatus=%d | chg=%u | audio=%u | rec=%u | sinceInt=%lds",
-          (unsigned)getCpuFrequencyMhz(), (int)breath_state, (unsigned)BL_OFF,
-          (int)WiFi.getMode(), (int)WiFi.status(),
-          (unsigned)bsp_is_battery_charging(), (unsigned)audio.isRunning(),
-          (unsigned)ai_recording_active, since_int);
+    char mon[160];
+    snprintf(mon, sizeof(mon),
+             "%lu,%u,%d,%u,%d,%d,%u,%u,%u,%ld",
+             (unsigned long)(now / 1000), (unsigned)getCpuFrequencyMhz(),
+             (int)breath_state, (unsigned)BL_OFF, (int)WiFi.getMode(),
+             (int)WiFi.status(), (unsigned)bsp_is_battery_charging(),
+             (unsigned)audio.isRunning(), (unsigned)ai_recording_active, since_int);
+    log_i("[CPUMON] %s", mon);
+    // Persist to flash so the trace survives USB removal and any reset.
+    static uint32_t s_mon_lines = 0;
+    File monf = LittleFS.open("/cpumon.log", FILE_APPEND);
+    if (monf) {
+      if (s_mon_lines < 300) { monf.println(mon); s_mon_lines++; }
+      monf.close();
+    }
   }
   // ---- end TEMP DEBUG ----------------------------------------------------
 

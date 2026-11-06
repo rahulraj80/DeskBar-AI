@@ -364,7 +364,20 @@ void serial_cli_task(void *param) {
         if (cmd.length() > 0) {
           record_user_interaction();
           log_i("[CLI CMD] '%s'", cmd.c_str());
-          if (cmd.equalsIgnoreCase("ping")) {
+          if (cmd.equalsIgnoreCase("cpulog clear")) {
+            LittleFS.remove("/cpumon.log");
+            Serial.println("[CLI] cpulog cleared");
+          } else if (cmd.equalsIgnoreCase("cpulog")) {
+            File f = LittleFS.open("/cpumon.log", FILE_READ);
+            if (!f) {
+              Serial.println("[CLI] no /cpumon.log");
+            } else {
+              Serial.printf("[CLI] cpulog bytes=%u\n", (unsigned)f.size());
+              while (f.available()) Serial.write(f.read());
+              f.close();
+              Serial.println("[CLI] END cpulog");
+            }
+          } else if (cmd.equalsIgnoreCase("ping")) {
             Serial.println("[CLI] PONG");
           } else if (cmd.equalsIgnoreCase("help")) {
             Serial.println("[CLI] Available Commands:");
