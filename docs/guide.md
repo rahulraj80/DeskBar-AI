@@ -151,14 +151,11 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    battery voltage quantised to 20 mV; battery label skipped during
    `FULL_BLACK`.
 
-5. **Touchscreen polling stays active during `BREATH_FULL_BLACK`**: The touch
-   controller (`AXS15231B` over I2C) continues to be polled every LVGL tick
-   (~30ms) even while the panel is dark. `BL_OFF` is NOT set to `true` during
-   full dark, because doing so makes the LVGL port task skip `lv_timer_handler()`,
-   freezing the `breath_timer` and trapping the screen in `BREATH_FULL_BLACK`
-   forever (never transitions to `BREATH_FADE_IN`). Touch polling was restored
-   during `BREATH_FADE_IN` before the backlight fades back up — but with today's
-   fix it was never disabled in the first place.
+5. **Touchscreen polling disabled during `BREATH_FULL_BLACK`**: The touch
+   controller (`AXS15231B` over I2C) is polled every LVGL tick (~30ms) even
+   while the panel is dark. `BL_OFF` is set to `true` during full dark, which
+   makes the touch callback return early without I2C reads. Touch polling is
+   restored during `BREATH_FADE_IN` before the backlight fades back up.
 
    **Important**: The AP3032 backlight boost rail is NO LONGER cut during full
    dark. Previously `bsp_set_backlight_power(false)` cut the rail via I2C
@@ -168,9 +165,7 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    `setUpduty(0)` = full on, `setUpduty(255)` = full off).
 
    No tap-to-wake during dark — BOOT button wake only. This saves power during
-   the multi-second dark phase of every breathing cycle (touch polling remains
-   active but the panel is dark, so taps are not visually acknowledged until
-   fade-in).
+   the multi-second dark phase of every breathing cycle.
 
    **Safety net**: If the display is stuck in `BREATH_FULL_BLACK` for more than
    30 seconds, it forces a wake to `BREATH_HOLD_HIGH` (steady brightness).

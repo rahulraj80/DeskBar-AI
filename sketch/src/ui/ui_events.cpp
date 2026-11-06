@@ -346,9 +346,10 @@ void update_clock_breathing(void) {
       } else {
         setUpduty(255 - bl_black);
         // Boost rail stays on during full dark — only PWM duty changes,
-        // avoiding I2C re-enable failure. Touch polling stays active so
-        // BL_OFF never goes true, keeping lv_timer_handler() running so
-        // the breathing state machine can cycle FULL_BLACK -> FADE_IN.
+        // avoiding I2C re-enable failure. Touch polling disabled during full
+        // dark to save battery (BL_OFF=true). Boost rail remains on so PWM
+        // duty can be changed without I2C re-enable.
+        BL_OFF = true;
         breath_state    = BREATH_FULL_BLACK;
         breath_timer_ms = millis();
         s_sampled_dark  = false;
