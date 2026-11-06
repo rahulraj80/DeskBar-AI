@@ -257,8 +257,9 @@ void update_clock_breathing(void) {
   // allowed once Wi-Fi is genuinely parked (mode OFF). Parking happens after
   // the NTP sync plus the 2 minute clock-mode idle gate, so a unit that cannot
   // reach its AP simply stays at 240 MHz instead of dropping and thrashing the
-  // connection. The charger term is not a precondition: the ADC reports
-  // charging almost always and it is not a power state we can trust.
+  // connection. The charger term is not a precondition either:
+  // bsp_is_battery_charging() also reports BATT_CHARGE_FULL, i.e. a resting
+  // full pack that is off the charger.
   clock_set_cpu_low(!audio.isRunning() && !ai_recording_active &&
                     WiFi.getMode() == WIFI_OFF);
 

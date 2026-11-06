@@ -153,8 +153,11 @@ Measured total: ~121 mA clock mode. Cell: ~0.8 Ah → 6.8 hours.
    parked (NTP synced + 2 minutes idle in clock mode). A unit that cannot
    reach its AP stays at 240 MHz rather than dropping and thrashing the link.
 
-   The charger term is not part of it: `bsp_is_battery_charging()`
-   (ADC ≥ 1340 mV) reads true almost always and is not a usable power state.
+   The charger term is not part of it: `bsp_is_battery_charging()` returns
+   true for `BATT_CHARGE_FULL` as well as `BATT_CHARGE_CHARGING`, so a fully
+   charged pack that is simply sitting off the charger counts as "charging".
+   That is also why `lvgl_wifi_check_cb()` never parked the radio on a full
+   battery ("keep Wi-Fi connected continuously" early return).
 
 3. **Wi-Fi modem sleep**: `WIFI_PS_NONE` only when `audio.isRunning()` or
    `ai_recording_active`; otherwise `WIFI_PS_MIN_MODEM` with
