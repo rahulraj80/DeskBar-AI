@@ -231,6 +231,21 @@ void update_clock_breathing(void) {
   clock_set_cpu_low(!bsp_is_battery_charging() && WiFi.getMode() == WIFI_OFF &&
                     !audio.isRunning() && !ai_recording_active);
 
+  // ---- TEMP DEBUG (step 5 verification, remove before merge) --------------
+  // One line per second across the whole breathing cycle: the frequency we
+  // actually run at, the state we are in, and every flag the 80 MHz policy
+  // depends on.
+  static uint32_t s_cpumon_ms = 0;
+  if (now - s_cpumon_ms >= 1000) {
+    s_cpumon_ms = now;
+    log_i("[CPUMON] %3u MHz | state=%d | BL_OFF=%u | wifiMode=%d | wifiStatus=%d | chg=%u | audio=%u | rec=%u",
+          (unsigned)getCpuFrequencyMhz(), (int)breath_state, (unsigned)BL_OFF,
+          (int)WiFi.getMode(), (int)WiFi.status(),
+          (unsigned)bsp_is_battery_charging(), (unsigned)audio.isRunning(),
+          (unsigned)ai_recording_active);
+  }
+  // ---- end TEMP DEBUG ----------------------------------------------------
+
   const power_profile_t *pwr = power_profile_get();
   uint8_t min_bl = pwr->bl_start;
   uint8_t max_bl = pwr->bl_end;
