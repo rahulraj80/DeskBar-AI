@@ -247,6 +247,8 @@ void update_clock_breathing(void) {
       }
 
       if (elapsed >= full_black_ms) {
+        // Exp step 1: restore touch polling before the fade-in starts.
+        BL_OFF = false;
         if (pwr->gate_sensors && imu_sensor_is_sleeping()) {
           imu_sensor_wake();
         }
@@ -298,6 +300,9 @@ void update_clock_breathing(void) {
         setUpduty(255 - current_val);
       } else {
         setUpduty(255 - bl_black);
+        // Exp step 1: stop touch I2C polling during full dark. The boost rail
+        // stays on, only the PWM duty changes.
+        BL_OFF = true;
         breath_state    = BREATH_FULL_BLACK;
         breath_timer_ms = millis();
         s_sampled_dark  = false;
