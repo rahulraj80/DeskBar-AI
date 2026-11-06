@@ -372,6 +372,21 @@ void update_clock_breathing(void) {
 extern bool telemetry_is_flushing(void);
 
 void lvgl_wifi_check_cb(lv_timer_t *t) {
+  // ---- TEMP DEBUG (remove): park decision inputs -------------------------
+  {
+    static uint32_t s_dbg_ms = 0;
+    if (millis() - s_dbg_ms >= 15000) {
+      s_dbg_ms = millis();
+      long idle = g_last_user_interaction_ms
+                    ? (long)((millis() - g_last_user_interaction_ms) / 1000) : -1L;
+      log_i("[WIFIPARK] breathing=%u ntp=%u gate=%u idle=%lds mode=%d status=%d chg=%d",
+            (unsigned)clock_face_active, (unsigned)g_boot_ntp_synced,
+            (unsigned)power_profile_get()->gate_wifi, idle,
+            (int)WiFi.getMode(), (int)WiFi.status(), (int)battery_charge_state());
+    }
+  }
+  // ---- end TEMP DEBUG ---------------------------------------------------
+
   // Keep the Settings -> Wi-Fi panel in sync with the live WiFi stack.
   uiRefreshWifiPanel();
 
