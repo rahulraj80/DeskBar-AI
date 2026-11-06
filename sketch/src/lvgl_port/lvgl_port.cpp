@@ -340,7 +340,11 @@ void WAVESHARE_349_lvgl_port_task(void *arg)
    uint32_t task_delay_ms = WAVESHARE_349_LVGL_TASK_MAX_DELAY_MS;
 
   for(;;) {
-    if (BL_OFF) {
+    // Only stop the scheduler when the screen is off for a non-breathing
+    // reason. During breathing dark BL_OFF also stops the flush (:88) and the
+    // touch read (:276), but the breath timer must keep running — it is what
+    // clears BL_OFF again (gating it here deadlocked the clock in FULL_BLACK).
+    if (BL_OFF && !clock_face_active) {
       if (WAVESHARE_349_lvgl_lock(50)) {
         process_ui_status_queue();
         WAVESHARE_349_lvgl_unlock();

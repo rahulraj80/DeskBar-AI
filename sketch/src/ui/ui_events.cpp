@@ -250,6 +250,18 @@ void update_clock_breathing(void) {
   }
   nixie_clock_set_compact(tiered);
 
+  // Breathing is the parked state: hold 80 MHz for the whole cycle instead of
+  // flipping 240/80 at every fade — the cycle is static imagery once the
+  // digits are drawn. Audio and AI recording still get 240 MHz; any user
+  // interaction clears clock_face_active and record_user_interaction()
+  // restores 240 MHz.
+  //
+  // The Wi-Fi and charger terms that used to gate this are deliberately gone:
+  // wifiMode is pinned to STA (parking needs an NTP sync that never happens
+  // when the AP is unreachable) and bsp_is_battery_charging() reads >= 1340 mV
+  // essentially always, so between them the drop never fired once.
+  clock_set_cpu_low(!audio.isRunning() && !ai_recording_active);
+
   static bool s_sampled_high = false;
   static bool s_sampled_dark = false;
 
@@ -274,16 +286,14 @@ void update_clock_breathing(void) {
         s_sampled_dark = true;
       }
 
-      // Nothing is being drawn and the backlight is off: drop to 80 MHz unless
-      // the charger, the radio or the audio path needs the extra headroom.
-      if (elapsed >= 3000) {
-        clock_set_cpu_low(!bsp_is_battery_charging() && WiFi.getMode() == WIFI_OFF &&
-                          !audio.isRunning() && !ai_recording_active);
-      }
-
       if (elapsed >= full_black_ms) {
         // Restore touch polling before fading in (boost rail stayed on)
         BL_OFF = false;
+        // While BL_OFF was set the flush callback answered lv_disp_flush_ready()
+        // and dropped the pixels, so the panel still holds the frame from
+        // before the dark phase. Re-mark the screen dirty so the first visible
+        // frame of the fade-in is the current time, not the stale timestamp.
+        lv_obj_invalidate(lv_scr_act());
         if (pwr->gate_sensors && imu_sensor_is_sleeping()) {
           imu_sensor_wake();
         }
@@ -297,6 +307,7 @@ void update_clock_breathing(void) {
       } else if (elapsed >= 30000) {
         // Safety net: force wake if stuck in dark for more than 30 seconds
         BL_OFF = false;
+        lv_obj_invalidate(lv_scr_act());
         breath_state    = BREATH_HOLD_HIGH;
         breath_timer_ms = millis();
         s_sampled_high  = false;
@@ -305,7 +316,6 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_FADE_IN:
-      clock_set_cpu_low(false);
       if (elapsed < ramp_up) {
         float progress = (float)elapsed / (float)ramp_up;
         uint8_t current_val = min_bl + (uint8_t)(progress * (float)(max_bl - min_bl));
@@ -320,7 +330,6 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_HOLD_HIGH:
-      clock_set_cpu_low(false);
       setUpduty(255 - max_bl);
 
       // Point 1: 2.0s after screen turned on (fade-in + 500ms into hold_high = 2.0s loaded)
@@ -338,7 +347,6 @@ void update_clock_breathing(void) {
       break;
 
     case BREATH_FADE_OUT:
-      clock_set_cpu_low(false);
       if (elapsed < ramp_down) {
         float progress = (float)elapsed / (float)ramp_down;
         uint8_t current_val = max_bl - (uint8_t)(progress * (float)(max_bl - min_bl));
