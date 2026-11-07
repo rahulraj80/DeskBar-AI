@@ -21,6 +21,7 @@ static const char *TAG = "imu_service";
 
 static qmi8658_dev_t s_qmi_dev;
 static bool s_imu_available = false;
+static uint32_t s_settle_until_ms = 0;   // ignore orientation right after wake/boot
 static SemaphoreHandle_t s_imu_mux = NULL;
 static imu_reading_t s_latest_reading = {0};
 
@@ -65,7 +66,6 @@ bool imu_sensor_init(void) {
 }
 
 static bool s_imu_sleeping = false;
-static uint32_t s_settle_until_ms = 0;   // ignore orientation right after a wake
 
 bool imu_sensor_is_available(void) {
     return s_imu_available;
