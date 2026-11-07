@@ -64,6 +64,7 @@ bool imu_sensor_init(void) {
 }
 
 static bool s_imu_sleeping = false;
+static uint32_t s_settle_until_ms = 0;   // ignore orientation right after a wake
 
 bool imu_sensor_is_available(void) {
     return s_imu_available;
@@ -80,6 +81,10 @@ void imu_sensor_wake(void) {
     if (!s_imu_available || !s_imu_sleeping) return;
     qmi8658_write_register(&s_qmi_dev, QMI8658_CTRL7, QMI8658_ENABLE_ACCEL | QMI8658_ENABLE_GYRO);
     s_imu_sleeping = false;
+    // The first samples after a sleep/wake cycle can read a different
+    // orientation than the one we went to sleep with; treat them as the new
+    // baseline instead of firing a rotation (and waking the device).
+    s_settle_until_ms = millis() + 1500;
     ESP_LOGI(TAG, "QMI8658 woke up from low-power sleep mode");
 }
 
@@ -150,7 +155,8 @@ bool imu_sensor_poll(void) {
     // While the panel is black (breathing FULL_BLACK or screen off) a rotation
     // must not wake the device or restart the breathing cycle. Track the
     // orientation silently so the picture is correct when it lights up again.
-    const bool panel_dark = (BL_OFF != 0) || is_display_deep_black();
+    const bool settling = s_settle_until_ms != 0 && (int32_t)(millis() - s_settle_until_ms) < 0;
+    const bool panel_dark = (BL_OFF != 0) || is_display_deep_black() || settling;
     if (panel_dark) {
         if (candidate_inverted != s_current_inverted) {
             s_current_inverted = candidate_inverted;
