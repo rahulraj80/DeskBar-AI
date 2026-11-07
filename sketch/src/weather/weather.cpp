@@ -33,9 +33,6 @@ static char s_weather_api_key[64] = {0};
 // Query parameter for weather lookup: "auto:ip" or "lat,lon" or city name
 char query_parameter[64] = "auto:ip";
 
-// Default fallback location (Patna, India) when geolocation is unavailable
-static const char *DEFAULT_LATLON = "25.5943,85.1352";
-
 // Initialize provider settings from secrets (baked defaults or /secrets.ini overrides)
 static void weather_init_providers(void) {
     const char *geo_enabled = secrets_get_weather_geo_enabled();
@@ -75,7 +72,9 @@ static bool resolveIPGeolocation(char *outBuf, size_t outBufSize) {
   const char *lat = doc["lat"] | "";
   const char *lon = doc["lon"] | "";
   if (lat[0] == '\0' || lon[0] == '\0') {
-    Serial.printf("[WEATHER DEBUG] IP geolocation missing lat/lon from %s\n", s_geo_provider);
+    // Loud, not silent: show what the service actually returned.
+    Serial.printf("[WEATHER] geolocation response from %s has no lat/lon: %.200s\n",
+                  s_geo_provider, jsonBuf);
     return false;
   }
 
@@ -455,10 +454,45 @@ void parseAQI(float co, float no2, float o3, float so2, float pm2_5, float pm10)
   log_d("Dominant Pollutant: %s", dominantPollutant);
 }
 
+// An unresolved location must be visible on the panel, never silently replaced
+// by a hardcoded coordinate.
+static void weather_panel_set_error(const char *why) {
+  log_e("[WEATHER] %s", why);
+  if (!lvgl_port_lock(1000)) return;
+  if (ui_Info_Label_Temp)          lv_label_set_text(ui_Info_Label_Temp, "--");
+  if (ui_Info_Label_Detail)        lv_label_set_text(ui_Info_Label_Detail, why);
+  if (ui_Info_Label_LastUpdated)   lv_label_set_text(ui_Info_Label_LastUpdated, "Last Updated: --");
+  if (ui_Info_Label_AQIlocation)   lv_label_set_text(ui_Info_Label_AQIlocation, "--");
+  if (ui_Info_Label_AQIvalue)      lv_label_set_text(ui_Info_Label_AQIvalue, "--");
+  if (ui_Info_Label_AQIrate)       lv_label_set_text(ui_Info_Label_AQIrate, "location unresolved");
+  if (ui_Info_Label_AQIdominant)   lv_label_set_text(ui_Info_Label_AQIdominant, "--");
+  lvgl_port_unlock();
+}
+
 //=============   update state, US AQI, dominant pollutant icon and text ===========================
 void updateWeatherPanelTask(void *parameter) {
   Serial.printf("[WEATHER DEBUG] Task started, provider=%s geo_enabled=%d\n",
                 s_weather_provider, s_geo_enabled ? 1 : 0);
+
+  // The radio may be parked by the breathing power tier, or still
+  // re-associating after a wake. Wait for the link instead of failing the
+  // very first GET (the previous behaviour: one attempt, one failure).
+  if (WiFi.getMode() == WIFI_OFF) {
+    WiFi.mode(WIFI_STA);
+    wifiConnect();
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[WEATHER] Wi-Fi not connected - waiting up to 30 s");
+    for (int i = 0; i < 60 && WiFi.status() != WL_CONNECTED; i++) {
+      vTaskDelay(pdMS_TO_TICKS(500));
+    }
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    weather_panel_set_error("No Wi-Fi link");
+    weatherTask = NULL;
+    vTaskDelete(NULL);
+    return;
+  }
 
   // Initialize provider settings from secrets (baked defaults or /secrets.ini overrides)
   weather_init_providers();
@@ -475,12 +509,20 @@ void updateWeatherPanelTask(void *parameter) {
   bool geo_resolved = false;
   if (s_geo_enabled && strcmp(query_parameter, "auto:ip") == 0) {
     if (!s_geolocation_resolved) {
-      if (resolveIPGeolocation(s_resolved_latlon, sizeof(s_resolved_latlon))) {
+      bool geo_ok = false;
+      for (int attempt = 1; attempt <= 2 && !geo_ok; attempt++) {
+        geo_ok = resolveIPGeolocation(s_resolved_latlon, sizeof(s_resolved_latlon));
+        if (!geo_ok) {
+          Serial.printf("[WEATHER] IP geolocation attempt %d/2 failed (%s)\n", attempt, s_geo_provider);
+          vTaskDelay(pdMS_TO_TICKS(500));
+        }
+      }
+      if (geo_ok) {
         s_geolocation_resolved = true;
         geo_resolved = true;
         log_i("Geolocation resolved (%s), will refresh weather on next cycle", s_geo_provider);
       } else {
-        log_w("Geolocation resolve failed, falling back to %s auto:ip", s_geo_provider);
+        log_w("Geolocation unresolved after 2 attempts (%s)", s_geo_provider);
         snprintf(effective_query, sizeof(effective_query), "%s", query_parameter);
       }
     }
@@ -498,10 +540,22 @@ void updateWeatherPanelTask(void *parameter) {
   Serial.printf("[WEATHER DEBUG] effective_query='%s' parsed=%d lat=%.4f lon=%.4f provider=%s geo_enabled=%d\n",
         effective_query, parsed, weather_lat, weather_lon, s_weather_provider, s_geo_enabled ? 1 : 0);
 
-  // Fallback to default location if coordinates are invalid
+  // No hardcoded fallback. Providers that take a place query (weatherapi.com)
+  // can resolve "auto:ip" themselves; met.no/open-meteo need real coordinates,
+  // so an unresolved location aborts the fetch and says so on the panel.
+  const bool provider_needs_latlon =
+      (strcasecmp(s_weather_provider, "met.no") == 0) ||
+      (strcasecmp(s_weather_provider, "open-meteo") == 0);
   if (parsed < 2 || (weather_lat == 0.0f && weather_lon == 0.0f)) {
-    Serial.printf("[WEATHER DEBUG] Using default location: %s\n", DEFAULT_LATLON);
-    sscanf(DEFAULT_LATLON, "%f,%f", &weather_lat, &weather_lon);
+    if (provider_needs_latlon) {
+      Serial.printf("[WEATHER] aborting: no coordinates for %s\n", s_weather_provider);
+      weather_panel_set_error("Location unresolved");
+      weatherTask = NULL;
+      vTaskDelete(NULL);
+      return;
+    }
+    Serial.printf("[WEATHER] no coordinates - letting %s resolve '%s'\n",
+                  s_weather_provider, effective_query);
   }
 
   // Build provider-specific request URL

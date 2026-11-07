@@ -99,6 +99,25 @@ LittleFS or through the serial CLI / Web Remote. No recompile required.
 | met.no | ~40 KB | ✅ (`air_pressure_at_sea_level`) | May have memory issues on ESP32-S3 |
 | weatherapi.com | variable | ✅ | Requires API key; placeholder only |
 
+**Failure behaviour (loud, never silent):**
+
+- The fetch **waits up to 30 s for the Wi-Fi link** before its first request.
+  The radio is parked in clock mode, so opening the panel right after an idle
+  period used to race the re-association and fail on the first GET.
+- Geo resolution is attempted **twice**. If both attempts fail, a provider that
+  accepts a place query (weatherapi.com, `q=auto:ip`) is left to resolve the IP
+  itself; `open-meteo`/`met.no` need real coordinates, so the fetch **aborts**
+  and the panel shows `Location unresolved` instead of silently substituting a
+  hardcoded coordinate. There is no built-in default location.
+- The geolocation response body is logged when it lacks `lat`/`lon`, so a
+  provider change or an HTTP error is visible in the serial log.
+- `wifi scan` brings the interface up (`WiFi.mode(WIFI_STA)`) first and prints
+  `Scan failed (-2: WIFI_SCAN_FAILED)` instead of `Found -2 networks`.
+
+**Wi-Fi parking and uptime:** the radio is never parked during the first two
+minutes of uptime (`WIFI_PARK_MIN_UPTIME_MS`), regardless of the idle counter —
+that window belongs to the boot association and the NTP sync.
+
 **Serial CLI commands:**
 ```
 weather geo on|off        # Enable/disable IP geolocation

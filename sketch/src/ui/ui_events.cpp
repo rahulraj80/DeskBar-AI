@@ -58,6 +58,7 @@ void set_last_lan_track_idx(int idx) { s_last_lan_track_idx = idx; }
 void set_last_local_track_idx(int idx) { s_last_local_track_idx = idx; }
 
 #define WIFI_CHECK_INTERVAL 5000 //wifi connection checking interval 5 second.
+#define WIFI_PARK_MIN_UPTIME_MS 120000UL // never park Wi-Fi in the first 2 minutes of uptime
 #define MAX_WALLPAPER 7 // Number of procedural vector themes
 
 // Procedural vector themes (pure LVGL styling, zero flash footprint)
@@ -399,8 +400,11 @@ void lvgl_wifi_check_cb(lv_timer_t *t) {
   // wifi_connect_task, but the link also comes up through direct WiFi.begin()
   // paths (telemetry cloud pull, battery calibration), so treat two minutes of
   // uptime as "NTP has had its chance" and do not tie parking to the flag.
-  const bool ntp_settled = g_boot_ntp_synced || millis() >= 120000UL;
-  if (clock_face_active && ntp_settled && (!audio.isRunning() || mediaType >= 2)) {
+  // Never park during the first two minutes of uptime: that window belongs to
+  // the boot association and the NTP sync, whatever the idle counter says.
+  const bool uptime_ok   = millis() >= WIFI_PARK_MIN_UPTIME_MS;
+  const bool ntp_settled = g_boot_ntp_synced || uptime_ok;
+  if (clock_face_active && uptime_ok && ntp_settled && (!audio.isRunning() || mediaType >= 2)) {
     // If 2 mins of inactivity reached in clock mode, gate Wi-Fi OFF if enabled in power profile
     if (power_profile_get()->gate_wifi && g_last_user_interaction_ms > 0 && (millis() - g_last_user_interaction_ms >= 120000UL)) {
       if (WiFi.getMode() != WIFI_OFF) {

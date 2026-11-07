@@ -1233,8 +1233,20 @@ void serial_cli_task(void *param) {
             }
           } else if (cmd.equalsIgnoreCase("wifi scan")) {
             Serial.println("[CLI] Scanning WiFi networks...");
+            // The radio is parked (WIFI_OFF) in clock mode; a scan fails with
+            // -2 (WIFI_SCAN_FAILED) unless the interface is brought up first.
+            if (WiFi.getMode() == WIFI_OFF) {
+              WiFi.mode(WIFI_STA);
+              vTaskDelay(pdMS_TO_TICKS(300));
+            }
             int n = WiFi.scanNetworks();
-            Serial.printf("[CLI] Found %d networks\n", n);
+            if (n < 0) {
+              Serial.printf("[CLI] Scan failed (%d: %s)\n", n,
+                            n == WIFI_SCAN_FAILED ? "WIFI_SCAN_FAILED" : "error");
+              WiFi.scanDelete();
+            } else {
+              Serial.printf("[CLI] Found %d networks\n", n);
+            }
             for (int i = 0; i < n; i++) {
               Serial.printf("  %d: %s (RSSI: %d, %s)\n", i, WiFi.SSID(i).c_str(), WiFi.RSSI(i),
                             WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "Open" : "Secured");
