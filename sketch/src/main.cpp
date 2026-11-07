@@ -620,6 +620,13 @@ void serial_cli_task(void *param) {
             } else {
               Serial.println("[CLI WEATHER] Usage: weather provider open-meteo|weatherapi.com  (met.no unsupported)");
             }
+          } else if (cmd.startsWith("weather backup")) {
+            extern bool g_weather_force_backup;
+            String arg = cmd.substring(14);
+            arg.trim();
+            g_weather_force_backup = (arg != "off");
+            Serial.printf("[CLI WEATHER] force backup = %d (TEST ONLY)\n",
+                          g_weather_force_backup ? 1 : 0);
           } else if (cmd.equalsIgnoreCase("weather settings")) {
             Serial.printf("[CLI WEATHER SETTINGS]\n");
             Serial.printf("  Geo enabled : %s\n", secrets_get_weather_geo_enabled());

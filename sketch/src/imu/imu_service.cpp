@@ -11,6 +11,12 @@
 
 extern "C" void on_clock_interaction_wake(void);
 
+// Panel state, so rotations can be ignored while the screen is dark.
+extern "C" {
+extern volatile uint8_t BL_OFF;
+bool is_display_deep_black(void);
+}
+
 static const char *TAG = "imu_service";
 
 static qmi8658_dev_t s_qmi_dev;
@@ -141,8 +147,22 @@ bool imu_sensor_poll(void) {
         }
     }
 
-    // Debounce / Hysteresis timing
-    if (candidate_inverted != s_current_inverted) {
+    // While the panel is black (breathing FULL_BLACK or screen off) a rotation
+    // must not wake the device or restart the breathing cycle. Track the
+    // orientation silently so the picture is correct when it lights up again.
+    const bool panel_dark = (BL_OFF != 0) || is_display_deep_black();
+    if (panel_dark) {
+        if (candidate_inverted != s_current_inverted) {
+            s_current_inverted = candidate_inverted;
+            if (lvgl_port_is_autorotate_enabled()) {
+                lvgl_port_set_inverted_landscape(s_current_inverted);
+            }
+            ESP_LOGI(TAG, "Orientation tracked while dark: %s (no wake)",
+                     s_current_inverted ? "INVERTED (180deg)" : "NORMAL (0deg)");
+        }
+        s_pending_inverted = s_current_inverted;
+        s_pending_start_ms = now_ms;
+    } else if (candidate_inverted != s_current_inverted) {
         if (candidate_inverted != s_pending_inverted) {
             s_pending_inverted = candidate_inverted;
             s_pending_start_ms = now_ms;

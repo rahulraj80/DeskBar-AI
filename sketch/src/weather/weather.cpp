@@ -536,6 +536,9 @@ static void weather_panel_set_error(const char *why) {
 }
 
 //=============   update state, US AQI, dominant pollutant icon and text ===========================
+// TEMPORARY (verify the wttr.in fallback, removed once proven)
+bool g_weather_force_backup = false;
+
 void updateWeatherPanelTask(void *parameter) {
   Serial.printf("[WEATHER DEBUG] Task started, provider=%s geo_enabled=%d\n",
                 s_weather_provider, s_geo_enabled ? 1 : 0);
@@ -685,6 +688,10 @@ void updateWeatherPanelTask(void *parameter) {
   }
 
   bool used_backup = false;
+  if (g_weather_force_backup && strcasecmp(s_weather_provider, "open-meteo") == 0) {
+    Serial.println("[WEATHER] (test) skipping open-meteo, forcing the backup");
+    got = false;
+  }
   if (!got && strcasecmp(s_weather_provider, "open-meteo") == 0) {
     char wurl[160];
     snprintf(wurl, sizeof(wurl),

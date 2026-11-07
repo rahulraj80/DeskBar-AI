@@ -132,6 +132,11 @@ is visible in the serial log rather than silent.
   firmware falls back to **wttr.in's compact text form**
   (`?format=%t|%f|%h|%P|%w|%C`, ~45 B — `%P` is pressure, `%p` would be precipitation). met.no is *not* a usable fallback —
   its compact JSON is ~39 KB and `fetchUrlData()` stops at the 2 KB buffer.
+- **Rotation is ignored while the panel is black** (`BL_OFF` or the breathing
+  dark phase): the orientation is tracked silently so the picture is correct
+  when it lights up, but a rotation never wakes the device or restarts the
+  cycle. This is what stopped the IMU from pausing breathing a moment after
+  every fade-in.
 - **Missing data is grey, never faked**: every field carries a presence flag;
   absent values render as `--` in `#8a8a8a` (label recolor), the AQI card
   background goes grey instead of a green "Good" colour, the weather wallpaper
