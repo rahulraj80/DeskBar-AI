@@ -484,22 +484,31 @@ void updateWeatherPanelTask(void *parameter) {
   // The radio may be parked by the breathing power tier, or still
   // re-associating after a wake. Wait for the link instead of failing the
   // very first GET (the previous behaviour: one attempt, one failure).
+  // A parked radio needs an explicit wake, and wifi_connect_task can spend up
+  // to its own timeout per saved network, so keep nudging it for a full minute
+  // instead of one 30 s burst.
   if (WiFi.getMode() == WIFI_OFF) {
     WiFi.mode(WIFI_STA);
-    wifiConnect();
   }
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[WEATHER] Wi-Fi not connected - waiting up to 30 s");
-    for (int i = 0; i < 60 && WiFi.status() != WL_CONNECTED; i++) {
-      vTaskDelay(pdMS_TO_TICKS(500));
+  const uint32_t link_start = millis();
+  bool announced = false;
+  while (WiFi.status() != WL_CONNECTED && (millis() - link_start) < 60000UL) {
+    if (!announced) {
+      Serial.println("[WEATHER] Wi-Fi not connected - waking the link (up to 60 s)");
+      announced = true;
     }
+    wifi_need_connect = true;
+    wifiConnect();   // no-op while a connect task is already running
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
   if (WiFi.status() != WL_CONNECTED) {
+    Serial.printf("[WEATHER] no link after %lu ms\n", (unsigned long)(millis() - link_start));
     weather_panel_set_error("No Wi-Fi link");
     weatherTask = NULL;
     vTaskDelete(NULL);
     return;
   }
+  Serial.printf("[WEATHER] link up after %lu ms\n", (unsigned long)(millis() - link_start));
 
   // Initialize provider settings from secrets (baked defaults or /secrets.ini overrides)
   weather_init_providers();

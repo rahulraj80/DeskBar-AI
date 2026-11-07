@@ -373,8 +373,14 @@ void process_ui_status_queue() {
         break;
       default: break;
       } // switch
-      // update weather condition widget every 15 min.
-      if (msg.minute % 15 == 0 && msg.second == 0 && wifiEnable) updateWeatherPanel();
+      // Refresh the weather widget every 15 min, but only while the weather
+      // page is actually on screen. On the clock face the radio is parked for
+      // the 80 MHz breathing tier, and an unconditional refresh here woke it
+      // every quarter hour, failed after the connect timeout, and left the link
+      // up - defeating the park.
+      if (msg.minute % 15 == 0 && msg.second == 0 && wifiEnable && infoPageIndex == 1) {
+        updateWeatherPanel();
+      }
 
       // Real-time Radio Stream Quality Telemetry (Audio Bitrate, DL Speed, PSRAM Buffer)
       extern lv_obj_t * ui_Player_Label_streamQuality;

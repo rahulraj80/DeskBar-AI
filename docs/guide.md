@@ -101,9 +101,14 @@ LittleFS or through the serial CLI / Web Remote. No recompile required.
 
 **Failure behaviour (loud, never silent):**
 
-- The fetch **waits up to 30 s for the Wi-Fi link** before its first request.
-  The radio is parked in clock mode, so opening the panel right after an idle
-  period used to race the re-association and fail on the first GET.
+- The fetch **waits up to 60 s for the Wi-Fi link**, re-nudging
+  `wifiConnect()` every second, before its first request. The radio is parked
+  in clock mode, so opening the panel right after an idle period used to race
+  the re-association and fail on the first GET.
+- The 15-minute weather refresh only runs **while the weather page is on
+  screen** (`infoPageIndex == 1`). It used to fire on the clock face too, which
+  woke the parked radio every quarter hour, failed after the connect timeout
+  and left the link up — quietly defeating the Wi-Fi park and the 80 MHz tier.
 - Geo resolution is attempted **twice**. If both attempts fail, a provider that
   accepts a place query (weatherapi.com, `q=auto:ip`) is left to resolve the IP
   itself; `open-meteo`/`met.no` need real coordinates, so the fetch **aborts**
