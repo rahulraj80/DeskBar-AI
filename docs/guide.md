@@ -109,6 +109,11 @@ LittleFS or through the serial CLI / Web Remote. No recompile required.
   (same provider, no key, ~600 B): PM2.5/PM10/CO/NO2/SO2/O3 + `us_aqi`. The
   panel used to show a `0001` placeholder because AQI was computed from the
   weather payload's zeroed pollutants; that path is gone.
+- **Chunked responses**: open-meteo answers with
+  `Transfer-Encoding: chunked`, and `fetchUrlData()` reads the raw stream, so
+  every body must go through `sanitizeJson()` (trim to the first `{` … last
+  `}`) before `deserializeJson()`. Forgetting that on the air-quality path made
+  every parse fail with a valid-looking payload.
 - **Provider retry/fallback**: open-meteo is tried twice; if both fail the
   firmware falls back to **wttr.in's compact text form**
   (`?format=%t|%f|%h|%p|%w|%C`, ~60 B). met.no is *not* a usable fallback —
