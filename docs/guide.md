@@ -348,6 +348,12 @@ factory), a soft reset starts the selected OTA app (`deskbar`, ota_0). A
 `reboot` lands straight in DeskBar (~0.77 s from ROM); the hardware power
 button lands in the Launcher menu.
 
+**OTA releases** are published to `releases/bin/` and tracked in
+`releases/firmware_catalog.json`. Max 2 versions are retained in git
+(to prevent Git bloat); older binaries are pruned on each publish. The
+current OTA image is `firmware-v2.6.4.bin` (3,208,880 bytes), served from
+`https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.4.bin`.
+
 ---
 
 ## 1-Hour Tour

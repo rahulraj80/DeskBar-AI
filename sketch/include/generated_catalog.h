@@ -19,10 +19,10 @@ struct CatalogItem {
 static const CatalogItem s_generated_catalog[3] = {
   // [0] v2.6.4
   {
-    "v2.6.4", "PATCH", 0x00FF88, "Nov 08, 2026", "4.01 MB",
+    "v2.6.4", "PATCH", 0x00FF88, "Nov 08, 2026", "3.06 MB",
     "• Wi-Fi park chain fixed (charging-state + 2-min uptime + WIFI_OFF policy), weather/geo fully repaired (ip-api numeric lat/lon, sanitizeJson, wttr.in fallback), IMU rotation ignored while panel black + settle windows, launcher autoboot to DeskBar via boot_app NVS, wifi scan STA fix",
     "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.4.bin",
-    4200000
+    3208880
   },
   // [1] v2.6.3
   {
@@ -42,8 +42,8 @@ static const CatalogItem s_generated_catalog[3] = {
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.6.4\",\"type\":\"patch\",\"build\":242,\"date\":\"Nov 08, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• Wi-Fi park chain fixed (charging-state + 2-min uptime + WIFI_OFF policy), weather/geo fully repaired (ip-api numeric lat/lon, sanitizeJson, wttr.in fallback), IMU rotation ignored while panel black + settle windows, launcher autoboot to DeskBar via boot_app NVS, wifi scan STA fix\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.4.bin\"},";
-  j += "{\"version\":\"2.6.3\",\"type\":\"patch\",\"build\":241,\"date\":\"Nov 04, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.3.bin\"},";
+  j += "{\"version\":\"2.6.4\",\"type\":\"patch\",\"build\":242,\"date\":\"Nov 08, 2026\",\"size\":\"3.06 MB\",\"size_bytes\":3208880,\"changelog\":\"• Wi-Fi park chain fixed (charging-state + 2-min uptime + WIFI_OFF policy), weather/geo fully repaired (ip-api numeric lat/lon, sanitizeJson, wttr.in fallback), IMU rotation ignored while panel black + settle windows, launcher autoboot to DeskBar via boot_app NVS, wifi scan STA fix\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.4.bin\"},";
+  j += "{\"version\":\"2.6.3\",\"type\":\"patch\",\"build\":242,\"date\":\"Nov 04, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.3.bin\"},";
   j += "{\"version\":\"2.6.2\",\"type\":\"patch\",\"build\":190,\"date\":\"Nov 04, 2026\",\"size\":\"3.04 MB\",\"size_bytes\":3189024,\"changelog\":\"• Battery SOC: validator accepted only flat curves; curve now pulled from the fleet automatically\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.2.bin\"}";
   j += "]}";
   return j;

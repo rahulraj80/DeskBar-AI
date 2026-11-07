@@ -9,12 +9,12 @@
       "title": "TuneBar v2.6.4: Wi-Fi park chain fixed (charging-state + 2-min uptime + WIFI_OFF policy), weather/geo fully repaired (ip-api numeric lat/lon, sanitizeJson, wttr.in fallback), IMU rotation ignored while panel black + settle windows, launcher autoboot to DeskBar via boot_app NVS, wifi scan STA fix",
       "changelog": "\u2022 Wi-Fi park chain fixed (charging-state + 2-min uptime + WIFI_OFF policy), weather/geo fully repaired (ip-api numeric lat/lon, sanitizeJson, wttr.in fallback), IMU rotation ignored while panel black + settle windows, launcher autoboot to DeskBar via boot_app NVS, wifi scan STA fix",
       "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.4.bin",
-      "size": 4200000
+      "size": 3208880
     },
     {
       "version": "2.6.3",
       "type": "patch",
-      "build": 241,
+      "build": 242,
       "date": "Nov 04, 2026",
       "title": "DeskBar AI v2.6.3: Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V",
       "changelog": "\u2022 Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V",
