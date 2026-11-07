@@ -106,6 +106,8 @@ longer throws away a password typed on the device. Every **successful**
 association also re-saves the exact SSID/password pair that authenticated, so a
 credential that only lived in RAM (or came from a built-in default) is
 persisted the moment it works. Passwords are never baked into `secrets.h`.
+Each save logs `[WIFI] saved N entries fs=1 nvs=1 len=N` so a failed NVS mirror
+is visible in the serial log rather than silent.
 
 **Failure behaviour (loud, never silent):**
 
