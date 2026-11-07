@@ -105,6 +105,17 @@ LittleFS or through the serial CLI / Web Remote. No recompile required.
   `wifiConnect()` every second, before its first request. The radio is parked
   in clock mode, so opening the panel right after an idle period used to race
   the re-association and fail on the first GET.
+- **Air quality** comes from open-meteo's separate `air-quality-api` endpoint
+  (same provider, no key, ~600 B): PM2.5/PM10/CO/NO2/SO2/O3 + `us_aqi`. The
+  panel used to show a `0001` placeholder because AQI was computed from the
+  weather payload's zeroed pollutants; that path is gone.
+- **Provider retry/fallback**: open-meteo is tried twice; if both fail the
+  firmware falls back to **wttr.in's compact text form**
+  (`?format=%t|%f|%h|%p|%w|%C`, ~60 B). met.no is *not* a usable fallback —
+  its compact JSON is ~39 KB and `fetchUrlData()` stops at the 2 KB buffer.
+- **Missing data is grey, never faked**: every field carries a presence flag;
+  absent values render as `--` in `#8a8a8a` (label recolor) and the AQI card
+  background goes grey instead of a green "Good" colour.
 - The 15-minute weather refresh only runs **while the weather page is on
   screen** (`infoPageIndex == 1`). It used to fire on the clock face too, which
   woke the parked radio every quarter hour, failed after the connect timeout

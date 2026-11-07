@@ -148,6 +148,10 @@ struct Weather_JSON { // all aqi data from json
   float so2;
   float pm2_5;
   float pm10;
+
+  // Presence flags. A field without data is rendered grey, never faked with a
+  // zero that looks like a reading.
+  bool has_temp, has_feels, has_wind, has_hum, has_press, has_uv, has_aqi, has_last;
 };
 
 //==================== Weather condition ====================
@@ -461,18 +465,65 @@ void parseAQI(float co, float no2, float o3, float so2, float pm2_5, float pm10)
   log_d("Dominant Pollutant: %s", dominantPollutant);
 }
 
+// Grey used for any field we could not fill.
+#define WEATHER_GREY_MARK "#8a8a8a"
+static const uint32_t WEATHER_GREY_HEX = 0x8a8a8a;
+
+static uint8_t epa_index_from_us_aqi(int aqi) {
+  if (aqi <= 50) return 1;
+  if (aqi <= 100) return 2;
+  if (aqi <= 150) return 3;
+  if (aqi <= 200) return 4;
+  if (aqi <= 300) return 5;
+  return 6;
+}
+
+// Placeholder values are grey (#8a8a8a) via label recolor; real values keep the
+// label's own colour.
+static void set_field(lv_obj_t *lbl, bool has, const char *text) {
+  if (!lbl) return;
+  lv_label_set_recolor(lbl, true);
+  if (has) {
+    lv_label_set_text(lbl, text);
+  } else {
+    char buf[128];
+    snprintf(buf, sizeof(buf), WEATHER_GREY_MARK " %s#", text);
+    lv_label_set_text(lbl, buf);
+  }
+}
+
+// Skip to the first numeric character so "\u21977km/h" or "+29\u00b0C" parse.
+static float num_from(const char *s) {
+  if (!s) return 0.0f;
+  while (*s && !((*s >= '0' && *s <= '9') || *s == '-' || *s == '+')) s++;
+  return atof(s);
+}
+
+static uint16_t code_from_condition(const char *c) {
+  if (!c) return 1000;
+  if (strcasestr(c, "thunder")) return 1087;
+  if (strcasestr(c, "snow")) return 1117;
+  if (strcasestr(c, "rain") || strcasestr(c, "drizzle")) return 1063;
+  if (strcasestr(c, "fog") || strcasestr(c, "mist")) return 1030;
+  if (strcasestr(c, "cloud") || strcasestr(c, "overcast")) return 1006;
+  return 1000;
+}
+
 // An unresolved location must be visible on the panel, never silently replaced
 // by a hardcoded coordinate.
 static void weather_panel_set_error(const char *why) {
   log_e("[WEATHER] %s", why);
   if (!lvgl_port_lock(1000)) return;
-  if (ui_Info_Label_Temp)          lv_label_set_text(ui_Info_Label_Temp, "--");
-  if (ui_Info_Label_Detail)        lv_label_set_text(ui_Info_Label_Detail, why);
-  if (ui_Info_Label_LastUpdated)   lv_label_set_text(ui_Info_Label_LastUpdated, "Last Updated: --");
-  if (ui_Info_Label_AQIlocation)   lv_label_set_text(ui_Info_Label_AQIlocation, "--");
-  if (ui_Info_Label_AQIvalue)      lv_label_set_text(ui_Info_Label_AQIvalue, "--");
-  if (ui_Info_Label_AQIrate)       lv_label_set_text(ui_Info_Label_AQIrate, "location unresolved");
-  if (ui_Info_Label_AQIdominant)   lv_label_set_text(ui_Info_Label_AQIdominant, "--");
+  set_field(ui_Info_Label_Temp, false, "--");
+  set_field(ui_Info_Label_Detail, false, why);
+  set_field(ui_Info_Label_LastUpdated, false, "Last Updated: --");
+  set_field(ui_Info_Label_AQIlocation, false, "--");
+  set_field(ui_Info_Label_AQIvalue, false, "--");
+  set_field(ui_Info_Label_AQIrate, false, "--");
+  set_field(ui_Info_Label_AQIdominant, false, "--");
+  if (ui_Info_Panel_AQI) {
+    lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(WEATHER_GREY_HEX), LV_PART_MAIN);
+  }
   lvgl_port_unlock();
 }
 
@@ -585,7 +636,8 @@ void updateWeatherPanelTask(void *parameter) {
     snprintf(reqURL, MAX_URL_LENGTH,
              "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
              "&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,"
-             "precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
+             "precipitation,weather_code,cloud_cover,pressure_msl,wind_speed_10m,"
+             "wind_direction_10m,uv_index&timezone=auto",
              weather_lat, weather_lon);
     use_ssl = true;
   } else {
@@ -600,32 +652,50 @@ void updateWeatherPanelTask(void *parameter) {
   static JsonDocument doc;
   doc.clear();
 
-  if (!fetchUrlData(reqURL, use_ssl, jsonBuf, JSON_BUF_SIZE)) {
-    Serial.printf("[WEATHER DEBUG] fetchUrlData failed for provider=%s\n", s_weather_provider);
+  // Two attempts at the selected provider; if it stays down, fall back to
+  // wttr.in's compact text form (~60 B, fits the buffer) - met.no's 39 KB
+  // compact JSON cannot be fetched through the 2 KB fetchUrlData buffer.
+  bool got = false;
+  for (int attempt = 1; attempt <= 2 && !got; attempt++) {
+    got = fetchUrlData(reqURL, use_ssl, jsonBuf, JSON_BUF_SIZE);
+    if (!got) {
+      Serial.printf("[WEATHER] %s attempt %d/2 failed\n", s_weather_provider, attempt);
+      vTaskDelay(pdMS_TO_TICKS(1500));
+    }
+  }
+
+  bool used_backup = false;
+  if (!got && strcasecmp(s_weather_provider, "open-meteo") == 0) {
+    char wurl[160];
+    snprintf(wurl, sizeof(wurl),
+             "https://wttr.in/%.4f,%.4f?format=%%t|%%f|%%h|%%p|%%w|%%C",
+             weather_lat, weather_lon);
+    Serial.printf("[WEATHER] open-meteo down, trying backup: %s\n", wurl);
+    got = fetchUrlData(wurl, true, jsonBuf, JSON_BUF_SIZE);
+    used_backup = got;
+  }
+
+  if (!got) {
+    Serial.printf("[WEATHER] every provider failed (%s)\n", s_weather_provider);
+    weather_panel_set_error("No weather data");
     weatherTask = NULL;
     vTaskDelete(NULL);
     return;
   }
-  Serial.printf("[WEATHER DEBUG] fetchUrlData OK, json len=%d\n", strlen(jsonBuf));
+  Serial.printf("[WEATHER] fetch OK (backup=%d), len=%d\n", used_backup ? 1 : 0, strlen(jsonBuf));
 
-  sanitizeJson(jsonBuf);
-  DeserializationError error = deserializeJson(doc, jsonBuf, strlen(jsonBuf));
-
-  if (error) {
-    Serial.printf("[WEATHER DEBUG] JSON parse failed: %s\n", error.c_str());
-    weatherTask = NULL;
-    vTaskDelete(NULL);
-    return;
+  DeserializationError error;
+  if (!used_backup) {
+    sanitizeJson(jsonBuf);
+    error = deserializeJson(doc, jsonBuf, strlen(jsonBuf));
+    if (error) {
+      Serial.printf("[WEATHER] JSON parse failed: %s\n", error.c_str());
+      weather_panel_set_error("Bad weather data");
+      weatherTask = NULL;
+      vTaskDelete(NULL);
+      return;
+    }
   }
-  Serial.printf("[WEATHER DEBUG] JSON parse OK\n");
-
-  if (error) {
-    Serial.printf("[WEATHER DEBUG] JSON parse failed: %s\n", error.c_str());
-    weatherTask = NULL;
-    vTaskDelete(NULL);
-    return;
-  }
-  Serial.printf("[WEATHER DEBUG] JSON parse OK\n");
 
   Weather_JSON data;
   memset(&data, 0, sizeof(data));
@@ -667,6 +737,25 @@ void updateWeatherPanelTask(void *parameter) {
       data.co = 0; data.no2 = 0; data.o3 = 0; data.so2 = 0; data.pm2_5 = 0; data.pm10 = 0;
       data.cloud = instant["cloud_area_fraction"] | 0.0f;
     }
+  } else if (used_backup) {
+    // wttr.in compact text: +29\u00b0C|+31\u00b0C|62%|1012hPa|\u21977km/h|Clear
+    char t[20] = {0}, f[20] = {0}, h[20] = {0}, p[20] = {0}, w[28] = {0}, c[40] = {0};
+    int n = sscanf(jsonBuf, "%19[^|]|%19[^|]|%19[^|]|%19[^|]|%27[^|]|%39[^\r\n]",
+                   t, f, h, p, w, c);
+    Serial.printf("[WEATHER] backup fields parsed=%d\n", n);
+    if (n >= 1) { data.temp_c = num_from(t); data.temp_f = data.temp_c * 9.0f / 5.0f + 32.0f; data.has_temp = true; }
+    if (n >= 2) { data.feelslike_c = num_from(f); data.feelslike_f = data.feelslike_c * 9.0f / 5.0f + 32.0f; data.has_feels = true; }
+    if (n >= 3) { data.humidity = num_from(h); data.has_hum = true; }
+    if (n >= 4) { data.pressure_mb = num_from(p); data.pressure_in = data.pressure_mb * 0.02953f; data.has_press = true; }
+    if (n >= 5) { data.wind_kph = num_from(w); data.wind_mph = data.wind_kph * 0.621371f; data.has_wind = true; }
+    data.code = code_from_condition(c);
+    data.is_day = 1;
+    data.has_uv = false;      // wttr.in compact form carries no UV
+    data.has_aqi = false;     // nor air quality - those stay grey
+    snprintf(data.state, sizeof(data.state), "%.4f,%.4f", weather_lat, weather_lon);
+    strncpy(data.last_updated, "", sizeof(data.last_updated));
+    data.has_last = false;
+    strncpy(data.wind_dir, "", sizeof(data.wind_dir));
   } else if (strcasecmp(s_weather_provider, "open-meteo") == 0) {
     // open-meteo: current.{temperature_2m,relative_humidity_2m,weather_code,...}
     JsonObject current = doc["current"].as<JsonObject>();
@@ -683,13 +772,21 @@ void updateWeatherPanelTask(void *parameter) {
     data.precip_in = data.precip_mm / 25.4f;
     data.feelslike_c = current["apparent_temperature"] | data.temp_c;
     data.feelslike_f = data.feelslike_c * 9.0f / 5.0f + 32.0f;
-    data.uv = 0.0f;
+    data.uv = current["uv_index"] | 0.0f;
     data.code = current["weather_code"] | 1000;
     data.is_day = current["is_day"] | 1;
     snprintf(data.state, sizeof(data.state), "%.4f,%.4f", weather_lat, weather_lon);
     strncpy(data.last_updated, current["time"] | "", sizeof(data.last_updated));
     strncpy(data.wind_dir, "", sizeof(data.wind_dir));
     data.co = 0; data.no2 = 0; data.o3 = 0; data.so2 = 0; data.pm2_5 = 0; data.pm10 = 0;
+
+    data.has_temp  = current.containsKey("temperature_2m");
+    data.has_feels = current.containsKey("apparent_temperature");
+    data.has_wind  = current.containsKey("wind_speed_10m");
+    data.has_hum   = current.containsKey("relative_humidity_2m");
+    data.has_press = current.containsKey("pressure_msl");
+    data.has_uv    = current.containsKey("uv_index");
+    data.has_last  = current.containsKey("time");
   } else {
     // weatherapi.com (original format)
     strncpy(data.last_updated, doc["current"]["last_updated"] | "", sizeof(data.last_updated));
@@ -727,64 +824,144 @@ void updateWeatherPanelTask(void *parameter) {
       data.is_day = doc["current"]["is_day"].as<uint8_t>();
     }
 
-    Serial.printf("[WEATHER DEBUG] Parsed: code=%d is_day=%d temp=%.1f humidity=%.0f pressure=%.0f\n",
-          data.code, data.is_day, data.temp_c, data.humidity, data.pressure_mb);
+    Serial.printf("[WEATHER] parsed: code=%d is_day=%d temp=%.1f humidity=%.0f pressure=%.0f uv=%.1f\n",
+          data.code, data.is_day, data.temp_c, data.humidity, data.pressure_mb, data.uv);
 
-    // 3. calculate & update AQI values
-    parseAQI(data.co, data.no2, data.o3, data.so2, data.pm2_5, data.pm10);
+    // Air quality is a separate open-meteo endpoint (same provider, no key,
+    // ~600 B). Without it the AQI widget has nothing real to show.
+    if (!used_backup && strcasecmp(s_weather_provider, "open-meteo") == 0) {
+      static char aqBuf[1024];
+      static JsonDocument aqDoc;
+      char aqURL[256];
+      snprintf(aqURL, sizeof(aqURL),
+               "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=%.4f"
+               "&longitude=%.4f&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,"
+               "sulphur_dioxide,ozone,us_aqi&timezone=auto",
+               weather_lat, weather_lon);
+      bool aq_ok = false;
+      for (int attempt = 1; attempt <= 2 && !aq_ok; attempt++) {
+        aq_ok = fetchUrlData(aqURL, true, aqBuf, sizeof(aqBuf));
+        if (!aq_ok) {
+          Serial.printf("[WEATHER] air-quality attempt %d/2 failed\n", attempt);
+          vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+      }
+      if (aq_ok) {
+        aqDoc.clear();
+        if (deserializeJson(aqDoc, aqBuf, strlen(aqBuf)) == DeserializationError::Ok) {
+          JsonObject c = aqDoc["current"].as<JsonObject>();
+          data.pm2_5 = c["pm2_5"] | 0.0f;
+          data.pm10 = c["pm10"] | 0.0f;
+          data.co = c["carbon_monoxide"] | 0.0f;
+          data.no2 = c["nitrogen_dioxide"] | 0.0f;
+          data.so2 = c["sulphur_dioxide"] | 0.0f;
+          data.o3 = c["ozone"] | 0.0f;
+          int usaqi = c["us_aqi"] | -1;
+          if (usaqi >= 0) {
+            parseAQI(data.co, data.no2, data.o3, data.so2, data.pm2_5, data.pm10);
+            snprintf(USAQI, sizeof(USAQI), "%d", usaqi);   // provider value wins
+            data.usepa_index = epa_index_from_us_aqi(usaqi);
+            data.name = us_epa_index_names[data.usepa_index - 1];
+            data.has_aqi = true;
+            Serial.printf("[WEATHER] air quality: us_aqi=%d category=%s\n", usaqi, data.name);
+          } else {
+            Serial.println("[WEATHER] air-quality reply has no us_aqi");
+          }
+        } else {
+          Serial.println("[WEATHER] air-quality JSON parse failed");
+        }
+      }
+      if (!data.has_aqi) {
+        Serial.println("[WEATHER] no air quality - AQI block stays grey");
+      }
+    }
+
+    // 3. AQI is computed when the air-quality reply arrives (above); running it
+    // on the weather payload's zeroed pollutants is what produced "0001".
 
     // 4. update weather panel
     bool isNight = (data.is_day == 0);
     const lv_img_dsc_t *iconImg = getWeatherIconImage(data.code, isNight);
     const lv_img_dsc_t *homeImg = getHomeIconImage(data.code, isNight, now.month);
 
-    char temp[32]; // fixed buffer on stack; zero heap usage
-    if (temp_unit == 0) {
-      snprintf(temp, sizeof(temp), "%.1f°c", data.temp_c);
+    char temp[32];
+    if (data.has_temp) {
+      snprintf(temp, sizeof(temp), temp_unit == 0 ? "%.1f°c" : "%.1f°F",
+               temp_unit == 0 ? data.temp_c : data.temp_f);
     } else {
-      snprintf(temp, sizeof(temp), "%.1f°F", data.temp_f);
+      snprintf(temp, sizeof(temp), "--");
     }
 
-    char details[256]; // adjust size if UI text grows
-    if (temp_unit == 0) {
-      // Celsius version
-      snprintf(details, sizeof(details),
-               "Feel like : %.1f°C\n"
-               "Wind     : %.0f km/h %s\n"
-               "Humidity : %.0f%%\n"
-               "Pressure : %.0f mb\n"
-               "UV Index : %.0f",
-               data.feelslike_c, data.wind_kph, data.wind_dir, data.humidity, data.pressure_mb, data.uv);
+    // Each row is built separately so a single missing field is greyed without
+    // affecting the rows that did arrive.
+    char l_feel[64], l_wind[80], l_hum[48], l_press[48], l_uv[48];
+    if (data.has_feels) {
+      snprintf(l_feel, sizeof(l_feel), "Feel like : %.1f°%s",
+               temp_unit == 0 ? data.feelslike_c : data.feelslike_f, temp_unit == 0 ? "C" : "F");
     } else {
-      // Fahrenheit version
-      snprintf(details, sizeof(details),
-               "Feel like : %.1f°F\n"
-               "Wind     : %.0f m/h %s\n"
-               "Humidity : %.0f%%\n"
-               "Pressure : %.2f in\n"
-               "UV Index : %.0f",
-               data.feelslike_f, data.wind_kph, data.wind_dir, data.humidity, data.pressure_in, data.uv);
+      snprintf(l_feel, sizeof(l_feel), "Feel like : " WEATHER_GREY_MARK " --#");
     }
+    if (data.has_wind) {
+      if (data.wind_dir[0])
+        snprintf(l_wind, sizeof(l_wind), "Wind     : %.0f km/h %s", data.wind_kph, data.wind_dir);
+      else
+        snprintf(l_wind, sizeof(l_wind), "Wind     : %.0f km/h", data.wind_kph);
+    } else {
+      snprintf(l_wind, sizeof(l_wind), "Wind     : " WEATHER_GREY_MARK " --#");
+    }
+    if (data.has_hum) {
+      snprintf(l_hum, sizeof(l_hum), "Humidity : %.0f%%", data.humidity);
+    } else {
+      snprintf(l_hum, sizeof(l_hum), "Humidity : " WEATHER_GREY_MARK " --#");
+    }
+    if (data.has_press) {
+      snprintf(l_press, sizeof(l_press), "Pressure : %.2f %s",
+               temp_unit == 0 ? data.pressure_mb : data.pressure_in, temp_unit == 0 ? "mb" : "in");
+    } else {
+      snprintf(l_press, sizeof(l_press), "Pressure : " WEATHER_GREY_MARK " --#");
+    }
+    if (data.has_uv) {
+      snprintf(l_uv, sizeof(l_uv), "UV Index : %.0f", data.uv);
+    } else {
+      snprintf(l_uv, sizeof(l_uv), "UV Index : " WEATHER_GREY_MARK " --#");
+    }
+
+    char details[320];
+    snprintf(details, sizeof(details), "%s\n%s\n%s\n%s\n%s",
+             l_feel, l_wind, l_hum, l_press, l_uv);
 
     char lastupdated[64];
-    snprintf(lastupdated, sizeof(lastupdated), "Last Updated: %s", data.last_updated);
+    if (data.has_last && data.last_updated[0]) {
+      snprintf(lastupdated, sizeof(lastupdated), "Last Updated: %s", data.last_updated);
+    } else {
+      snprintf(lastupdated, sizeof(lastupdated), "Last Updated: --");
+    }
 
     if (lvgl_port_lock(1000)) {
-      // 4.1 udpate AQI pollution widget
-      lv_img_set_src(ui_Info_Image_AQIimage, &us_epa_index_icon[data.usepa_index - 1]); // icon
-      lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(us_epa_index_colors[data.usepa_index - 1]), LV_PART_MAIN); // widget color
-      lv_label_set_text(ui_Info_Label_AQIlocation, data.state);
-      lv_label_set_text(ui_Info_Label_AQIvalue, USAQI);
-      lv_label_set_text(ui_Info_Label_AQIrate, data.name);
-      lv_label_set_text(ui_Info_Label_AQIdominant, dominantPollutant);
-      lv_label_set_text(ui_Info_Label_LastUpdated, lastupdated);
+      // 4.1 AQI widget: real data colours it, missing data greys it
+      if (data.has_aqi) {
+        lv_img_set_src(ui_Info_Image_AQIimage, &us_epa_index_icon[data.usepa_index - 1]);
+        lv_obj_set_style_bg_color(ui_Info_Panel_AQI,
+                                  lv_color_hex(us_epa_index_colors[data.usepa_index - 1]),
+                                  LV_PART_MAIN);
+      } else {
+        lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(WEATHER_GREY_HEX), LV_PART_MAIN);
+      }
+      set_field(ui_Info_Label_AQIlocation, data.has_aqi, data.state);
+      set_field(ui_Info_Label_AQIvalue, data.has_aqi, USAQI);
+      set_field(ui_Info_Label_AQIrate, data.has_aqi, data.name);
+      set_field(ui_Info_Label_AQIdominant, data.has_aqi, dominantPollutant);
+      set_field(ui_Info_Label_LastUpdated, data.has_last && data.last_updated[0], lastupdated);
 
-      // 4.2 udpate weather condition widget
-      lv_label_set_text(ui_Info_Label_Temp, temp);
-      lv_img_set_src(ui_Info_Image_WeatherIcon, iconImg); // icon
-      lv_img_set_src(ui_Info_Image_Home, homeImg); // icon
-      lv_label_set_text(ui_Info_Label_Detail, details);
-      setWeatherPanelBgColor(data.code, isNight); // set wallpaper
+      // 4.2 weather condition widget
+      set_field(ui_Info_Label_Temp, data.has_temp, temp);
+      lv_img_set_src(ui_Info_Image_WeatherIcon, iconImg);
+      lv_img_set_src(ui_Info_Image_Home, homeImg);
+      if (ui_Info_Label_Detail) {
+        lv_label_set_recolor(ui_Info_Label_Detail, true);   // per-row grey marks
+        lv_label_set_text(ui_Info_Label_Detail, details);
+      }
+      setWeatherPanelBgColor(data.code, isNight);
       lvgl_port_unlock();
     }
   UBaseType_t hwm = uxTaskGetStackHighWaterMark(NULL);
