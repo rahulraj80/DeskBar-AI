@@ -111,6 +111,9 @@ LittleFS or through the serial CLI / Web Remote. No recompile required.
   hardcoded coordinate. There is no built-in default location.
 - The geolocation response body is logged when it lacks `lat`/`lon`, so a
   provider change or an HTTP error is visible in the serial log.
+  Note that ip-api returns `lat`/`lon` as JSON **numbers** — read them with
+  `doc["lat"].as<float>()`; assigning to `const char *` silently yields `""`
+  for every successful response.
 - `wifi scan` brings the interface up (`WiFi.mode(WIFI_STA)`) first and prints
   `Scan failed (-2: WIFI_SCAN_FAILED)` instead of `Found -2 networks`.
 
