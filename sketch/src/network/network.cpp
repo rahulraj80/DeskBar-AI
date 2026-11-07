@@ -187,13 +187,17 @@ void saveWifiList(const WifiEntry list[], int count) {
   // Mirror into NVS as well: a LittleFS reformat (new partition layout, a bad
   // flash) would otherwise throw away credentials the user typed by hand.
   Preferences nvsp;
+  bool nvs_ok = false;
+  size_t nvs_len = 0;
   if (nvsp.begin("wifi", false)) {
     String json;
     serializeJson(doc, json);
-    nvsp.putString("list", json);
+    nvs_len = nvsp.putString("list", json);
+    nvs_ok = (nvs_len == json.length());
     nvsp.end();
   }
-  log_d("Saved %d WiFi entries (fs+nvs)", count);
+  Serial.printf("[WIFI] saved %d entr%s fs=1 nvs=%d len=%u\n",
+                count, count == 1 ? "y" : "ies", nvs_ok ? 1 : 0, (unsigned)nvs_len);
 }
 
 // ADD / UPDATE ENTRY
