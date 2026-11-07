@@ -138,7 +138,11 @@ is visible in the serial log rather than silent.
   cycle. The sensor is also held in a 1.5 s **settle window** right after
   `imu_sensor_wake()`, because the first samples out of sleep can read a
   different orientation than the one the device went to sleep with — that was
-  what paused breathing ~0.2 s into the first fade-in of every boot.
+  what paused breathing ~0.2 s into the first fade-in of every boot. A 3 s
+  settle window right after `imu_sensor_init()` does the same for the boot
+  baseline. The wttr.in fallback was exercised end to end with a temporary
+  switch (45 bytes parsed into temp/feels/humidity/pressure/wind, AQI left
+  grey) and the switch has been removed again.
 - **Missing data is grey, never faked**: every field carries a presence flag;
   absent values render as `--` in `#8a8a8a` (label recolor), the AQI card
   background goes grey instead of a green "Good" colour, the weather wallpaper

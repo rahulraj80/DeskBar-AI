@@ -53,6 +53,7 @@ bool imu_sensor_init(void) {
     esp_err_t err = qmi8658_init_with_dev(&s_qmi_dev, imu_dev_handle);
     if (err == ESP_OK) {
         s_imu_available = true;
+    s_settle_until_ms = millis() + 3000;   // absorb the boot-time baseline
         imu_sensor_load_calibration();
         ESP_LOGI(TAG, "QMI8658 6-axis IMU initialized successfully on I2C port 0");
         return true;
