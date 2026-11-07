@@ -69,17 +69,24 @@ static bool resolveIPGeolocation(char *outBuf, size_t outBufSize) {
     return false;
   }
 
-  const char *lat = doc["lat"] | "";
-  const char *lon = doc["lon"] | "";
-  if (lat[0] == '\0' || lon[0] == '\0') {
-    // Loud, not silent: show what the service actually returned.
+  // ip-api returns lat/lon as JSON *numbers*; reading them into a const char*
+  // always yields "" (ArduinoJson will not coerce), which made every successful
+  // response look like "missing lat/lon".
+  if (!doc.containsKey("lat") || !doc.containsKey("lon")) {
     Serial.printf("[WEATHER] geolocation response from %s has no lat/lon: %.200s\n",
                   s_geo_provider, jsonBuf);
     return false;
   }
+  const float lat = doc["lat"].as<float>();
+  const float lon = doc["lon"].as<float>();
+  if (lat == 0.0f && lon == 0.0f) {
+    Serial.printf("[WEATHER] geolocation response from %s resolved to 0,0: %.200s\n",
+                  s_geo_provider, jsonBuf);
+    return false;
+  }
 
-  snprintf(outBuf, outBufSize, "%s,%s", lat, lon);
-  Serial.printf("[WEATHER DEBUG] IP geolocation resolved (%s): %s\n", s_geo_provider, outBuf);
+  snprintf(outBuf, outBufSize, "%.4f,%.4f", lat, lon);
+  Serial.printf("[WEATHER] IP geolocation resolved (%s): %s\n", s_geo_provider, outBuf);
   return true;
 }
 
