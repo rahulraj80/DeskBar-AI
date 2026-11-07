@@ -848,6 +848,7 @@ void updateWeatherPanelTask(void *parameter) {
       }
       if (aq_ok) {
         aqDoc.clear();
+        sanitizeJson(aqBuf);   // open-meteo replies chunked; trim to the JSON body
         if (deserializeJson(aqDoc, aqBuf, strlen(aqBuf)) == DeserializationError::Ok) {
           JsonObject c = aqDoc["current"].as<JsonObject>();
           data.pm2_5 = c["pm2_5"] | 0.0f;
