@@ -337,6 +337,17 @@ full brightness (inverted PWM: duty 0 = LED on, duty 255 = LED off) before
 
 Launcher boots first; `bootToApp: false` shows the app selection menu.
 
+### Launcher autoboot to DeskBar (v2.6.4+)
+
+The WaveShare Launcher's second-stage bootloader chooses the boot partition by
+reset reason: power-on or deep-sleep wake starts the Launcher (`app0`,
+factory), a soft reset starts the selected OTA app (`deskbar`, ota_0). A
+`boot_app` NVS override (partition label) is honoured by
+`launcherBootCurrentApp()`. Final device state: `bootToApp=1`,
+`bootTimer=15` (~16 s window), `boot_app="deskbar"`, `dimtime=60`. A CLI
+`reboot` lands straight in DeskBar (~0.77 s from ROM); the hardware power
+button lands in the Launcher menu.
+
 ---
 
 ## 1-Hour Tour
