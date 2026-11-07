@@ -135,8 +135,10 @@ is visible in the serial log rather than silent.
 - **Rotation is ignored while the panel is black** (`BL_OFF` or the breathing
   dark phase): the orientation is tracked silently so the picture is correct
   when it lights up, but a rotation never wakes the device or restarts the
-  cycle. This is what stopped the IMU from pausing breathing a moment after
-  every fade-in.
+  cycle. The sensor is also held in a 1.5 s **settle window** right after
+  `imu_sensor_wake()`, because the first samples out of sleep can read a
+  different orientation than the one the device went to sleep with — that was
+  what paused breathing ~0.2 s into the first fade-in of every boot.
 - **Missing data is grey, never faked**: every field carries a presence flag;
   absent values render as `--` in `#8a8a8a` (label recolor), the AQI card
   background goes grey instead of a green "Good" colour, the weather wallpaper
