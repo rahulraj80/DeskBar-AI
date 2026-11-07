@@ -9,6 +9,7 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <LittleFS.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <stdint.h>
@@ -74,7 +75,7 @@ static bool ssid_equals(const char *a, const char *b) {
 }
 
 // load wifi credential from wifi.json
-int loadWifiList(WifiEntry list[]) {
+static int loadWifiListFs(WifiEntry list[]) {
   if (!LittleFS.exists(WIFI_FILE)) {
     log_w("wifi.json not found → creating empty list");
     File f = LittleFS.open(WIFI_FILE, "w");
@@ -130,6 +131,39 @@ int loadWifiList(WifiEntry list[]) {
   return count;
 }
 
+// NVS fallback: same JSON document, stored as a Preferences string.
+static int loadWifiListFromNvs(WifiEntry list[]) {
+  Preferences nvsp;
+  if (!nvsp.begin("wifi", true)) return 0;
+  String json = nvsp.getString("list", "");
+  nvsp.end();
+  if (json.length() == 0) return 0;
+
+  JsonDocument doc;
+  if (deserializeJson(doc, json) || !doc.is<JsonArray>()) return 0;
+
+  int count = 0;
+  for (JsonObject obj : doc.as<JsonArray>()) {
+    if (count >= WIFI_MAX) break;
+    const char *ssid = obj["ssid"];
+    if (!ssid || !*ssid) continue;
+    strncpy(list[count].ssid, ssid, sizeof(list[count].ssid) - 1);
+    const char *password = obj["password"];
+    strncpy(list[count].password, password ? password : "", sizeof(list[count].password) - 1);
+    sanitize_string(list[count].ssid);
+    sanitize_string(list[count].password);
+    count++;
+  }
+  if (count) log_i("[WIFI] recovered %d credential(s) from NVS", count);
+  return count;
+}
+
+int loadWifiList(WifiEntry list[]) {
+  int n = loadWifiListFs(list);
+  if (n > 0) return n;
+  return loadWifiListFromNvs(list);
+}
+
 // SAVE WIFI LIST
 void saveWifiList(const WifiEntry list[], int count) {
   JsonDocument doc;  // local (non-static) — freed on return, no permanent DRAM cost
@@ -149,7 +183,17 @@ void saveWifiList(const WifiEntry list[], int count) {
   }
   serializeJson(doc, f);
   f.close();
-  log_d("Saved %d WiFi entries", count);
+
+  // Mirror into NVS as well: a LittleFS reformat (new partition layout, a bad
+  // flash) would otherwise throw away credentials the user typed by hand.
+  Preferences nvsp;
+  if (nvsp.begin("wifi", false)) {
+    String json;
+    serializeJson(doc, json);
+    nvsp.putString("list", json);
+    nvsp.end();
+  }
+  log_d("Saved %d WiFi entries (fs+nvs)", count);
 }
 
 // ADD / UPDATE ENTRY
@@ -384,6 +428,15 @@ void wifi_connect_task(void *param) {
             snprintf(connectedMsg, sizeof(connectedMsg), "Connected to %s (%u.%u.%u.%u)", networkName, ip[0], ip[1], ip[2], ip[3]);
             log_i("%s", connectedMsg);
             updateWiFiStatus(connectedMsg, 0x00FF00, 0x0000FF);
+
+            // Persist the credentials that actually authenticated (fs + NVS), so
+            // a password typed on the device is never lost on reboot.
+            {
+              WifiEntry persist[WIFI_MAX];
+              int n = loadWifiList(persist);
+              n = addOrUpdateWifi(networkName, wifiList[matchIndex[idx]].password, persist, n);
+              saveWifiList(persist, n);
+            }
 
             extern bool g_boot_ntp_synced;
             extern QueueHandle_t ui_status_queue;

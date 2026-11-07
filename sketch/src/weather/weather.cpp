@@ -524,6 +524,14 @@ static void weather_panel_set_error(const char *why) {
   if (ui_Info_Panel_AQI) {
     lv_obj_set_style_bg_color(ui_Info_Panel_AQI, lv_color_hex(WEATHER_GREY_HEX), LV_PART_MAIN);
   }
+  // The wallpaper and the sky/home icons belong to the last good reading; a
+  // grey panel with a green gradient still looks like fresh data.
+  if (ui_Info_Panel_Weather) {
+    lv_obj_set_style_bg_color(ui_Info_Panel_Weather, lv_color_hex(0x2f2f2f), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(ui_Info_Panel_Weather, lv_color_hex(0x1c1c1c), LV_PART_MAIN);
+  }
+  if (ui_Info_Image_WeatherIcon) lv_obj_add_flag(ui_Info_Image_WeatherIcon, LV_OBJ_FLAG_HIDDEN);
+  if (ui_Info_Image_Home) lv_obj_add_flag(ui_Info_Image_Home, LV_OBJ_FLAG_HIDDEN);
   lvgl_port_unlock();
 }
 
@@ -623,6 +631,18 @@ void updateWeatherPanelTask(void *parameter) {
     }
     Serial.printf("[WEATHER] no coordinates - letting %s resolve '%s'\n",
                   s_weather_provider, effective_query);
+  }
+
+  // met.no's compact product is ~39 KB; fetchUrlData() stops at the 2 KB
+  // buffer, so it can never parse. Refuse loudly instead of burning a request
+  // and reporting a generic parse failure.
+  if (strcasecmp(s_weather_provider, "met.no") == 0) {
+    Serial.println("[WEATHER] met.no needs a ~40 KB response; use open-meteo "
+                   "(default) or the wttr.in fallback");
+    weather_panel_set_error("met.no unsupported");
+    weatherTask = NULL;
+    vTaskDelete(NULL);
+    return;
   }
 
   // Build provider-specific request URL
@@ -829,7 +849,20 @@ void updateWeatherPanelTask(void *parameter) {
 
     // Air quality is a separate open-meteo endpoint (same provider, no key,
     // ~600 B). Without it the AQI widget has nothing real to show.
-    if (!used_backup && strcasecmp(s_weather_provider, "open-meteo") == 0) {
+    static uint32_t s_aq_ms = 0;
+    static float s_aq_pm25 = 0, s_aq_pm10 = 0, s_aq_co = 0, s_aq_no2 = 0, s_aq_so2 = 0, s_aq_o3 = 0;
+    static int   s_aq_usaqi = -1;
+    const bool aq_fresh = s_aq_usaqi >= 0 && (millis() - s_aq_ms) < 60UL * 60UL * 1000UL;
+    if (!used_backup && strcasecmp(s_weather_provider, "open-meteo") == 0 && aq_fresh) {
+      data.pm2_5 = s_aq_pm25; data.pm10 = s_aq_pm10; data.co = s_aq_co;
+      data.no2 = s_aq_no2; data.so2 = s_aq_so2; data.o3 = s_aq_o3;
+      parseAQI(data.co, data.no2, data.o3, data.so2, data.pm2_5, data.pm10);
+      snprintf(USAQI, sizeof(USAQI), "%d", s_aq_usaqi);
+      data.usepa_index = epa_index_from_us_aqi(s_aq_usaqi);
+      data.name = us_epa_index_names[data.usepa_index - 1];
+      data.has_aqi = true;
+      Serial.printf("[WEATHER] air quality from cache: us_aqi=%d\n", s_aq_usaqi);
+    } else if (!used_backup && strcasecmp(s_weather_provider, "open-meteo") == 0) {
       static char aqBuf[1024];
       static JsonDocument aqDoc;
       char aqURL[256];
@@ -864,7 +897,11 @@ void updateWeatherPanelTask(void *parameter) {
             data.usepa_index = epa_index_from_us_aqi(usaqi);
             data.name = us_epa_index_names[data.usepa_index - 1];
             data.has_aqi = true;
-            Serial.printf("[WEATHER] air quality: us_aqi=%d category=%s\n", usaqi, data.name);
+            s_aq_ms = millis(); s_aq_usaqi = usaqi;
+            s_aq_pm25 = data.pm2_5; s_aq_pm10 = data.pm10; s_aq_co = data.co;
+            s_aq_no2 = data.no2; s_aq_so2 = data.so2; s_aq_o3 = data.o3;
+            Serial.printf("[WEATHER] air quality: us_aqi=%d category=%s (cached 60 min)\n",
+                          usaqi, data.name);
           } else {
             Serial.println("[WEATHER] air-quality reply has no us_aqi");
           }
@@ -956,8 +993,14 @@ void updateWeatherPanelTask(void *parameter) {
 
       // 4.2 weather condition widget
       set_field(ui_Info_Label_Temp, data.has_temp, temp);
-      lv_img_set_src(ui_Info_Image_WeatherIcon, iconImg);
-      lv_img_set_src(ui_Info_Image_Home, homeImg);
+      if (ui_Info_Image_WeatherIcon) {
+        lv_obj_clear_flag(ui_Info_Image_WeatherIcon, LV_OBJ_FLAG_HIDDEN);
+        lv_img_set_src(ui_Info_Image_WeatherIcon, iconImg);
+      }
+      if (ui_Info_Image_Home) {
+        lv_obj_clear_flag(ui_Info_Image_Home, LV_OBJ_FLAG_HIDDEN);
+        lv_img_set_src(ui_Info_Image_Home, homeImg);
+      }
       if (ui_Info_Label_Detail) {
         lv_label_set_recolor(ui_Info_Label_Detail, true);   // per-row grey marks
         lv_label_set_text(ui_Info_Label_Detail, details);

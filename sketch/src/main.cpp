@@ -607,8 +607,10 @@ void serial_cli_task(void *param) {
             arg.trim();
             arg.toLowerCase();
             if (arg == "met.no") {
-              secrets_set_weather_provider("met.no");
-              Serial.println("[CLI WEATHER] Weather provider: met.no");
+              // Its compact product is ~39 KB; fetchUrlData() stops at 2 KB, so
+              // choosing it can only ever produce a grey panel.
+              Serial.println("[CLI WEATHER] met.no unsupported: ~40 KB response exceeds the 2 KB fetch buffer");
+              Serial.println("[CLI WEATHER] Use: weather provider open-meteo");
             } else if (arg == "open-meteo") {
               secrets_set_weather_provider("open-meteo");
               Serial.println("[CLI WEATHER] Weather provider: open-meteo");
@@ -616,7 +618,7 @@ void serial_cli_task(void *param) {
               secrets_set_weather_provider("weatherapi.com");
               Serial.println("[CLI WEATHER] Weather provider: weatherapi.com");
             } else {
-              Serial.println("[CLI WEATHER] Usage: weather provider met.no|open-meteo|weatherapi.com");
+              Serial.println("[CLI WEATHER] Usage: weather provider open-meteo|weatherapi.com  (met.no unsupported)");
             }
           } else if (cmd.equalsIgnoreCase("weather settings")) {
             Serial.printf("[CLI WEATHER SETTINGS]\n");

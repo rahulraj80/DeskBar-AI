@@ -99,6 +99,14 @@ LittleFS or through the serial CLI / Web Remote. No recompile required.
 | met.no | ~40 KB | ✅ (`air_pressure_at_sea_level`) | May have memory issues on ESP32-S3 |
 | weatherapi.com | variable | ✅ | Requires API key; placeholder only |
 
+**Credential storage:** the saved-network list is written to **both**
+`/wifi.json` on LittleFS and a Preferences string in NVS (`wifi`/`list`), and
+is re-read from NVS if the file is missing or empty — a filesystem reformat no
+longer throws away a password typed on the device. Every **successful**
+association also re-saves the exact SSID/password pair that authenticated, so a
+credential that only lived in RAM (or came from a built-in default) is
+persisted the moment it works. Passwords are never baked into `secrets.h`.
+
 **Failure behaviour (loud, never silent):**
 
 - The fetch **waits up to 60 s for the Wi-Fi link**, re-nudging
@@ -114,13 +122,19 @@ LittleFS or through the serial CLI / Web Remote. No recompile required.
   every body must go through `sanitizeJson()` (trim to the first `{` … last
   `}`) before `deserializeJson()`. Forgetting that on the air-quality path made
   every parse fail with a valid-looking payload.
+- **Air quality is cached for 60 minutes** — it only changes hourly, while the
+  page can refresh every minute, so this halves the TLS round trips.
+- **met.no is refused up front** (`weather provider met.no` prints the reason
+  and does nothing): its compact product is ~39 KB against a 2 KB fetch buffer.
 - **Provider retry/fallback**: open-meteo is tried twice; if both fail the
   firmware falls back to **wttr.in's compact text form**
   (`?format=%t|%f|%h|%P|%w|%C`, ~45 B — `%P` is pressure, `%p` would be precipitation). met.no is *not* a usable fallback —
   its compact JSON is ~39 KB and `fetchUrlData()` stops at the 2 KB buffer.
 - **Missing data is grey, never faked**: every field carries a presence flag;
-  absent values render as `--` in `#8a8a8a` (label recolor) and the AQI card
-  background goes grey instead of a green "Good" colour.
+  absent values render as `--` in `#8a8a8a` (label recolor), the AQI card
+  background goes grey instead of a green "Good" colour, the weather wallpaper
+  drops to a neutral dark gradient and the sky/home icons are hidden — a stale
+  green gradient behind `--` read as fresh data otherwise.
 - The 15-minute weather refresh only runs **while the weather page is on
   screen** (`infoPageIndex == 1`). It used to fire on the clock face too, which
   woke the parked radio every quarter hour, failed after the connect timeout

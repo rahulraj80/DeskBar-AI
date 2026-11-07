@@ -217,7 +217,7 @@ static void telemetry_worker_task(void *pvParameters) {
 
         if (WiFi.status() != WL_CONNECTED) {
             log_w("[TELEMETRY] Burst Wi-Fi reconnect timed out (8s), retaining %d records", telemetry_count);
-            if (was_wifi_off && clock_face_active && !bsp_is_battery_charging() &&
+            if (was_wifi_off && clock_face_active && battery_charge_state() != BATT_CHARGE_CHARGING &&
                 (g_last_user_interaction_ms == 0 || millis() - g_last_user_interaction_ms >= 120000UL)) {
                 WiFi.disconnect(true);
                 WiFi.mode(WIFI_OFF);
@@ -317,7 +317,7 @@ static void telemetry_worker_task(void *pvParameters) {
     // 4. Audio is not playing
     // 5. Clock face is active
     if (was_wifi_off && clock_face_active && (!audio.isRunning() || mediaType >= 2) &&
-        !bsp_is_battery_charging() &&
+        battery_charge_state() != BATT_CHARGE_CHARGING &&
         (g_last_user_interaction_ms == 0 || millis() - g_last_user_interaction_ms >= 120000UL)) {
         WiFi.disconnect(true);
         WiFi.mode(WIFI_OFF);
