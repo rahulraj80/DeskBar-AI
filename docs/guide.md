@@ -116,7 +116,7 @@ LittleFS or through the serial CLI / Web Remote. No recompile required.
   every parse fail with a valid-looking payload.
 - **Provider retry/fallback**: open-meteo is tried twice; if both fail the
   firmware falls back to **wttr.in's compact text form**
-  (`?format=%t|%f|%h|%p|%w|%C`, ~60 B). met.no is *not* a usable fallback —
+  (`?format=%t|%f|%h|%P|%w|%C`, ~45 B — `%P` is pressure, `%p` would be precipitation). met.no is *not* a usable fallback —
   its compact JSON is ~39 KB and `fetchUrlData()` stops at the 2 KB buffer.
 - **Missing data is grey, never faked**: every field carries a presence flag;
   absent values render as `--` in `#8a8a8a` (label recolor) and the AQI card

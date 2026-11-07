@@ -668,7 +668,7 @@ void updateWeatherPanelTask(void *parameter) {
   if (!got && strcasecmp(s_weather_provider, "open-meteo") == 0) {
     char wurl[160];
     snprintf(wurl, sizeof(wurl),
-             "https://wttr.in/%.4f,%.4f?format=%%t|%%f|%%h|%%p|%%w|%%C",
+             "https://wttr.in/%.4f,%.4f?format=%%t|%%f|%%h|%%P|%%w|%%C",
              weather_lat, weather_lon);
     Serial.printf("[WEATHER] open-meteo down, trying backup: %s\n", wurl);
     got = fetchUrlData(wurl, true, jsonBuf, JSON_BUF_SIZE);
