@@ -34,6 +34,9 @@ extern "C" {
 #include "screens/ui_Screen_Utility.h"
 #include "screens/ui_Screen_PowerProfile.h"
 
+///////////////////// LAN DEVICES SCREEN ////////////////////
+#include "../lan_devices/lan_devices.h"
+
 ///////////////////// VARIABLES ////////////////////
 
 extern lv_anim_t * bounce_Animation(lv_obj_t * TargetObject, int delay);

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 136 146">
+  <!-- Home Assistant icon: house shape with checkmark -->
+  <rect width="136" height="146" fill="#0A0C10" rx="16"/>
+  <!-- House outline -->
+  <path d="M 68 20 L 110 58 L 110 104 L 68 126 L 26 104 L 26 58 Z" fill="none" stroke="#00E5FF" stroke-width="5" stroke-linejoin="round"/>
+  <!-- Checkmark inside house -->
+  <path d="M 44 78 L 60 94 L 96 58" fill="none" stroke="#00FF88" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Dot for server -->
+  <circle cx="68" cy="112" r="6" fill="#00E5FF"/>
+</svg>

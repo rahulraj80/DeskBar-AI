@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="none"/>
+  <!-- Window cover / blinds -->
+  <rect x="8" y="16" w="48" h="40" rx="4" fill="#161C28" stroke="#00E5FF" stroke-width="3"/>
+  <rect x="12" y="20" w="20" h="12" rx="2" fill="#00E5FF"/>
+  <rect x="32" y="20" w="20" h="12" rx="2" fill="#00E5FF"/>
+  <rect x="12" y="36" w="20" h="12" rx="2" fill="#00E5FF"/>
+  <rect x="32" y="36" w="20" h="12" rx="2" fill="#00E5FF"/>
+</svg>

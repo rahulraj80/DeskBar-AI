@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="none"/>
+  <!-- Sensor gauge -->
+  <rect x="14" y="14" w="36" h="36" rx="6" fill="#161C28" stroke="#00E5FF" stroke-width="3"/>
+  <path d="M 18 42 L 32 26 L 46 42" fill="none" stroke="#00FF88" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="30" r="3" fill="#00FF88"/>
+</svg>

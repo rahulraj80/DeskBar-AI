@@ -93,6 +93,7 @@ static void usb_bulk_end() {
 #include "updater/updater.h"
 #include "lan_stream/lan_stream.h"
 #include "imu/imu_service.h"
+#include "lan_devices/lan_devices.h"
 
 
 extern Audio audio;
@@ -251,6 +252,7 @@ void setup() {
   alarm_init();
   lan_stream_init();
   imu_sensor_init();
+  lan_devices_init();
   ota_post_boot_toast();
 
   // Free RTOS Tasks

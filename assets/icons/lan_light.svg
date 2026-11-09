@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="none"/>
+  <!-- Light bulb -->
+  <circle cx="32" cy="30" r="14" fill="#161C28" stroke="#FFD700" stroke-width="3"/>
+  <path d="M 26 44 L 38 44 L 34 52 L 30 52 Z" fill="#161C28" stroke="#FFD700" stroke-width="2"/>
+  <path d="M 32 18 L 32 24" stroke="#FFD700" stroke-width="2" stroke-linecap="round"/>
+</svg>

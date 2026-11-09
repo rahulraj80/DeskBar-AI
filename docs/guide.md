@@ -400,6 +400,31 @@ wifi panel            # Print exactly what the WiFi panel is showing
 wifi <on|off>         # Enable or disable WiFi
 ```
 
+### LAN Devices app (Main Menu, after AI Voice)
+
+HTTP-only local device control — no SSH, no OOM risk. Discovered via
+mDNS and controlled through plain HTTP REST.
+
+**Home Assistant** (the hub):
+- mDNS discovery: `_home-assistant._tcp.local.` finds HA servers on LAN
+- Manual add: host, port, long-lived access token (stored in NVS)
+- `GET /api/states` → all entities with `entity_id`, `state`, `attributes`
+- `POST /api/services/{domain}/{service}` → control (toggle, turn_on, etc.)
+- Credentials stored in NVS namespace `lan_dev`, never in `secrets.h`
+
+**Generic HTTP agents** (Pi, mobile Termux, desktop):
+- Tiny HTTP listener on each machine exposing `POST /command`
+- Discover via mDNS or manual add (name, host, port, base path)
+- No SSH key provisioning — agent runs on the target, ESP32 just POSTs
+
+**UI**: Main Menu icon after AI Voice opens a screen with:
+- `[X]` close button top-right → returns to menu
+- Swipeable vertical panel with location group headers ("Living Room", "Kitchen", etc.)
+- Each row: icon + name + location + toggle switch (controllable) or state text (read-only)
+- Entity types: switch, light, cover, fan, sensor
+
+**Flash/RAM**: ~300 KB added (mDNS + JSON parsing), well within the ~4 MB app-slot headroom.
+
 ### Key files to read first
 1. `sketch/src/file/file.cpp` — LittleFS init, `LITTLEFS_LABEL`
 2. `sketch/include/xtask.h` — Wi-Fi PS logic (~line 913)

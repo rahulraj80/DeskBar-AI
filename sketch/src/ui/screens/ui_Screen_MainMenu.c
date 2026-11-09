@@ -11,6 +11,7 @@ lv_obj_t * ui_MainMenu_Image_LiveStreaming = NULL;
 lv_obj_t * ui_MainMenu_Image_MusicPlayer = NULL;
 lv_obj_t * ui_MainMenu_Label_MusicTitle = NULL;
 lv_obj_t * ui_MainMenu_Image_ChatBot = NULL;
+lv_obj_t * ui_MainMenu_Image_LANDevices = NULL;
 lv_obj_t * ui_MainMenu_Image_Information = NULL;
 lv_obj_t * ui_MainMenu_Image_Utility = NULL;
 lv_obj_t * ui_MainMenu_Image_Config = NULL;
@@ -110,6 +111,18 @@ void ui_event_MainMenu_Image_ChatBot(lv_event_t * e)
     if(event_code == LV_EVENT_CLICKED) {
         chatBotMode(e);
         _ui_screen_change(&ui_Screen_Player, LV_SCR_LOAD_ANIM_OVER_TOP, 500, 0, &ui_Screen_Player_screen_init);
+    }
+    if(event_code == LV_EVENT_PRESSED) {
+        resetScreenOffTimer(e);
+    }
+}
+
+void ui_event_MainMenu_Image_LANDevices(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        lan_devices_open();
     }
     if(event_code == LV_EVENT_PRESSED) {
         resetScreenOffTimer(e);
@@ -534,11 +547,23 @@ void ui_Screen_MainMenu_screen_init(void)
                       LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE |
                       LV_OBJ_FLAG_SCROLLABLE);     /// Flags
 
+    ui_MainMenu_Image_LANDevices = lv_img_create(ui_MainMenu_Panel_Menu);
+    lv_img_set_src(ui_MainMenu_Image_LANDevices, &ui_img_images_climate_png);
+    lv_obj_set_width(ui_MainMenu_Image_LANDevices, 136);
+    lv_obj_set_height(ui_MainMenu_Image_LANDevices, 146);
+    lv_obj_set_x(ui_MainMenu_Image_LANDevices, 612);
+    lv_obj_set_y(ui_MainMenu_Image_LANDevices, 0);
+    lv_obj_set_align(ui_MainMenu_Image_LANDevices, LV_ALIGN_LEFT_MID);
+    lv_obj_add_flag(ui_MainMenu_Image_LANDevices, LV_OBJ_FLAG_CLICKABLE);     /// Flags
+    lv_obj_clear_flag(ui_MainMenu_Image_LANDevices,
+                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE |
+                      LV_OBJ_FLAG_SCROLLABLE);     /// Flags
+
     ui_MainMenu_Image_Utility = lv_img_create(ui_MainMenu_Panel_Menu);
     lv_img_set_src(ui_MainMenu_Image_Utility, &ui_img_images_utility_png);
     lv_obj_set_width(ui_MainMenu_Image_Utility, 136);
     lv_obj_set_height(ui_MainMenu_Image_Utility, 146);
-    lv_obj_set_x(ui_MainMenu_Image_Utility, 612);
+    lv_obj_set_x(ui_MainMenu_Image_Utility, 762);
     lv_obj_set_y(ui_MainMenu_Image_Utility, 0);
     lv_obj_set_align(ui_MainMenu_Image_Utility, LV_ALIGN_LEFT_MID);
     lv_obj_add_flag(ui_MainMenu_Image_Utility, LV_OBJ_FLAG_CLICKABLE);     /// Flags
@@ -550,7 +575,7 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_img_set_src(ui_MainMenu_Image_Config, &ui_img_images_settings_png);
     lv_obj_set_width(ui_MainMenu_Image_Config, 136);
     lv_obj_set_height(ui_MainMenu_Image_Config, 146);
-    lv_obj_set_x(ui_MainMenu_Image_Config, 762);
+    lv_obj_set_x(ui_MainMenu_Image_Config, 912);
     lv_obj_set_y(ui_MainMenu_Image_Config, 0);
     lv_obj_set_align(ui_MainMenu_Image_Config, LV_ALIGN_LEFT_MID);
     lv_obj_add_flag(ui_MainMenu_Image_Config, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_ADV_HITTEST);     /// Flags
@@ -1156,6 +1181,7 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_add_event_cb(ui_MainMenu_Image_LiveStreaming, ui_event_MainMenu_Image_LiveStreaming, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Image_MusicPlayer, ui_event_MainMenu_Image_MusicPlayer, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Image_ChatBot, ui_event_MainMenu_Image_ChatBot, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_MainMenu_Image_LANDevices, ui_event_MainMenu_Image_LANDevices, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Image_Information, ui_event_MainMenu_Image_Information, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Image_Utility, ui_event_MainMenu_Image_Utility, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_MainMenu_Image_Config, ui_event_MainMenu_Image_Config, LV_EVENT_ALL, NULL);
@@ -1208,6 +1234,7 @@ void ui_Screen_MainMenu_screen_destroy(void)
     ui_MainMenu_Image_MusicPlayer = NULL;
     ui_MainMenu_Label_MusicTitle = NULL;
     ui_MainMenu_Image_ChatBot = NULL;
+    ui_MainMenu_Image_LANDevices = NULL;
     ui_MainMenu_Image_Information = NULL;
     ui_MainMenu_Image_Utility = NULL;
     ui_MainMenu_Image_Config = NULL;
