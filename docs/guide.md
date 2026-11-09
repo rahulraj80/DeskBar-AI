@@ -417,12 +417,32 @@ current OTA image is `firmware-v2.6.4.bin` (3,208,880 bytes), served from
 # Build on a machine with PlatformIO
 pio run -d sketch -e esp32-s3-devkitc1-n16r8
 
-# Flash via esptool (merged bootloader + partitions + app)
-esptool write_flash 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin
-
-# Or flash individual app partition under Launcher
-# (Launcher handles partition creation and app slot management)
+# Git-first remote build (resets auto's checkout to origin/main, builds both
+# envs, downloads build_phase1/firmware.bin) — the normal release build
+python3 scripts/sync_and_build.py --no-push
 ```
+
+**Flashing this device (Waveshare 3.49 V2 under the Launcher):** the partition
+table is the Launcher's — `app0` (Launcher) at `0x10000`, `deskbar` (`ota_0`)
+at `0x1A0000`, `bruce` (`ota_1`) at `0x8A0000`. **Flash the app image only,
+into the `deskbar` slot**; writing the app at `0x10000` overwrites the
+Launcher:
+```bash
+esptool --chip esp32s3 -p /dev/ttyACM0 -b 460800 write-flash -z \
+        --flash-mode dio --flash-freq 80m --flash-size detect \
+        0x1A0000 build_phase1/firmware.bin
+```
+Never flash `bootloader.bin` / `partitions.bin` / `boot_app0.bin` on this
+unit: that replaces the Launcher's table (and unless the `littlefs` data
+partition survives, WiFi credentials are lost).
+
+**Releasing (OTA):** bump `sketch/include/version.h` (or `release.py patch`),
+commit, tag `vX.Y.Z`, run `scripts/generate_catalog.py`
+(`releases/firmware_catalog.json` → `sketch/include/generated_catalog.h`,
+embedded in the firmware), then `scripts/publish_ota.py vX.Y.Z` to stage the
+binary in `releases/bin/`, enforce the retention limit and push. Keep catalog
+entries and `releases/bin/` in step — an entry whose binary was pruned is a
+404 for every device running the updater.
 
 ### Remote build on `auto`
 ```bash
