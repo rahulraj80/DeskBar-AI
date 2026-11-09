@@ -131,7 +131,29 @@ master_pin=1234
 ```
 
 Upload this file to your device via:
-- **Web Remote**: Open `http://<device-ip>/` in your browser and upload `/secrets.ini` via the file manager.
-- **USB Serial CLI**: `secrets set ai.endpoint https://my-private-server.org/ask.php`.
+- **Web Remote**: `POST http://<device-ip>/api/secrets` with an `ai_url` field (or upload `/secrets.ini` through the file manager).
+  ```bash
+  curl -X POST http://<device-ip>/api/secrets \
+       -d "ai_url=https://my-private-server.org/ask.php" \
+       -d "telem_url=https://my-private-server.org/myapi.php" \
+       -d "table=TB_XXXXXXXXXXXX" -d "interval=300" -d "pin=1234" -d "consent=1"
+  curl http://<device-ip>/api/secrets   # verify the applied values
+  ```
+- **USB Serial CLI**: there is no `secrets set` command — use the Web Remote
+  POST above, or upload `/secrets.ini` to LittleFS directly.
 
-The device immediately prioritizes your private server for all voice interactions.
+From v2.6.6 both voice paths (\[MIC\] upload **and** `ask`/`/api/ask`) honour
+the configured `ai_url`. Earlier builds only honoured it for text queries:
+`ai_upload_task()` connected to the compile-time `AI_ASSISTANT_HOST`, so voice
+uploads kept going to the placeholder host whatever `/secrets.ini` said.
+
+**Requirements for a private server:**
+- `https://` only for the voice upload path (a plain `http://` endpoint is
+  refused with `AI endpoint not configured` on the panel).
+- Respond to `POST /ask.php` with HTTP 200 and `application/json`
+  (`{"status":"ok","question":…,"answer":…,"audio_url":…}`). A 200 that is not
+  JSON (parked page, captive portal, HTML error page) shows
+  *"Server sent a web page, not an AI reply"*.
+- If you clone the community server, remember it additionally gates on a
+  device whitelist (`/var/www/data/registered_devices.json`); devices not in
+  the file get `{"status":"restricted"}`.

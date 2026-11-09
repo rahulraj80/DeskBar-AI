@@ -304,11 +304,69 @@ static void write_wav_header(uint8_t *header, uint32_t pcm_data_size, uint32_t s
   header[43] = (uint8_t)((pcm_data_size >> 24) & 0xFF);
 }
 
+// Resolve the runtime-configured AI endpoint (Settings / /secrets.ini) into
+// host / port / path for the raw-socket upload below. The voice path used to
+// connect to the compile-time AI_ASSISTANT_HOST only, so an ai_url override
+// never reached it (the device kept POSTing to the placeholder host).
+struct AiEndpoint {
+  bool     valid;
+  bool     tls;
+  char     host[128];
+  uint16_t port;
+  char     path[160];
+};
+
+static void resolve_ai_endpoint(AiEndpoint *ep) {
+  ep->valid = false;
+  ep->tls = true;
+  ep->port = 443;
+  ep->host[0] = '\0';
+  strncpy(ep->path, AI_ASSISTANT_PATH, sizeof(ep->path) - 1);
+  ep->path[sizeof(ep->path) - 1] = '\0';
+
+  const char *url = secrets_get_ai_url();
+  if (!url) return;
+
+  const char *p = nullptr;
+  if (strncmp(url, "https://", 8) == 0) {
+    p = url + 8;
+    ep->port = 443;
+  } else if (strncmp(url, "http://", 7) == 0) {
+    p = url + 7;
+    ep->port = 80;
+    ep->tls = false;
+  } else {
+    return; // scheme-less endpoint: unusable
+  }
+
+  const char *slash = strchr(p, '/');
+  const char *host_end = slash ? slash : p + strlen(p);
+  const char *colon = NULL;
+  for (const char *c = p; c < host_end; c++) {
+    if (*c == ':') colon = c;
+  }
+
+  size_t host_len = (size_t)((colon ? colon : host_end) - p);
+  if (host_len == 0 || host_len >= sizeof(ep->host)) return;
+  memcpy(ep->host, p, host_len);
+  ep->host[host_len] = '\0';
+
+  if (colon) {
+    long v = atol(colon + 1);
+    if (v > 0 && v < 65536) ep->port = (uint16_t)v;
+  }
+  if (slash && slash[0] != '\0') {
+    strncpy(ep->path, slash, sizeof(ep->path) - 1);
+    ep->path[sizeof(ep->path) - 1] = '\0';
+  }
+  ep->valid = ep->tls; // the upload path speaks TLS; plain http is refused
+}
+
 void ai_upload_task(void *param) {
   ai_upload_in_progress = true;
 
   size_t wav_len = 44 + ai_rec_pcm_bytes;
-  log_i("[AI UPLOAD] Posting %u bytes WAV to %s...", (unsigned)wav_len, AI_ASSISTANT_URL);
+  log_i("[AI UPLOAD] Posting %u bytes WAV to %s...", (unsigned)wav_len, secrets_get_ai_url());
 
   if (WiFi.status() != WL_CONNECTED) {
     log_e("[AI UPLOAD] WiFi offline, cannot upload");
@@ -322,13 +380,28 @@ void ai_upload_task(void *param) {
     return;
   }
 
+  AiEndpoint ep;
+  resolve_ai_endpoint(&ep);
+  if (!ep.valid) {
+    log_e("[AI UPLOAD] AI endpoint '%s' is unusable (must be an https URL)",
+          secrets_get_ai_url() ? secrets_get_ai_url() : "(null)");
+    UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+    snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nAI endpoint not configured.\nSet it in Settings.");
+    xQueueSend(ui_status_queue, &p, 100);
+    UIStatusPayload p2 = {.type = STATUS_UPDATE_AI_IDLE};
+    xQueueSend(ui_status_queue, &p2, 100);
+    ai_upload_in_progress = false;
+    vTaskDelete(NULL);
+    return;
+  }
+
   {
     WiFiClientSecure client;
     client.setInsecure(); // Public server with Let's Encrypt TLS
 
-    log_i("[AI UPLOAD] Connecting to %s:%d (HTTPS)...", AI_ASSISTANT_HOST, (int)AI_ASSISTANT_PORT);
-    if (!client.connect(AI_ASSISTANT_HOST, AI_ASSISTANT_PORT)) {
-      log_e("[AI UPLOAD] TLS connection to %s:%d failed", AI_ASSISTANT_HOST, (int)AI_ASSISTANT_PORT);
+    log_i("[AI UPLOAD] Connecting to %s:%d%s (HTTPS)...", ep.host, (int)ep.port, ep.path);
+    if (!client.connect(ep.host, ep.port)) {
+      log_e("[AI UPLOAD] TLS connection to %s:%d failed", ep.host, (int)ep.port);
       UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
       snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nCannot connect to server.");
       xQueueSend(ui_status_queue, &p, 100);
@@ -338,8 +411,8 @@ void ai_upload_task(void *param) {
       client.setTimeout(30000); // Set 30s timeout on active socket descriptor
       log_i("[AI UPLOAD] Connected via TLS! Sending headers...");
       const char *device_id = secrets_get_telemetry_table();
-      client.printf("POST %s?device=%s HTTP/1.1\r\n", AI_ASSISTANT_PATH, device_id);
-      client.printf("Host: %s\r\n", AI_ASSISTANT_HOST);
+      client.printf("POST %s?device=%s HTTP/1.1\r\n", ep.path, device_id);
+      client.printf("Host: %s\r\n", ep.host);
       client.print("User-Agent: ESP32-TuneBar\r\n");
       client.printf("X-Device-Id: %s\r\n", device_id);
       client.print("Content-Type: audio/wav\r\n");
@@ -438,7 +511,11 @@ void ai_upload_task(void *param) {
           log_i("[AI UPLOAD] HTTP Status: %d (%u bytes received)", httpCode, (unsigned)total_bytes);
 
           char *json_start = strchr(resp_buf, '{');
-          if (httpCode == 200 && json_start) {
+          // Only treat the body as an AI reply when it really carries a JSON
+          // "status" key: a parked domain / error page with HTTP 200 used to be
+          // parsed as JSON, which surfaced as a bare "Bad server response".
+          bool looks_like_json = (json_start != NULL) && (strstr(json_start, "\"status\"") != NULL);
+          if (httpCode == 200 && looks_like_json) {
             log_i("[AI UPLOAD] JSON payload: %s", json_start);
             JsonDocument doc;
             DeserializationError dErr = deserializeJson(doc, json_start);
@@ -482,15 +559,23 @@ void ai_upload_task(void *param) {
                 }
               }
             } else {
-              log_e("[AI UPLOAD] JSON parse failed: %s", dErr.c_str());
+              log_e("[AI UPLOAD] JSON parse failed: %s (endpoint %s%s)", dErr.c_str(), ep.host, ep.path);
               UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
               snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nBad server response.");
               xQueueSend(ui_status_queue, &p, 100);
               UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
               xQueueSend(ui_status_queue, &p_idle, 100);
             }
+          } else if (httpCode == 200) {
+            log_e("[AI UPLOAD] HTTP 200 but the body is not an AI JSON reply (endpoint %s%s, %u bytes)",
+                  ep.host, ep.path, (unsigned)total_bytes);
+            UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
+            snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error:\nServer sent a web page, not an AI reply.\nCheck the AI endpoint in Settings.");
+            xQueueSend(ui_status_queue, &p, 100);
+            UIStatusPayload p_idle = {.type = STATUS_UPDATE_AI_IDLE};
+            xQueueSend(ui_status_queue, &p_idle, 100);
           } else {
-            log_e("[AI UPLOAD] Server returned HTTP error: %d", httpCode);
+            log_e("[AI UPLOAD] Server returned HTTP error: %d (endpoint %s%s)", httpCode, ep.host, ep.path);
             UIStatusPayload p = {.type = STATUS_UPDATE_TRACK_DESC_SET};
             snprintf(p.trackDesc, sizeof(p.trackDesc), "AI Assistant Error (HTTP %d).\nTap [ MIC ] to retry.", httpCode);
             xQueueSend(ui_status_queue, &p, 100);

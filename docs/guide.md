@@ -184,8 +184,62 @@ weather settings          # Show full weather/geo configuration
 **Web Remote:** `GET/POST /api/secrets` includes `weather_geo_enabled`,
 `weather_geo_provider`, `weather_geo_url`, `weather_provider` fields.
 
-**Geo fallback:** When IP geolocation fails (e.g. `ip-api.com` unreachable),
-falls back to hardcoded Patna coordinates (25.5943, 85.1352).
+**Geo fallback:** there is **no** built-in default location any more (the old
+hardcoded `25.5943,85.1352` Patna fallback was removed): if IP geolocation fails
+the weather fetch aborts and the panel shows `Location unresolved`.
+
+### AI Voice Assistant endpoint (configurable via /secrets.ini, Web Remote or CLI)
+
+The AI voice assistant has **two** request paths and both must use the same
+configured endpoint:
+
+| Path | Trigger | Code |
+|---|---|---|
+| Voice upload | \[MIC\] button / `mic` | `ai_upload_task()` in `sketch/include/xtask.h` — raw `WiFiClientSecure` POST of a 16 kHz WAV, expects a JSON reply |
+| Text query | `ask <text>` / Web Remote `/api/ask` | `main.cpp` / `web_remote.cpp` → `audioPlayHOST(<url>?q=...)`, streams MP3 |
+
+**Endpoint resolution (v2.6.6+):** `secrets_get_ai_url()` is the single source
+of truth. `ai_upload_task()` parses it into host / port / path with
+`resolve_ai_endpoint()`; before that it connected to the compile-time
+`AI_ASSISTANT_HOST` only, so a `/secrets.ini` override silently did nothing for
+voice uploads (they kept POSTing to the placeholder host). The upload path is
+**https only**; a plain `http://` endpoint is refused with
+`AI endpoint not configured. Set it in Settings.`
+
+**Default** (baked into `sketch/include/secrets_example.h`):
+`https://autobots.my.to/ask.php` — the complimentary community endpoint. It
+whitelists device IDs (`/var/www/data/registered_devices.json`) and answers
+`{"status":"restricted", …}` for anything else, which the device shows as
+*"AI Assistant Restricted"*.
+
+**Expected reply** (HTTP 200, `application/json`):
+`{"status":"ok","question":"…","answer":"…","audio_url":"https://…/ai_cache/<md5>.mp3"}`.
+If `audio_url` is present the device streams it and plays it through ES8311.
+
+**Failure messages, and what they mean:**
+
+| On-screen text | Cause |
+|---|---|
+| `WiFi offline` | radio parked/not associated when the upload task started |
+| `Cannot connect to server` | TLS connect to the resolved host failed |
+| `Server sent a web page, not an AI reply` | HTTP 200 whose body has no JSON `"status"` key — classic parked-domain / proxy-captive-portal page |
+| `Bad server response` | body looked like JSON but `deserializeJson()` failed |
+| `AI Assistant Restricted: …` | server refused this device ID |
+| `AI Assistant Error (HTTP nnn)` | server answered with a non-200 |
+| `AI endpoint not configured` | `ai_url` missing, scheme-less, or plain `http` |
+
+**Setting it:**
+```
+# serial CLI (persists to /secrets.ini, no reboot)
+mic                     # record → uploads → speak the answer
+
+# web remote
+curl -X POST http://<device-ip>/api/secrets -d "ai_url=https://your-server/ask.php"
+curl http://<device-ip>/api/secrets      # verify
+```
+`secrets_write_ini_file()` rewrites `/secrets.ini` with the `[ai]`, `[telemetry]`,
+`[security]` and `[weather]` sections, so always send the values you want kept
+(omitted form fields fall back to the current runtime value in the handler).
 
 ---
 
@@ -435,6 +489,18 @@ mDNS and controlled through plain HTTP REST.
 5. `sketch/partitions/7MB_app_ota_2MB_littlefs.csv` — partition table
 
 ### Common gotchas
+- **AI Voice answers "Bad server response"**: the device was POSTing the WAV to
+  the compile-time placeholder `https://api.your-domain.com/ask.php` (a parked
+  "domain for sale" page, HTTP 200 + text/html whose `<style>body{…}</style>`
+  supplied the `{` the parser then choked on). Two bugs: the baked default was
+  never moved to `autobots.my.to` (unlike `TELEMETRY_HOST`), and
+  `ai_upload_task()` ignored `secrets_get_ai_url()` entirely, so an `ai_url`
+  override only affected the text path. Fixed 2026-11-09: default host changed,
+  `resolve_ai_endpoint()` added, non-JSON HTTP 200 now reports
+  `Server sent a web page, not an AI reply`. Check the live value with
+  `GET /api/secrets` → `ai_url`. Server side, the device ID must exist in
+  `/var/www/data/registered_devices.json` or the reply is
+  `{"status":"restricted"}`.
 - **Wi-Fi won't connect**: LittleFS label mismatch → `/wifi.json` unreadable
   → `ESP_ERR_WIFI_SSID`. Check partition label matches `LITTLEFS_LABEL`
   (`spiffs` for non-launcher builds). Fixed 2026-11-04:

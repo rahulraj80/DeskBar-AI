@@ -61,7 +61,7 @@
  * 4. MP3 Caching: Save MP3 to a public web cache directory and return the URL.
  */
 #ifndef AI_ASSISTANT_HOST
-#define AI_ASSISTANT_HOST        "api.your-domain.com"
+#define AI_ASSISTANT_HOST        "autobots.my.to"
 #endif
 
 #ifndef AI_ASSISTANT_PORT
