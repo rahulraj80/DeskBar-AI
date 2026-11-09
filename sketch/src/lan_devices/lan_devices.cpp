@@ -554,91 +554,104 @@ const lan_agent_t *lan_devices_agent_get(int idx) {
  *  Keyboard / text entry helpers (borrowed from WiFi settings pattern)
  * ======================================================================== */
 
+/* Keyboard dialog, styled exactly like Settings -> Wi-Fi: a form panel on the
+ * LEFT (title + textarea + OK/Cancel) and the keyboard on the RIGHT
+ * (350 px wide, full height). Both live on the LAN screen and are re-used for
+ * every step; the step just changes the title/placeholder. */
+static void on_kb_done_click(lv_event_t *e);
+
 static void kb_panel_hide(void) {
-    if (!s_kb_panel) return;
-    lv_obj_add_flag(s_kb_panel, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(s_kb_keyboard, LV_OBJ_FLAG_HIDDEN);
+    if (s_kb_panel) lv_obj_add_flag(s_kb_panel, LV_OBJ_FLAG_HIDDEN);
+    if (s_kb_keyboard) lv_obj_add_flag(s_kb_keyboard, LV_OBJ_FLAG_HIDDEN);
     s_kb_mode = KB_NONE;
 }
 
-static void kb_panel_show(const char *title_text, lv_obj_t *textarea, lv_obj_t *keyboard,
-                          lv_obj_t *done_btn, const char *placeholder, int max_len) {
-    if (s_kb_panel) {
-        // Deferred: this runs from the OK button's handler, which lives on the
-        // panel being replaced.
-        lv_obj_del_async(s_kb_panel);
-        s_kb_panel = NULL;
-    }
+static void kb_cancel_cb(lv_event_t *e) { kb_panel_hide(); }
 
+static void kb_panel_create(void) {
+    if (s_kb_panel) return;
+
+    // --- LEFT form panel (280 px, full height) ---
     s_kb_panel = lv_obj_create(s_screen);
-    lv_obj_set_size(s_kb_panel, 640, 172);
-    lv_obj_set_align(s_kb_panel, LV_ALIGN_CENTER);
-    lv_obj_set_style_bg_color(s_kb_panel, lv_color_hex(0x0A0C10), 0);
-    lv_obj_set_style_bg_opa(s_kb_panel, 255, 0);
+    lv_obj_set_size(s_kb_panel, 288, 172);
+    lv_obj_set_align(s_kb_panel, LV_ALIGN_TOP_LEFT);
     lv_obj_clear_flag(s_kb_panel, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_radius(s_kb_panel, 0, 0);
+    lv_obj_set_style_bg_color(s_kb_panel, lv_color_hex(0x060c14), 0);
+    lv_obj_set_style_bg_opa(s_kb_panel, 255, 0);
+    lv_obj_set_style_border_color(s_kb_panel, lv_color_hex(0x00d2ff), 0);
+    lv_obj_set_style_border_width(s_kb_panel, 2, 0);
+    lv_obj_set_style_pad_all(s_kb_panel, 6, 0);
 
-    // Title
     s_kb_title = lv_label_create(s_kb_panel);
-    lv_label_set_text(s_kb_title, title_text);
+    lv_obj_set_width(s_kb_title, 268);
+    lv_label_set_long_mode(s_kb_title, LV_LABEL_LONG_WRAP);
+    lv_obj_align(s_kb_title, LV_ALIGN_TOP_LEFT, 2, 4);
+    lv_obj_set_style_text_font(s_kb_title, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(s_kb_title, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_text_font(s_kb_title, &lv_font_montserrat_20, 0);
-    lv_obj_align(s_kb_title, LV_ALIGN_TOP_LEFT, 16, 12);
 
-    // Close button
-    lv_obj_t *close_btn = lv_btn_create(s_kb_panel);
-    lv_obj_set_size(close_btn, 48, 48);
-    lv_obj_align(close_btn, LV_ALIGN_TOP_RIGHT, -16, 12);
-    lv_obj_set_style_bg_color(close_btn, lv_color_hex(0x333333), 0);
-    lv_obj_set_style_border_color(close_btn, lv_color_hex(0x666666), 0);
-    lv_obj_set_style_border_width(close_btn, 2, 0);
-    lv_obj_set_style_radius(close_btn, 10, 0);
-    lv_obj_add_event_cb(close_btn, [](lv_event_t *e) { kb_panel_hide(); }, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t *close_lbl = lv_label_create(close_btn);
-    lv_label_set_text(close_lbl, "✕");
-    lv_obj_center(close_lbl);
-    lv_obj_set_style_text_font(close_lbl, &lv_font_montserrat_20, 0);
-    lv_obj_set_style_text_color(close_lbl, lv_color_hex(0xFFFFFF), 0);
-
-    // Textarea
     s_kb_textarea = lv_textarea_create(s_kb_panel);
-    lv_obj_set_width(s_kb_textarea, 608);
-    lv_obj_set_height(s_kb_textarea, 48);
-    lv_obj_align(s_kb_textarea, LV_ALIGN_TOP_MID, 0, 50);
+    lv_obj_set_size(s_kb_textarea, 268, 40);
+    lv_obj_align(s_kb_textarea, LV_ALIGN_TOP_LEFT, 2, 44);
     lv_textarea_set_one_line(s_kb_textarea, true);
-    lv_textarea_set_max_length(s_kb_textarea, 96);
-    lv_textarea_set_placeholder_text(s_kb_textarea, placeholder);
-    lv_obj_set_style_text_font(s_kb_textarea, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(s_kb_textarea, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_bg_color(s_kb_textarea, lv_color_hex(0x161C28), 0);
-    lv_obj_set_style_bg_opa(s_kb_textarea, 255, 0);
+    lv_obj_set_style_text_font(s_kb_textarea, &lv_font_montserrat_14, 0);
 
-    // Keyboard
-    s_kb_keyboard = lv_keyboard_create(s_kb_panel);
-    lv_obj_set_width(s_kb_keyboard, 640);
-    lv_obj_set_height(s_kb_keyboard, lv_pct(55));
-    lv_obj_align(s_kb_keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_keyboard_set_mode(s_kb_keyboard, LV_KEYBOARD_MODE_TEXT_LOWER);
-    lv_keyboard_set_textarea(s_kb_keyboard, s_kb_textarea);
-    lv_obj_clear_flag(s_kb_keyboard, LV_OBJ_FLAG_HIDDEN);
-
-    // Done button
     s_kb_done_btn = lv_btn_create(s_kb_panel);
-    lv_obj_set_size(s_kb_done_btn, 120, 40);
-    lv_obj_align(s_kb_done_btn, LV_ALIGN_BOTTOM_RIGHT, -20, -16);
+    lv_obj_set_size(s_kb_done_btn, 128, 40);
+    lv_obj_align(s_kb_done_btn, LV_ALIGN_BOTTOM_LEFT, 2, -2);
     lv_obj_set_style_bg_color(s_kb_done_btn, lv_color_hex(0x0088cc), 0);
     lv_obj_set_style_bg_opa(s_kb_done_btn, 255, 0);
-    lv_obj_set_style_border_color(s_kb_done_btn, lv_color_hex(0x00E5FF), 0);
-    lv_obj_set_style_border_width(s_kb_done_btn, 2, 0);
-    lv_obj_set_style_radius(s_kb_done_btn, 6, 0);
-
     lv_obj_t *done_lbl = lv_label_create(s_kb_done_btn);
     lv_label_set_text(done_lbl, "OK");
     lv_obj_center(done_lbl);
     lv_obj_set_style_text_font(done_lbl, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(done_lbl, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_add_event_cb(s_kb_done_btn, [](lv_event_t *e) { on_kb_done_click(e); },
+                        LV_EVENT_CLICKED, NULL);
 
-    // Focus textarea to show keyboard
+    lv_obj_t *cancel_btn = lv_btn_create(s_kb_panel);
+    lv_obj_set_size(cancel_btn, 128, 40);
+    lv_obj_align(cancel_btn, LV_ALIGN_BOTTOM_RIGHT, -2, -2);
+    lv_obj_set_style_bg_color(cancel_btn, lv_color_hex(0x333333), 0);
+    lv_obj_set_style_border_color(cancel_btn, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_border_width(cancel_btn, 1, 0);
+    lv_obj_t *cancel_lbl = lv_label_create(cancel_btn);
+    lv_label_set_text(cancel_lbl, "Cancel");
+    lv_obj_center(cancel_lbl);
+    lv_obj_set_style_text_font(cancel_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(cancel_lbl, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_add_event_cb(cancel_btn, kb_cancel_cb, LV_EVENT_CLICKED, NULL);
+
+    // --- RIGHT keyboard (350 px, full height), like WiFi settings ---
+    s_kb_keyboard = lv_keyboard_create(s_screen);
+    lv_obj_set_size(s_kb_keyboard, 352, lv_pct(100));
+    lv_obj_set_align(s_kb_keyboard, LV_ALIGN_TOP_RIGHT);
+    lv_keyboard_set_mode(s_kb_keyboard, LV_KEYBOARD_MODE_TEXT_LOWER);
+    lv_keyboard_set_textarea(s_kb_keyboard, s_kb_textarea);
+    lv_obj_set_style_bg_color(s_kb_keyboard, lv_color_hex(0x117200), 0);
+    lv_obj_set_style_bg_opa(s_kb_keyboard, 255, 0);
+    lv_obj_set_style_bg_grad_color(s_kb_keyboard, lv_color_hex(0x143201), 0);
+    lv_obj_set_style_bg_grad_dir(s_kb_keyboard, LV_GRAD_DIR_VER, 0);
+
+    lv_obj_add_flag(s_kb_panel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_kb_keyboard, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void kb_panel_show(const char *title_text, const char *placeholder, int max_len) {
+    kb_panel_create();
+    lv_label_set_text(s_kb_title, title_text);
+    lv_textarea_set_text(s_kb_textarea, "");
+    lv_textarea_set_max_length(s_kb_textarea, max_len);
+    lv_textarea_set_placeholder_text(s_kb_textarea, placeholder);
+
+    // Numeric keyboard for ports/hosts, full text for the rest.
+    bool numeric = (max_len <= 6);
+    lv_keyboard_set_mode(s_kb_keyboard,
+                         numeric ? LV_KEYBOARD_MODE_NUMBER : LV_KEYBOARD_MODE_TEXT_LOWER);
+    lv_keyboard_set_textarea(s_kb_keyboard, s_kb_textarea);
+
+    lv_obj_clear_flag(s_kb_panel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(s_kb_keyboard, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_state(s_kb_textarea, LV_STATE_FOCUSED);
 }
 
@@ -649,83 +662,45 @@ static void on_kb_done_click(lv_event_t *e) {
     if (!text || !*text) return;
 
     switch (s_kb_mode) {
-        case KB_ADD_HOST: {
-            // Store host temporarily, prompt for port
-            static char temp_host[128];
-            strncpy(temp_host, lv_textarea_get_text(s_kb_textarea), 127);
-            kb_panel_hide();
+        case KB_ADD_HOST:
+            strncpy(s_temp_host, text, sizeof(s_temp_host) - 1);
             s_kb_mode = KB_ADD_PORT;
-            kb_panel_show("HA Server Port", s_kb_textarea, s_kb_keyboard, s_kb_done_btn,
-                          "8123", 5);
-            // Store host for next step
-            extern char s_temp_host[128];
-            strncpy(s_temp_host, temp_host, 127);
+            kb_panel_show("Home Assistant port", "8123", 5);
             break;
-        }
-        case KB_ADD_PORT: {
-            extern char s_temp_host[128];
-            uint16_t port = atoi(lv_textarea_get_text(s_kb_textarea));
-            if (port == 0) port = 8123;
-            kb_panel_hide();
+        case KB_ADD_PORT:
+            s_temp_port = (uint16_t)atoi(text);
+            if (s_temp_port == 0) s_temp_port = 8123;
             s_kb_mode = KB_ADD_TOKEN;
-            kb_panel_show("HA Long-Lived Token", s_kb_textarea, s_kb_done_btn, s_kb_done_btn,
-                          "eyJ...", 256);
-            extern uint16_t s_temp_port;
-            s_temp_port = port;
+            kb_panel_show("Long-lived access token", "eyJ...", 256);
             break;
-        }
-        case KB_ADD_TOKEN: {
-            extern char s_temp_host[128];
-            extern uint16_t s_temp_port;
-            const char *token = lv_textarea_get_text(s_kb_textarea);
-            lan_devices_add_ha_server(s_temp_host, s_temp_port, token, false);
+        case KB_ADD_TOKEN:
+            lan_devices_add_ha_server(s_temp_host, s_temp_port, text, false);
             kb_panel_hide();
+            lan_devices_refresh();
             lan_devices_ui_refresh();
             break;
-        }
-        case KB_AGENT_NAME: {
-            static char temp_name[64];
-            strncpy(temp_name, lv_textarea_get_text(s_kb_textarea), 63);
-            kb_panel_hide();
+        case KB_AGENT_NAME:
+            strncpy(s_temp_agent_name, text, sizeof(s_temp_agent_name) - 1);
             s_kb_mode = KB_AGENT_HOST;
-            kb_panel_show("Agent Host/IP", s_kb_textarea, s_kb_done_btn, s_kb_done_btn,
-                          "192.168.3.60", 64);
-            extern char s_temp_agent_name[64];
-            strncpy(s_temp_agent_name, temp_name, 63);
+            kb_panel_show("Agent host / IP", "192.168.3.60", 64);
             break;
-        }
-        case KB_AGENT_HOST: {
-            extern char s_temp_agent_name[64];
-            extern char s_temp_agent_host[128];
-            strncpy(s_temp_agent_host, lv_textarea_get_text(s_kb_textarea), 127);
-            kb_panel_hide();
+        case KB_AGENT_HOST:
+            strncpy(s_temp_agent_host, text, sizeof(s_temp_agent_host) - 1);
             s_kb_mode = KB_AGENT_PORT;
-            kb_panel_show("Agent Port", s_kb_textarea, s_kb_done_btn, s_kb_done_btn,
-                          "8080", 5);
+            kb_panel_show("Agent port", "8080", 5);
             break;
-        }
-        case KB_AGENT_PORT: {
-            extern char s_temp_agent_name[64];
-            extern char s_temp_agent_host[128];
-            extern uint16_t s_temp_agent_port;
-            s_temp_agent_port = (uint16_t)atoi(lv_textarea_get_text(s_kb_textarea));
+        case KB_AGENT_PORT:
+            s_temp_agent_port = (uint16_t)atoi(text);
             if (s_temp_agent_port == 0) s_temp_agent_port = 8080;
-            kb_panel_hide();
             s_kb_mode = KB_AGENT_PATH;
-            kb_panel_show("Agent Base Path (optional)", s_kb_textarea, s_kb_done_btn, s_kb_done_btn,
-                          "/api", 64);
+            kb_panel_show("Agent base path", "/api", 64);
             break;
-        }
-        case KB_AGENT_PATH: {
-            extern char s_temp_agent_name[64];
-            extern char s_temp_agent_host[128];
-            extern uint16_t s_temp_agent_port;
-            const char *path = lv_textarea_get_text(s_kb_textarea);
-            lan_devices_add_agent(s_temp_agent_name, s_temp_agent_host, s_temp_agent_port, path);
+        case KB_AGENT_PATH:
+            lan_devices_add_agent(s_temp_agent_name, s_temp_agent_host,
+                                  s_temp_agent_port, text);
             kb_panel_hide();
             lan_devices_ui_refresh();
             break;
-        }
         default:
             break;
     }
@@ -746,16 +721,13 @@ static void on_refresh_click(lv_event_t *e) {
 
 static void on_add_click(lv_event_t *e) {
     s_kb_mode = KB_ADD_HOST;
-    kb_panel_show("HA Server Host/IP", s_kb_textarea, s_kb_keyboard, s_kb_done_btn,
-                  "192.168.3.50", 64);
+    kb_panel_show("Home Assistant host / IP", "192.168.3.50", 64);
 }
 
 static void on_config_click(lv_event_t *e) {
-    // Toggle a small config panel for agents
-    // For now, just add agent flow
+    // Agent flow (Pi / mobile / desktop HTTP agent)
     s_kb_mode = KB_AGENT_NAME;
-    kb_panel_show("Agent Name", s_kb_textarea, s_kb_done_btn, s_kb_done_btn,
-                  "office-pi", 64);
+    kb_panel_show("Agent name", "office-pi", 64);
 }
 
 static void on_device_toggle(lv_event_t *e) {
@@ -1044,5 +1016,12 @@ void lan_devices_close(void) {
     s_icon_refresh = NULL;
     s_icon_add = NULL;
     s_icon_config = NULL;
+    // These were children of s_screen; clear them so the next open recreates
+    // them instead of touching freed objects.
+    s_kb_panel = NULL;
+    s_kb_keyboard = NULL;
+    s_kb_textarea = NULL;
+    s_kb_done_btn = NULL;
+    s_kb_title = NULL;
     log_i("[LAN_DEV] Screen closed, back to menu");
 }

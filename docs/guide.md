@@ -537,6 +537,10 @@ lan remove <index>                      # Remove HA server by index
 ```
 Credentials stored in NVS namespace `lan_dev`. Example: `lan add 192.168.3.50 8123 eyJ...`
 
+**Add server / agent keyboard** mirrors Settings → Wi-Fi: a LEFT form panel
+(title + textarea + OK/Cancel) with the LVGL keyboard on the RIGHT (352 px,
+full height). Host uses the text keyboard, port uses the number keyboard.
+
 **Testing on device (mandatory before hand-off):** use `tools/deskbar_ocr.py`
 (`shot`/`ocr`/`shotocr`/`find <word>`) to read the real screen before tapping —
 never guess coordinates. Capture the screenshot in the SAME serial session as
