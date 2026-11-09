@@ -518,11 +518,12 @@ server/agent configuration. Flash at ~44.5% of 7 MB app slot.
 house+network icon replaces climate icon; empty state shows config hint when no
 HA servers, device hint when none found. Flash at ~44.5% of 7 MB app slot.
 
-**LAN Devices icon-based UI** — action icons in header (⟳ refresh, + add server,
-⚙ configure agents, ✕ close); multi-step keyboard flows for adding servers
-(host → port → token) and agents (name → host → port → path), borrowing the
-Settings → WiFi keyboard pattern. Devices grouped by location with toggles.
-Released as v2.6.11 (3,259,424 bytes).
+**LAN Devices icon-based UI** — action icons in header (`LV_SYMBOL_REFRESH`,
+`LV_SYMBOL_PLUS`, `LV_SYMBOL_SETTINGS`, `LV_SYMBOL_CLOSE`); multi-step keyboard
+flows for adding servers (host → port → token) and agents (name → host → port
+→ path), borrowing the Settings → WiFi keyboard pattern. Devices grouped by
+location with toggles. Do NOT use a literal unicode cross for a button glyph —
+`LV_SYMBOL_CLOSE` is what the Montserrat subset actually carries.
 
 **CLI commands for LAN Devices configuration (serial CLI):**
 ```

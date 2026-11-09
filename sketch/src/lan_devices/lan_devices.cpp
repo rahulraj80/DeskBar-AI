@@ -884,7 +884,7 @@ static void add_header_icons(void) {
     lv_obj_add_event_cb(close_btn, on_close_click, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *close_lbl = lv_label_create(close_btn);
-    lv_label_set_text(close_lbl, "✕");
+    lv_label_set_text(close_lbl, LV_SYMBOL_CLOSE);
     lv_obj_center(close_lbl);
     lv_obj_set_style_text_font(close_lbl, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(close_lbl, lv_color_hex(0xFFFFFF), 0);
@@ -908,13 +908,15 @@ static void lan_devices_ui_refresh(void) {
         lv_label_set_text(empty, "No Home Assistant servers configured.");
         lv_obj_set_style_text_color(empty, lv_color_hex(0x888888), 0);
         lv_obj_set_style_text_font(empty, &lv_font_montserrat_16, 0);
-        lv_obj_align(empty, LV_ALIGN_CENTER, 0, -20);
+        lv_obj_set_width(empty, 620);
+        lv_obj_set_style_text_align(empty, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(empty, LV_ALIGN_CENTER, 0, 2);
 
         lv_obj_t *hint = lv_label_create(s_scroll);
         lv_label_set_text(hint, "Tap + to add a server, or use serial: lan add <host> <port> <token>");
         lv_obj_set_style_text_color(hint, lv_color_hex(0x00E5FF), 0);
         lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
-        lv_obj_align(hint, LV_ALIGN_CENTER, 0, 10);
+        lv_obj_align(hint, LV_ALIGN_CENTER, 0, 34);
         lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_width(hint, 600);
 
@@ -930,13 +932,15 @@ static void lan_devices_ui_refresh(void) {
         lv_label_set_text(empty, "No devices found on LAN.");
         lv_obj_set_style_text_color(empty, lv_color_hex(0x888888), 0);
         lv_obj_set_style_text_font(empty, &lv_font_montserrat_16, 0);
-        lv_obj_align(empty, LV_ALIGN_CENTER, 0, -20);
+        lv_obj_set_width(empty, 620);
+        lv_obj_set_style_text_align(empty, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(empty, LV_ALIGN_CENTER, 0, 2);
 
         lv_obj_t *hint = lv_label_create(s_scroll);
         lv_label_set_text(hint, "Check HA server token, then tap ⟳ to refresh.");
         lv_obj_set_style_text_color(hint, lv_color_hex(0x00E5FF), 0);
         lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
-        lv_obj_align(hint, LV_ALIGN_CENTER, 0, 10);
+        lv_obj_align(hint, LV_ALIGN_CENTER, 0, 34);
         lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_width(hint, 600);
 
