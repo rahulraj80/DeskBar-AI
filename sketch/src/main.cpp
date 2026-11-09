@@ -418,6 +418,7 @@ void serial_cli_task(void *param) {
             Serial.println("  batt                  - Battery ADC mV, Voltage, and %");
             Serial.println("  telemetry             - Check buffered telemetry records");
             Serial.println("  telemetry flush       - Manually flush batch telemetry to server");
+          Serial.println("  lan open                - Open the LAN Devices screen");
           Serial.println("  lan add <host> <port> <token> [ssl]  - Add Home Assistant server");
           Serial.println("  lan agent add <name> <host> <port> [base]  - Add HTTP agent");
           Serial.println("  lan list                - List HA servers, agents, and devices");
@@ -1489,6 +1490,24 @@ void serial_cli_task(void *param) {
             telemetry_collect_snapshot();
             telemetry_flush_batch();
             Serial.println("[CLI TELEMETRY] OK: Flush batch invoked.");
+          } else if (cmd.equalsIgnoreCase("lan open") || cmd.equalsIgnoreCase("lan screen")) {
+            log_i("[CLI] Opening LAN Devices screen...");
+            exit_clock_breathing();
+            screenPowerOn();
+            resetScreenOffTimer(NULL);
+            UIStatusPayload ui_msg = {.type = STATUS_SCREEN_UNLOCK};
+            xQueueSend(ui_status_queue, &ui_msg, 100);
+            if (lvgl_port_lock(500)) {
+              lan_devices_open();
+              lvgl_port_unlock();
+            }
+            Serial.println("[CLI] OK: LAN Devices screen opened");
+          } else if (cmd.equalsIgnoreCase("lan close")) {
+            if (lvgl_port_lock(500)) {
+              lan_devices_close();
+              lvgl_port_unlock();
+            }
+            Serial.println("[CLI] OK: LAN Devices screen closed");
           } else if (cmd.equalsIgnoreCase("lan list")) {
             Serial.println("\n========== LAN DEVICES ==========");
             Serial.printf("HA Servers (%d):\n", lan_devices_ha_server_count());

@@ -564,7 +564,9 @@ static void kb_panel_hide(void) {
 static void kb_panel_show(const char *title_text, lv_obj_t *textarea, lv_obj_t *keyboard,
                           lv_obj_t *done_btn, const char *placeholder, int max_len) {
     if (s_kb_panel) {
-        lv_obj_del(s_kb_panel);
+        // Deferred: this runs from the OK button's handler, which lives on the
+        // panel being replaced.
+        lv_obj_del_async(s_kb_panel);
         s_kb_panel = NULL;
     }
 
@@ -1024,13 +1026,17 @@ void lan_devices_close(void) {
     s_screen_open = false;
 
     if (s_kb_panel) {
-        lv_obj_del(s_kb_panel);
+        lv_obj_del_async(s_kb_panel);
         s_kb_panel = NULL;
     }
 
-    lv_scr_load_anim(ui_Screen_MainMenu, LV_SCR_LOAD_ANIM_MOVE_TOP, 300, 0, false);
+    // Switch to the persistent MainMenu screen instantly so the LAN screen is
+    // no longer active, then defer freeing it. This function runs from the
+    // close button's own event handler (and from the CLI); deleting the screen
+    // that owns that button mid-handler is a use-after-free (LoadProhibited).
+    lv_scr_load(ui_Screen_MainMenu);
     if (s_screen) {
-        lv_obj_del(s_screen);
+        lv_obj_del_async(s_screen);
         s_screen = NULL;
     }
     s_scroll = NULL;

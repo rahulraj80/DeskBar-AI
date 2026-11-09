@@ -526,6 +526,8 @@ Released as v2.6.11 (3,259,424 bytes).
 
 **CLI commands for LAN Devices configuration (serial CLI):**
 ```
+lan open                                # Open the LAN Devices screen
+lan close                               # Close it (back to menu)
 lan add <host> <port> <token> [ssl]     # Add Home Assistant server
 lan agent add <name> <host> <port> [base]  # Add HTTP agent (Pi/mobile/desktop)
 lan list                                # List servers, agents, devices
@@ -534,6 +536,12 @@ lan toggle <entity_id>                  # Toggle a device (e.g. switch.kitchen)
 lan remove <index>                      # Remove HA server by index
 ```
 Credentials stored in NVS namespace `lan_dev`. Example: `lan add 192.168.3.50 8123 eyJ...`
+
+**Testing on device (mandatory before hand-off):** use `tools/deskbar_ocr.py`
+(`shot`/`ocr`/`shotocr`/`find <word>`) to read the real screen before tapping —
+never guess coordinates. Capture the screenshot in the SAME serial session as
+the triggering command, because each `DeskBarSerial` open/close cycle resets the
+ESP32-S3 over USB-CDC and drops the UI back to the clock.
 
 ### Key files to read first
 1. `sketch/src/file/file.cpp` — LittleFS init, `LITTLEFS_LABEL`
