@@ -514,11 +514,9 @@ mDNS and controlled through plain HTTP REST.
 
 **v2.6.9** — LAN CLI commands released (3,256,384 bytes). Serial CLI for HA
 server/agent configuration. Flash at ~44.5% of 7 MB app slot.
-
-**LAN Devices icon fix** — dedicated icon (house + network nodes) replaces the
-reused climate icon; text label "LAN Devices" under the menu icon. Empty state
-shows config hint when no HA servers are configured, device hint when none
-discovered.
+**v2.6.10** — LAN Devices icon + empty state (3,257,888 bytes). Dedicated
+house+network icon replaces climate icon; empty state shows config hint when no
+HA servers, device hint when none found. Flash at ~44.5% of 7 MB app slot.
 
 **CLI commands for LAN Devices configuration (serial CLI):**
 ```
