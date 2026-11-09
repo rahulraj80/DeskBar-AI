@@ -413,7 +413,11 @@ is why a device can show the previous catalog for minutes after a publish).
 The same slug was still baked into the gzipped web page
 (`sketch/web/index.html` → `tools/gzip_web_page.py` → `sketch/include/web_page_gz.h`,
 so `strings` on the binary will not show it) until v2.6.8 — check that file
-too when touching repo URLs.
+too when touching repo URLs, and verify on a live device with:
+```bash
+curl -s --compressed http://<device-ip>/ | grep -o "rahulraj80/[A-Za-z-]*" | sort | uniq -c
+curl -s http://<device-ip>/api/ota/repos | grep -o "raw.githubusercontent.com/rahulraj80/[A-Za-z-]*"
+```
 
 ---
 

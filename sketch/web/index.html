@@ -260,7 +260,7 @@
     <!-- Section A: Approved Repositories -->
     <div style="font-size:0.8rem;color:var(--sub);margin-bottom:4px;display:flex;justify-content:space-between">
       <span>Active Repository (Approved Community / Official):</span>
-      <a href="https://github.com/rahulraj80/TuneBar/blob/main/releases/approved_repos.json" target="_blank" style="color:var(--accent);font-size:0.75rem;text-decoration:none">View Registry ↗</a>
+      <a href="https://github.com/rahulraj80/DeskBar-AI/blob/main/releases/approved_repos.json" target="_blank" style="color:var(--accent);font-size:0.75rem;text-decoration:none">View Registry ↗</a>
     </div>
     <select id="ota-repo-select" onchange="onRepoChanged()" style="width:100%;padding:6px;background:#18202c;border:1px solid #334455;color:var(--text);border-radius:4px;margin-bottom:6px">
       <option value="official">TuneBar Official — by rahulraj80 [Official]</option>
@@ -808,12 +808,12 @@ function toggleImuLiveStream() {
 
 let currentBattPct = 100;
 let otaReleases = [
-  { ver: 'v1.2.6', type: 'PATCH', date: 'Oct 12, 2026', size: '6.03 MB', notes: '• 10s breathing cycle (5s black, 2s hold high).\n• Wi-Fi power down in clock mode.\n• Real-time battery telemetry beacon.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.6.bin' },
-  { ver: 'v1.2.5', type: 'PATCH', date: 'Oct 10, 2026', size: '6.02 MB', notes: '• AP3032 boost rail fix on EXIO1.\n• QMI8658 IMU orientation calibration.\n• Clock face timeout guard.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.5.bin' },
-  { ver: 'v1.2.0', type: 'MINOR', date: 'Oct 05, 2026', size: '5.98 MB', notes: '• Web Remote controller with D-pad.\n• 10Hz IMU live stream.\n• LAN MP3 indexer & player.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.2.0.bin' },
-  { ver: 'v1.1.0', type: 'MINOR', date: 'Sep 28, 2026', size: '5.85 MB', notes: '• ES7210 dual I2S mic driver.\n• Groq Whisper voice assistant.\n• Acoustic echo cancellation.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.1.0.bin' },
-  { ver: 'v2.0.0', type: 'MAJOR', date: 'Nov 01, 2026', size: '6.20 MB', notes: '• FreeRTOS SMP architecture.\n• LittleFS asset filesystem.\n• Multi-repo rollback watchdog.\n• Spirit Level app.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v2.0.0.bin' },
-  { ver: 'v1.0.0', type: 'MAJOR', date: 'Sep 01, 2026', size: '5.70 MB', notes: '• Initial commercial release.\n• Internet Radio, Clock, Alarm, Weather.', url: 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-v1.0.0.bin' }
+  { ver: 'v1.2.6', type: 'PATCH', date: 'Oct 12, 2026', size: '6.03 MB', notes: '• 10s breathing cycle (5s black, 2s hold high).\n• Wi-Fi power down in clock mode.\n• Real-time battery telemetry beacon.', url: 'https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v1.2.6.bin' },
+  { ver: 'v1.2.5', type: 'PATCH', date: 'Oct 10, 2026', size: '6.02 MB', notes: '• AP3032 boost rail fix on EXIO1.\n• QMI8658 IMU orientation calibration.\n• Clock face timeout guard.', url: 'https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v1.2.5.bin' },
+  { ver: 'v1.2.0', type: 'MINOR', date: 'Oct 05, 2026', size: '5.98 MB', notes: '• Web Remote controller with D-pad.\n• 10Hz IMU live stream.\n• LAN MP3 indexer & player.', url: 'https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v1.2.0.bin' },
+  { ver: 'v1.1.0', type: 'MINOR', date: 'Sep 28, 2026', size: '5.85 MB', notes: '• ES7210 dual I2S mic driver.\n• Groq Whisper voice assistant.\n• Acoustic echo cancellation.', url: 'https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v1.1.0.bin' },
+  { ver: 'v2.0.0', type: 'MAJOR', date: 'Nov 01, 2026', size: '6.20 MB', notes: '• FreeRTOS SMP architecture.\n• LittleFS asset filesystem.\n• Multi-repo rollback watchdog.\n• Spirit Level app.', url: 'https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.0.0.bin' },
+  { ver: 'v1.0.0', type: 'MAJOR', date: 'Sep 01, 2026', size: '5.70 MB', notes: '• Initial commercial release.\n• Internet Radio, Clock, Alarm, Weather.', url: 'https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v1.0.0.bin' }
 ];
 
 function checkBatterySafe() {
@@ -858,7 +858,7 @@ function flashCustomVersion() {
   const min = document.getElementById('v-min').value || 0;
   const pat = document.getElementById('v-pat').value || 0;
   const ver = 'v' + maj + '.' + min + '.' + pat;
-  const url = 'https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-' + ver + '.bin';
+  const url = 'https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-' + ver + '.bin';
   streamFirmwareFromUrl(url, ver);
 }
 
