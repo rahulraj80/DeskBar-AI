@@ -514,6 +514,17 @@ mDNS and controlled through plain HTTP REST.
 
 **v2.6.5** — LAN Devices app released (3,250,208 bytes). Flash at 44.3% of 7 MB app slot (~4 MB headroom remaining).
 
+**CLI commands for LAN Devices configuration (serial CLI):**
+```
+lan add <host> <port> <token> [ssl]     # Add Home Assistant server
+lan agent add <name> <host> <port> [base]  # Add HTTP agent (Pi/mobile/desktop)
+lan list                                # List servers, agents, devices
+lan refresh                             # Refresh device list from HA
+lan toggle <entity_id>                  # Toggle a device (e.g. switch.kitchen)
+lan remove <index>                      # Remove HA server by index
+```
+Credentials stored in NVS namespace `lan_dev`. Example: `lan add 192.168.3.50 8123 eyJ...`
+
 ### Key files to read first
 1. `sketch/src/file/file.cpp` — LittleFS init, `LITTLEFS_LABEL`
 2. `sketch/include/xtask.h` — Wi-Fi PS logic (~line 913)

@@ -418,6 +418,12 @@ void serial_cli_task(void *param) {
             Serial.println("  batt                  - Battery ADC mV, Voltage, and %");
             Serial.println("  telemetry             - Check buffered telemetry records");
             Serial.println("  telemetry flush       - Manually flush batch telemetry to server");
+          Serial.println("  lan add <host> <port> <token> [ssl]  - Add Home Assistant server");
+          Serial.println("  lan agent add <name> <host> <port> [base]  - Add HTTP agent");
+          Serial.println("  lan list                - List HA servers, agents, and devices");
+          Serial.println("  lan refresh             - Refresh device list from HA");
+          Serial.println("  lan toggle <entity_id>  - Toggle a device (e.g. switch.kitchen)");
+          Serial.println("  lan remove <index>      - Remove HA server by index");
             Serial.println("  bl <0-255>            - Set raw backlight PWM brightness");
             Serial.println("  bl <low|med|high>     - Set & save brightness preset");
             Serial.println("  clock                 - Switch to Clock Face");
@@ -1483,6 +1489,96 @@ void serial_cli_task(void *param) {
             telemetry_collect_snapshot();
             telemetry_flush_batch();
             Serial.println("[CLI TELEMETRY] OK: Flush batch invoked.");
+          } else if (cmd.equalsIgnoreCase("lan list")) {
+            Serial.println("\n========== LAN DEVICES ==========");
+            Serial.printf("HA Servers (%d):\n", lan_devices_ha_server_count());
+            for (int i = 0; i < lan_devices_ha_server_count(); i++) {
+              const lan_ha_server_t *s = lan_devices_ha_server_get(i);
+              Serial.printf("  %d: %s:%u ssl=%d token=%s\n", i, s->host, s->port,
+                            s->ssl ? 1 : 0, s->token[0] ? "set" : "(none)");
+            }
+            Serial.printf("Agents (%d):\n", lan_devices_agent_count());
+            for (int i = 0; i < lan_devices_agent_count(); i++) {
+              const lan_agent_t *a = lan_devices_agent_get(i);
+              Serial.printf("  %d: %s @ %s:%u%s\n", i, a->name, a->host, a->port,
+                            a->base_path[0] ? (" path=" + String(a->base_path)).c_str() : "");
+            }
+            Serial.printf("Devices discovered: %d\n", lan_devices_count());
+            for (int i = 0; i < lan_devices_count(); i++) {
+              const lan_device_t *d = lan_devices_get(i);
+              Serial.printf("  %d: %s [%s] %s (loc=%s, ctrl=%d)\n",
+                            i, d->entity_id, d->name, d->state, d->location, d->controllable ? 1 : 0);
+            }
+            Serial.println("==================================\n");
+          } else if (cmd.startsWith("lan add ")) {
+            String rest = cmd.substring(8);
+            rest.trim();
+            int sp1 = rest.indexOf(' ');
+            if (sp1 < 0) { Serial.println("[CLI LAN] Usage: lan add <host> <port> <token> [ssl]"); cmd = ""; continue; }
+            String host = rest.substring(0, sp1);
+            rest = rest.substring(sp1 + 1);
+            rest.trim();
+            int sp2 = rest.indexOf(' ');
+            if (sp2 < 0) { Serial.println("[CLI LAN] Usage: lan add <host> <port> <token> [ssl]"); cmd = ""; continue; }
+            String portStr = rest.substring(0, sp2);
+            rest = rest.substring(sp2 + 1);
+            rest.trim();
+            int sp3 = rest.indexOf(' ');
+            String token = (sp3 >= 0) ? rest.substring(0, sp3) : rest;
+            bool ssl = false;
+            if (sp3 >= 0) {
+                String sslStr = rest.substring(sp3 + 1);
+                sslStr.trim();
+                ssl = sslStr.equalsIgnoreCase("ssl");
+            }
+            host.trim();
+            portStr.trim();
+            token.trim();
+            uint16_t port = portStr.toInt();
+            if (port == 0) port = 8123;
+            lan_devices_add_ha_server(host.c_str(), port, token.c_str(), ssl);
+            Serial.printf("[CLI LAN] OK: Added HA server %s:%u (ssl=%d)\n", host.c_str(), port, ssl ? 1 : 0);
+          } else if (cmd.startsWith("lan agent add ")) {
+            String rest = cmd.substring(14);
+            rest.trim();
+            int sp1 = rest.indexOf(' ');
+            if (sp1 < 0) { Serial.println("[CLI LAN] Usage: lan agent add <name> <host> <port> [base_path]"); cmd = ""; continue; }
+            String name = rest.substring(0, sp1);
+            rest = rest.substring(sp1 + 1);
+            rest.trim();
+            int sp2 = rest.indexOf(' ');
+            if (sp2 < 0) { Serial.println("[CLI LAN] Usage: lan agent add <name> <host> <port> [base_path]"); cmd = ""; continue; }
+            String host = rest.substring(0, sp2);
+            rest = rest.substring(sp2 + 1);
+            rest.trim();
+            int sp3 = rest.indexOf(' ');
+            String portStr = (sp3 >= 0) ? rest.substring(0, sp3) : rest;
+            String basePath = (sp3 >= 0) ? rest.substring(sp3 + 1) : "/api";
+            host.trim();
+            portStr.trim();
+            name.trim();
+            basePath.trim();
+            uint16_t port = portStr.toInt();
+            if (port == 0) port = 80;
+            lan_devices_add_agent(name.c_str(), host.c_str(), port, basePath.c_str());
+            Serial.printf("[CLI LAN] OK: Added agent '%s' @ %s:%u%s\n", name.c_str(), host.c_str(), port, basePath.c_str());
+          } else if (cmd.equalsIgnoreCase("lan refresh")) {
+            lan_devices_refresh();
+            Serial.printf("[CLI LAN] OK: Refreshed. %d devices discovered.\n", lan_devices_count());
+          } else if (cmd.startsWith("lan toggle ")) {
+            String entityId = cmd.substring(11);
+            entityId.trim();
+            if (lan_devices_toggle(entityId.c_str())) {
+              Serial.printf("[CLI LAN] OK: Toggled %s\n", entityId.c_str());
+            } else {
+              Serial.printf("[CLI LAN] ERROR: Failed to toggle %s\n", entityId.c_str());
+            }
+          } else if (cmd.startsWith("lan remove ")) {
+            String idxStr = cmd.substring(11);
+            idxStr.trim();
+            int idx = idxStr.toInt();
+            lan_devices_remove_ha_server(idx);
+            Serial.printf("[CLI LAN] OK: Removed HA server %d\n", idx);
           } else {
             Serial.printf("[CLI] Unknown command: '%s' (type 'help')\n", cmd.c_str());
           }
