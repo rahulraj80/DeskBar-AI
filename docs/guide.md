@@ -453,7 +453,9 @@ commit, tag `vX.Y.Z`, run `scripts/generate_catalog.py`
 embedded in the firmware), then `scripts/publish_ota.py vX.Y.Z` to stage the
 binary in `releases/bin/`, enforce the retention limit and push. Keep catalog
 entries and `releases/bin/` in step — an entry whose binary was pruned is a
-404 for every device running the updater.
+404 for every device running the updater. `publish_ota.py` regenerates
+`generated_catalog.h` itself, so the embedded list always matches the
+catalog it just wrote; currently retained: `v2.6.8` + `v2.6.7`.
 
 ### Remote build on `auto`
 ```bash
