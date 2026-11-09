@@ -425,6 +425,8 @@ mDNS and controlled through plain HTTP REST.
 
 **Flash/RAM**: ~300 KB added (mDNS + JSON parsing), well within the ~4 MB app-slot headroom.
 
+**v2.6.5** — LAN Devices app released (3,250,208 bytes). Flash at 44.3% of 7 MB app slot (~4 MB headroom remaining).
+
 ### Key files to read first
 1. `sketch/src/file/file.cpp` — LittleFS init, `LITTLEFS_LABEL`
 2. `sketch/include/xtask.h` — Wi-Fi PS logic (~line 913)

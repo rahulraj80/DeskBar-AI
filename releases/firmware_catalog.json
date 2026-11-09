@@ -14,7 +14,7 @@
     {
       "version": "2.6.3",
       "type": "patch",
-      "build": 242,
+      "build": 244,
       "date": "Nov 04, 2026",
       "title": "DeskBar AI v2.6.3: Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V",
       "changelog": "\u2022 Charge detect from the voltage trend; 0% at 3.10V and the curve top pinned to 4.08V",
