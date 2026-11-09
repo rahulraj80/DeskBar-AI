@@ -656,6 +656,49 @@ static void lan_devices_ui_refresh(void) {
     lv_obj_set_style_text_font(close_lbl, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(close_lbl, lv_color_hex(0xFFFFFF), 0);
 
+    // Empty state: no HA servers configured or no devices found
+    if (s_ha_server_count == 0) {
+        lv_obj_t *empty = lv_label_create(s_scroll);
+        lv_label_set_text(empty, "No Home Assistant servers configured.");
+        lv_obj_set_style_text_color(empty, lv_color_hex(0x888888), 0);
+        lv_obj_set_style_text_font(empty, &lv_font_montserrat_16, 0);
+        lv_obj_align(empty, LV_ALIGN_CENTER, 0, -20);
+
+        lv_obj_t *hint = lv_label_create(s_scroll);
+        lv_label_set_text(hint, "Serial CLI: lan add <host> <port> <token> [ssl]");
+        lv_obj_set_style_text_color(hint, lv_color_hex(0x00E5FF), 0);
+        lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
+        lv_obj_align(hint, LV_ALIGN_CENTER, 0, 10);
+        lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_width(hint, 600);
+
+        lv_obj_set_size(s_scroll, 640, 172);
+        lv_obj_set_scrollbar_mode(s_scroll, LV_SCROLLBAR_MODE_AUTO);
+        lv_obj_set_scroll_dir(s_scroll, LV_DIR_VER);
+        return;
+    }
+
+    if (s_device_count == 0) {
+        lv_obj_t *empty = lv_label_create(s_scroll);
+        lv_label_set_text(empty, "No devices found on LAN.");
+        lv_obj_set_style_text_color(empty, lv_color_hex(0x888888), 0);
+        lv_obj_set_style_text_font(empty, &lv_font_montserrat_16, 0);
+        lv_obj_align(empty, LV_ALIGN_CENTER, 0, -20);
+
+        lv_obj_t *hint = lv_label_create(s_scroll);
+        lv_label_set_text(hint, "Check HA server token, then tap again to refresh.");
+        lv_obj_set_style_text_color(hint, lv_color_hex(0x00E5FF), 0);
+        lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
+        lv_obj_align(hint, LV_ALIGN_CENTER, 0, 10);
+        lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_width(hint, 600);
+
+        lv_obj_set_size(s_scroll, 640, 172);
+        lv_obj_set_scrollbar_mode(s_scroll, LV_SCROLLBAR_MODE_AUTO);
+        lv_obj_set_scroll_dir(s_scroll, LV_DIR_VER);
+        return;
+    }
+
     // Group by location
     const char *last_loc = NULL;
 

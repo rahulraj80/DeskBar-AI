@@ -59,6 +59,7 @@ LV_IMG_DECLARE(ui_img_images_utility_png);    // assets/images/utility.png
 LV_IMG_DECLARE(ui_img_images_settings_png);    // assets/images/settings.png
 LV_IMG_DECLARE(ui_img_images_globe_png);    // assets/images/globe.png
 LV_IMG_DECLARE(ui_img_images_timezone_png);    // assets/images/timezone.png
+LV_IMG_DECLARE(ui_img_images_lan_png);    // assets/images/lan.png
 LV_IMG_DECLARE(ui_img_numbers_0_png);    // assets/numbers/0.png
 LV_IMG_DECLARE(ui_img_numbers_colon_png);    // assets/numbers/colon.png
 LV_IMG_DECLARE(ui_img_weather_home_sunny_png);    // assets/weather/home_sunny.png

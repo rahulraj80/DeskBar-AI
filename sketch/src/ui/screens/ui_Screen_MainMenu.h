@@ -25,6 +25,7 @@ extern void ui_event_MainMenu_Image_ChatBot(lv_event_t * e);
 extern lv_obj_t * ui_MainMenu_Image_ChatBot;
 extern void ui_event_MainMenu_Image_LANDevices(lv_event_t * e);
 extern lv_obj_t * ui_MainMenu_Image_LANDevices;
+extern lv_obj_t * ui_MainMenu_Label_LANDevices;
 extern void ui_event_MainMenu_Image_Information(lv_event_t * e);
 extern lv_obj_t * ui_MainMenu_Image_Information;
 extern void ui_event_MainMenu_Image_Utility(lv_event_t * e);

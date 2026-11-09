@@ -515,6 +515,11 @@ mDNS and controlled through plain HTTP REST.
 **v2.6.9** — LAN CLI commands released (3,256,384 bytes). Serial CLI for HA
 server/agent configuration. Flash at ~44.5% of 7 MB app slot.
 
+**LAN Devices icon fix** — dedicated icon (house + network nodes) replaces the
+reused climate icon; text label "LAN Devices" under the menu icon. Empty state
+shows config hint when no HA servers are configured, device hint when none
+discovered.
+
 **CLI commands for LAN Devices configuration (serial CLI):**
 ```
 lan add <host> <port> <token> [ssl]     # Add Home Assistant server
