@@ -670,8 +670,8 @@ static uint32_t s_ota_ms_last = 0;
 static void handle_ota_repos(void) {
     const char *json = "{\"active_repo\":\"official\",\"approved_repos\":["
       "{\"id\":\"official\",\"name\":\"TuneBar Official (rahulraj80)\",\"author\":\"rahulraj80\","
-      "\"catalog_url\":\"https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/firmware_catalog.json\","
-      "\"repo_url\":\"https://github.com/rahulraj80/TuneBar\","
+      "\"catalog_url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/firmware_catalog.json\","
+      "\"repo_url\":\"https://github.com/rahulraj80/DeskBar-AI\","
       "\"description\":\"Official firmware with HiFi radio, LAN streaming, Nixie clock, vector UI & IMU auto-rotation\","
       "\"metrics\":{\"dram_free_avg_kb\":182,\"psram_free_avg_mb\":4.8,\"battery_life_clock_hours\":14.5,\"battery_life_active_hours\":5.2}},"
       "{\"id\":\"upstream\",\"name\":\"TuneBar Upstream (VaAndCob)\",\"author\":\"VaAndCob\","

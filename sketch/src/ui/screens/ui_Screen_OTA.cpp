@@ -62,8 +62,8 @@ static ApprovedRepo s_repos[2] = {
     "official",
     "TuneBar Official (rahulraj80)",
     "rahulraj80",
-    "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/firmware_catalog.json",
-    "https://github.com/rahulraj80/TuneBar",
+    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/firmware_catalog.json",
+    "https://github.com/rahulraj80/DeskBar-AI",
     "Official firmware with HiFi radio, LAN streaming, Nixie clock & IMU auto-rotation"
   },
   {
@@ -352,7 +352,7 @@ static void update_carousel_card(int idx) {
         "1. Tap [Open Stepper] on the left to dial any version (e.g. v1.2.9, v1.0.0).\n"
         "2. Tap [Find on GitHub] to verify and pull the binary directly.\n\n"
         "Repository:\n"
-        "https://github.com/rahulraj80/TuneBar/releases"
+        "https://github.com/rahulraj80/DeskBar-AI/releases"
       );
     }
   } else {
@@ -865,7 +865,7 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
       ProbeData *d = (ProbeData *)p;
       char probe_url[256];
       snprintf(probe_url, sizeof(probe_url),
-               "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/bin/firmware-%s.bin",
+               "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-%s.bin",
                d->ver);
 
       HTTPClient http;
@@ -954,7 +954,7 @@ void ui_ota_manager_init(lv_obj_t *parent_screen) {
   lv_obj_clear_flag(repo_card1, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *lbl_repo1 = lv_label_create(repo_card1);
-  lv_label_set_text(lbl_repo1, "1. TuneBar Official (rahulraj80)\nhttps://github.com/rahulraj80/TuneBar");
+  lv_label_set_text(lbl_repo1, "1. TuneBar Official (rahulraj80)\nhttps://github.com/rahulraj80/DeskBar-AI");
   lv_obj_set_style_text_color(lbl_repo1, lv_color_hex(0xFFFFFF), 0);
   lv_obj_set_style_text_font(lbl_repo1, &lv_font_montserrat_12, 0);
   lv_obj_align(lbl_repo1, LV_ALIGN_TOP_LEFT, 4, 2);

@@ -20,7 +20,7 @@ Key pillars:
 ## 2. Multi-Repo Architecture & Manifest Schema
 
 ### 2.1. Approved Repositories Registry (`approved_repos.json`)
-Hosted on GitHub (official repo: `https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/approved_repos.json`):
+Hosted on GitHub (official repo: `https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/approved_repos.json`):
 
 ```json
 {
@@ -29,8 +29,8 @@ Hosted on GitHub (official repo: `https://raw.githubusercontent.com/rahulraj80/T
       "id": "official",
       "name": "TuneBar Official",
       "author": "rahulraj80",
-      "repo_url": "https://github.com/rahulraj80/TuneBar",
-      "catalog_url": "https://raw.githubusercontent.com/rahulraj80/TuneBar/main/releases/firmware_catalog.json",
+      "repo_url": "https://github.com/rahulraj80/DeskBar-AI",
+      "catalog_url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/firmware_catalog.json",
       "description": "Official firmware with HiFi radio, LAN streaming, Nixie clock, vector UI & IMU auto-rotation",
       "is_official": true,
       "metrics": {

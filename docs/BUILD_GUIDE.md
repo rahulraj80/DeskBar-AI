@@ -51,7 +51,7 @@ pio --version
 
 ### Step 2.3: Clone the Repository
 ```powershell
-git clone https://github.com/rahulraj80/TuneBar.git
+git clone https://github.com/rahulraj80/DeskBar-AI.git
 cd TuneBar
 ```
 
@@ -143,7 +143,7 @@ pip3 install --upgrade platformio esptool pyserial
 ### Step 3.3: Clone, Build, and Flash
 ```bash
 # Clone
-git clone https://github.com/rahulraj80/TuneBar.git
+git clone https://github.com/rahulraj80/DeskBar-AI.git
 cd TuneBar
 
 # Compile firmware

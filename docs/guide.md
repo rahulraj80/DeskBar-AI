@@ -405,8 +405,12 @@ button lands in the Launcher menu.
 **OTA releases** are published to `releases/bin/` and tracked in
 `releases/firmware_catalog.json`. Max 2 versions are retained in git
 (to prevent Git bloat); older binaries are pruned on each publish. The
-current OTA image is `firmware-v2.6.4.bin` (3,208,880 bytes), served from
-`https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.4.bin`.
+latest OTA image is `firmware-v2.6.6.bin` (3,251,632 bytes), served from
+`https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.6.bin`.
+The catalog URL baked into the firmware (`sketch/src/ui/screens/ui_Screen_OTA.cpp`)
+is `https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/firmware_catalog.json`;
+it used to name the pre-rename slug `rahulraj80/TuneBar` and only resolved
+through GitHub's rename redirect (v2.6.7 points at the real slug).
 
 ---
 

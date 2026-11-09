@@ -14,9 +14,9 @@ struct CatalogItem {
   uint32_t size_bytes;
 };
 
-#define GENERATED_CATALOG_COUNT 1
+#define GENERATED_CATALOG_COUNT 2
 
-static const CatalogItem s_generated_catalog[1] = {
+static const CatalogItem s_generated_catalog[2] = {
   // [0] v2.6.6
   {
     "v2.6.6", "PATCH", 0x00FF88, "Nov 09, 2026", "3.10 MB",
@@ -26,12 +26,22 @@ static const CatalogItem s_generated_catalog[1] = {
     "• Upload errors log the resolved host and path",
     "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.6.bin",
     3251632
+  },
+  // [1] v2.6.7
+  {
+    "v2.6.7", "PATCH", 0x00FF88, "Nov 09, 2026", "4.08 MB",
+    "• OTA catalog / binary URLs now use rahulraj80/DeskBar-AI instead of the pre-rename rahulraj80/TuneBar slug\n"
+    "• The OTA screen and /api/ota/repos no longer rely on GitHub's rename redirect\n"
+    "• Release links (repo, releases page, firmware download) updated in the same pass",
+    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.7.bin",
+    4283408
   }
 };
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.6.6\",\"type\":\"patch\",\"build\":246,\"date\":\"Nov 09, 2026\",\"size\":\"3.10 MB\",\"size_bytes\":3251632,\"changelog\":\"• AI voice [MIC] upload now uses the configured ai_url (/secrets.ini, Settings) instead of the compile-time host • Default AI endpoint moved to autobots.my.to (was the parked placeholder api.your-domain.com) • Non-JSON HTTP 200 replies report 'Server sent a web page, not an AI reply' instead of 'Bad server response' • Upload errors log the resolved host and path\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.6.bin\"}";
+  j += "{\"version\":\"2.6.6\",\"type\":\"patch\",\"build\":246,\"date\":\"Nov 09, 2026\",\"size\":\"3.10 MB\",\"size_bytes\":3251632,\"changelog\":\"• AI voice [MIC] upload now uses the configured ai_url (/secrets.ini, Settings) instead of the compile-time host • Default AI endpoint moved to autobots.my.to (was the parked placeholder api.your-domain.com) • Non-JSON HTTP 200 replies report 'Server sent a web page, not an AI reply' instead of 'Bad server response' • Upload errors log the resolved host and path\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.6.bin\"},";
+  j += "{\"version\":\"2.6.7\",\"type\":\"patch\",\"build\":248,\"date\":\"Nov 09, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• OTA catalog / binary URLs now use rahulraj80/DeskBar-AI instead of the pre-rename rahulraj80/TuneBar slug • The OTA screen and /api/ota/repos no longer rely on GitHub's rename redirect • Release links (repo, releases page, firmware download) updated in the same pass\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.7.bin\"}";
   j += "]}";
   return j;
 }
