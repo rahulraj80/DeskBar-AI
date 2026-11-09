@@ -405,12 +405,15 @@ button lands in the Launcher menu.
 **OTA releases** are published to `releases/bin/` and tracked in
 `releases/firmware_catalog.json`. Max 2 versions are retained in git
 (to prevent Git bloat); older binaries are pruned on each publish. The
-latest OTA image is `firmware-v2.6.6.bin` (3,251,632 bytes), served from
-`https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.6.bin`.
-The catalog URL baked into the firmware (`sketch/src/ui/screens/ui_Screen_OTA.cpp`)
+catalog URL baked into the firmware (`sketch/src/ui/screens/ui_Screen_OTA.cpp`)
 is `https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/firmware_catalog.json`;
-it used to name the pre-rename slug `rahulraj80/TuneBar` and only resolved
-through GitHub's rename redirect (v2.6.7 points at the real slug).
+until v2.6.7 it named the pre-rename slug `rahulraj80/TuneBar` and only
+resolved through GitHub's rename redirect (whose `cache-control: max-age=300`
+is why a device can show the previous catalog for minutes after a publish).
+The same slug was still baked into the gzipped web page
+(`sketch/web/index.html` → `tools/gzip_web_page.py` → `sketch/include/web_page_gz.h`,
+so `strings` on the binary will not show it) until v2.6.8 — check that file
+too when touching repo URLs.
 
 ---
 

@@ -17,31 +17,31 @@ struct CatalogItem {
 #define GENERATED_CATALOG_COUNT 2
 
 static const CatalogItem s_generated_catalog[2] = {
-  // [0] v2.6.6
+  // [0] v2.6.7
   {
-    "v2.6.6", "PATCH", 0x00FF88, "Nov 09, 2026", "3.10 MB",
-    "• AI voice [MIC] upload now uses the configured ai_url (/secrets.ini, Settings) instead of the compile-time host\n"
-    "• Default AI endpoint moved to autobots.my.to (was the parked placeholder api.your-domain.com)\n"
-    "• Non-JSON HTTP 200 replies report 'Server sent a web page, not an AI reply' instead of 'Bad server response'\n"
-    "• Upload errors log the resolved host and path",
-    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.6.bin",
-    3251632
-  },
-  // [1] v2.6.7
-  {
-    "v2.6.7", "PATCH", 0x00FF88, "Nov 09, 2026", "4.08 MB",
-    "• OTA catalog / binary URLs now use rahulraj80/DeskBar-AI instead of the pre-rename rahulraj80/TuneBar slug\n"
-    "• The OTA screen and /api/ota/repos no longer rely on GitHub's rename redirect\n"
-    "• Release links (repo, releases page, firmware download) updated in the same pass",
+    "v2.6.7", "PATCH", 0x00FF88, "Nov 09, 2026", "3.10 MB",
+    "• Automated multi-tenant telemetry and device registration guard.\n"
+    "• 4-Row 3-State IMU posture panel with active/inverted tracking.\n"
+    "• High-precision shelf inclinometer and uphill air bubble physics.\n"
+    "• Dynamic isometric chassis diagram in calibration wizard.\n"
+    "• Clock breathing interaction wake fix.",
     "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.7.bin",
+    3250224
+  },
+  // [1] v2.6.8
+  {
+    "v2.6.8", "PATCH", 0x00FF88, "Nov 09, 2026", "4.08 MB",
+    "• Web remote page links (OTA registry, release downloads) now use rahulraj80/DeskBar-AI\n"
+    "• Completes the v2.6.7 OTA slug fix — no path still relies on GitHub's rename redirect",
+    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.8.bin",
     4283408
   }
 };
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.6.6\",\"type\":\"patch\",\"build\":246,\"date\":\"Nov 09, 2026\",\"size\":\"3.10 MB\",\"size_bytes\":3251632,\"changelog\":\"• AI voice [MIC] upload now uses the configured ai_url (/secrets.ini, Settings) instead of the compile-time host • Default AI endpoint moved to autobots.my.to (was the parked placeholder api.your-domain.com) • Non-JSON HTTP 200 replies report 'Server sent a web page, not an AI reply' instead of 'Bad server response' • Upload errors log the resolved host and path\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.6.bin\"},";
-  j += "{\"version\":\"2.6.7\",\"type\":\"patch\",\"build\":248,\"date\":\"Nov 09, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• OTA catalog / binary URLs now use rahulraj80/DeskBar-AI instead of the pre-rename rahulraj80/TuneBar slug • The OTA screen and /api/ota/repos no longer rely on GitHub's rename redirect • Release links (repo, releases page, firmware download) updated in the same pass\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.7.bin\"}";
+  j += "{\"version\":\"2.6.7\",\"type\":\"patch\",\"build\":248,\"date\":\"Nov 09, 2026\",\"size\":\"3.10 MB\",\"size_bytes\":3250224,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.7.bin\"},";
+  j += "{\"version\":\"2.6.8\",\"type\":\"patch\",\"build\":249,\"date\":\"Nov 09, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Web remote page links (OTA registry, release downloads) now use rahulraj80/DeskBar-AI • Completes the v2.6.7 OTA slug fix — no path still relies on GitHub's rename redirect\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.8.bin\"}";
   j += "]}";
   return j;
 }

@@ -2,23 +2,23 @@
   "repo_id": "official",
   "releases": [
     {
-      "version": "2.6.6",
-      "type": "patch",
-      "build": 246,
-      "date": "Nov 09, 2026",
-      "title": "DeskBar AI v2.6.6: AI voice honours the configured endpoint",
-      "changelog": "\u2022 AI voice [MIC] upload now uses the configured ai_url (/secrets.ini, Settings) instead of the compile-time host\n\u2022 Default AI endpoint moved to autobots.my.to (was the parked placeholder api.your-domain.com)\n\u2022 Non-JSON HTTP 200 replies report 'Server sent a web page, not an AI reply' instead of 'Bad server response'\n\u2022 Upload errors log the resolved host and path",
-      "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.6.bin",
-      "size": 3251632
-    },
-    {
       "version": "2.6.7",
       "type": "patch",
       "build": 248,
       "date": "Nov 09, 2026",
-      "title": "DeskBar AI v2.6.7: OTA catalog points at the real repo slug",
-      "changelog": "\u2022 OTA catalog / binary URLs now use rahulraj80/DeskBar-AI instead of the pre-rename rahulraj80/TuneBar slug\n\u2022 The OTA screen and /api/ota/repos no longer rely on GitHub's rename redirect\n\u2022 Release links (repo, releases page, firmware download) updated in the same pass",
+      "title": "DeskBar AI v2.6.7 Firmware Release",
+      "changelog": "\u2022 Automated multi-tenant telemetry and device registration guard.\n\u2022 4-Row 3-State IMU posture panel with active/inverted tracking.\n\u2022 High-precision shelf inclinometer and uphill air bubble physics.\n\u2022 Dynamic isometric chassis diagram in calibration wizard.\n\u2022 Clock breathing interaction wake fix.",
       "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.7.bin",
+      "size": 3250224
+    },
+    {
+      "version": "2.6.8",
+      "type": "patch",
+      "build": 249,
+      "date": "Nov 09, 2026",
+      "title": "DeskBar AI v2.6.8: slug fix completed in the web remote",
+      "changelog": "\u2022 Web remote page links (OTA registry, release downloads) now use rahulraj80/DeskBar-AI\n\u2022 Completes the v2.6.7 OTA slug fix \u2014 no path still relies on GitHub's rename redirect",
+      "url": "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.8.bin",
       "size": 4283408
     }
   ]
