@@ -512,7 +512,8 @@ mDNS and controlled through plain HTTP REST.
 
 **Flash/RAM**: ~300 KB added (mDNS + JSON parsing), well within the ~4 MB app-slot headroom.
 
-**v2.6.5** — LAN Devices app released (3,250,208 bytes). Flash at 44.3% of 7 MB app slot (~4 MB headroom remaining).
+**v2.6.9** — LAN CLI commands released (3,256,384 bytes). Serial CLI for HA
+server/agent configuration. Flash at ~44.5% of 7 MB app slot.
 
 **CLI commands for LAN Devices configuration (serial CLI):**
 ```
