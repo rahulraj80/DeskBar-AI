@@ -1,4 +1,12 @@
-#pragma once
+#ifndef LAN_DEVICES_H
+#define LAN_DEVICES_H
+
+/* ========================================================================
+ *  LAN DEVICES — HTTP-only local device control (no SSH, no OOM risk)
+ *
+ *  Discovers & controls Home Assistant servers and custom HTTP agents
+ *  (Pi, mobile Termux, desktop helpers) over plain HTTP.
+ * ======================================================================== */
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -7,13 +15,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/* ========================================================================
- *  LAN DEVICES — HTTP-only local device control (no SSH, no OOM risk)
- *
- *  Discovers & controls Home Assistant servers and custom HTTP agents
- *  (Pi, mobile Termux, desktop helpers) over plain HTTP.
- * ======================================================================== */
 
 /* ---------- Device types ---------- */
 typedef enum {
@@ -104,3 +105,5 @@ void lan_devices_close(void);
 #ifdef __cplusplus
 }
 #endif
+
+#endif // LAN_DEVICES_H

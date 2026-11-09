@@ -518,6 +518,12 @@ server/agent configuration. Flash at ~44.5% of 7 MB app slot.
 house+network icon replaces climate icon; empty state shows config hint when no
 HA servers, device hint when none found. Flash at ~44.5% of 7 MB app slot.
 
+**LAN Devices icon-based UI** — action icons in header (⟳ refresh, + add server,
+⚙ configure agents, ✕ close); multi-step keyboard flows for adding servers
+(host → port → token) and agents (name → host → port → path), borrowing the
+Settings → WiFi keyboard pattern. Devices grouped by location with toggles.
+Released as v2.6.11 (3,259,424 bytes).
+
 **CLI commands for LAN Devices configuration (serial CLI):**
 ```
 lan add <host> <port> <token> [ssl]     # Add Home Assistant server

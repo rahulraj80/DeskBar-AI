@@ -14,7 +14,7 @@
     {
       "version": "2.6.8",
       "type": "patch",
-      "build": 254,
+      "build": 256,
       "date": "Nov 09, 2026",
       "title": "DeskBar AI v2.6.8: slug fix completed in the web remote",
       "changelog": "\u2022 Web remote page links (OTA registry, release downloads) now use rahulraj80/DeskBar-AI\n\u2022 Completes the v2.6.7 OTA slug fix \u2014 no path still relies on GitHub's rename redirect",

@@ -41,7 +41,7 @@ static const CatalogItem s_generated_catalog[2] = {
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
   j += "{\"version\":\"2.6.7\",\"type\":\"patch\",\"build\":248,\"date\":\"Nov 09, 2026\",\"size\":\"3.10 MB\",\"size_bytes\":3250224,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.7.bin\"},";
-  j += "{\"version\":\"2.6.8\",\"type\":\"patch\",\"build\":254,\"date\":\"Nov 09, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Web remote page links (OTA registry, release downloads) now use rahulraj80/DeskBar-AI • Completes the v2.6.7 OTA slug fix — no path still relies on GitHub's rename redirect\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.8.bin\"}";
+  j += "{\"version\":\"2.6.8\",\"type\":\"patch\",\"build\":256,\"date\":\"Nov 09, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Web remote page links (OTA registry, release downloads) now use rahulraj80/DeskBar-AI • Completes the v2.6.7 OTA slug fix — no path still relies on GitHub's rename redirect\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.8.bin\"}";
   j += "]}";
   return j;
 }
