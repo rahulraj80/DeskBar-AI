@@ -102,6 +102,9 @@ void lan_devices_open(void);
 /* Close the LAN Devices UI screen (return to menu) */
 void lan_devices_close(void);
 
+/* Diagnostic: run an mDNS query and print results to Serial */
+void lan_devices_mdns_debug(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -497,7 +497,10 @@ mDNS and controlled through plain HTTP REST.
 - Manual add: host, port, long-lived access token (stored in NVS)
 - `GET /api/states` → all entities with `entity_id`, `state`, `attributes`
 - `POST /api/services/{domain}/{service}` → control (toggle, turn_on, etc.)
-- Credentials stored in NVS namespace `lan_dev`, never in `secrets.h`
+- mDNS discovery starts lazily when Wi-Fi is up (`lan_devices_refresh()`), uses the resolved IPv4 address (the mDNS hostname is not resolvable for HTTP),
+does not gate on `WiFi.status()` (reads WL_IDLE while usable), and prints
+`[LAN_DEV] mDNS ...` to Serial, since
+boot runs `lan_devices_init()` before the link exists. Credentials stored in NVS namespace `lan_dev`. never in `secrets.h`
 
 **Generic HTTP agents** (Pi, mobile Termux, desktop):
 - Tiny HTTP listener on each machine exposing `POST /command`
@@ -529,6 +532,7 @@ location with toggles. Do NOT use a literal unicode cross for a button glyph —
 ```
 lan open                                # Open the LAN Devices screen
 lan close                               # Close it (back to menu)
+lan mdns                                # Diagnostic: query mDNS for HA servers
 lan add <host> <port> <token> [ssl]     # Add Home Assistant server
 lan agent add <name> <host> <port> [base]  # Add HTTP agent (Pi/mobile/desktop)
 lan list                                # List servers, agents, devices
@@ -536,7 +540,10 @@ lan refresh                             # Refresh device list from HA
 lan toggle <entity_id>                  # Toggle a device (e.g. switch.kitchen)
 lan remove <index>                      # Remove HA server by index
 ```
-Credentials stored in NVS namespace `lan_dev`. Example: `lan add 192.168.3.50 8123 eyJ...`
+mDNS discovery starts lazily when Wi-Fi is up (`lan_devices_refresh()`), uses the resolved IPv4 address (the mDNS hostname is not resolvable for HTTP),
+does not gate on `WiFi.status()` (reads WL_IDLE while usable), and prints
+`[LAN_DEV] mDNS ...` to Serial, since
+boot runs `lan_devices_init()` before the link exists. Credentials stored in NVS namespace `lan_dev`. Example: `lan add 192.168.3.50 8123 eyJ...`
 
 **Add server / agent keyboard** mirrors Settings → Wi-Fi: a LEFT form panel
 (title + textarea + OK/Cancel) with the LVGL keyboard on the RIGHT (352 px,

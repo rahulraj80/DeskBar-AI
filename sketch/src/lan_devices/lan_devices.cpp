@@ -264,20 +264,41 @@ static bool ha_get_states(lan_ha_server_t *srv, lan_device_t *out, int *out_coun
  * ======================================================================== */
 
 static void mdns_browse_cb(lv_timer_t *t) {
-    if (WiFi.status() != WL_CONNECTED) return;
+    // Do NOT gate on WiFi.status()==WL_CONNECTED: on this unit it can read
+    // WL_IDLE_STATUS (0) while the link is actually usable. Gate on the radio
+    // being on instead.
+    if (WiFi.getMode() == WIFI_OFF) return;
 
     int n = MDNS.queryService("home-assistant", "tcp");
+    static int s_last_n = -999;
+    if (n != s_last_n) {
+        s_last_n = n;
+        Serial.printf("[LAN_DEV] mDNS queryService(home-assistant) -> %d\n", n);
+    }
     if (n <= 0) return;
 
     for (int i = 0; i < n; i++) {
-        String hostname = MDNS.hostname(i);
+        // Use the resolved IPv4 address, not the mDNS hostname: the UUID-style
+        // name (e.g. ae4da978...7) is not resolvable for a plain HTTPClient.
+        // On a cached query MDNS.address(i) can read 0, so fall back to an
+        // explicit host lookup.
+        IPAddress ip = MDNS.address(i);
         uint16_t port = MDNS.port(i);
+        String hn = MDNS.hostname(i);
+        if ((uint32_t)ip == 0) {
+            ip = MDNS.queryHost(hn, 2000);
+        }
 
         char host[64];
-        hostname.toCharArray(host, sizeof(host));
+        if ((uint32_t)ip != 0) {
+            snprintf(host, sizeof(host), "%s", ip.toString().c_str());
+        } else {
+            hn.toCharArray(host, sizeof(host));
+        }
+        Serial.printf("[LAN_DEV] mdns[%d] addr=%s resolved=%s\n",
+                      i, hn.c_str(), host);
 
         if (find_ha_by_host_port(host, port) >= 0) continue;
-
         if (s_ha_server_count >= 4) continue;
 
         lan_ha_server_t *s = &s_ha_servers[s_ha_server_count++];
@@ -286,17 +307,35 @@ static void mdns_browse_cb(lv_timer_t *t) {
         s->port = port;
         s->ssl = false;
         s->discovered = true;
-        log_i("[LAN_DEV] Discovered HA at %s:%u", host, port);
+        Serial.printf("[LAN_DEV] Discovered HA at %s:%u (token needed)\n", host, port);
     }
     lan_devices_save_config();
+}
+
+static void start_mdns(void);
+
+void lan_devices_mdns_debug(void) {
+    Serial.printf("[LAN_DEV] WiFi.status=%d s_mdns_started=%d\n",
+                  (int)WiFi.status(), s_mdns_started ? 1 : 0);
+    if (!s_mdns_started) start_mdns();
+    int n = MDNS.queryService("home-assistant", "tcp");
+    Serial.printf("[LAN_DEV] queryService(home-assistant,tcp) -> %d\n", n);
+    for (int i = 0; i < n; i++) {
+        String hn = MDNS.hostname(i);
+        IPAddress ip = MDNS.address(i);
+        uint16_t port = MDNS.port(i);
+        Serial.printf("  [%d] hostname=%s ip=%s port=%u\n",
+                      i, hn.c_str(), ip.toString().c_str(), port);
+    }
 }
 
 static void start_mdns(void) {
     if (s_mdns_started) return;
     if (!MDNS.begin("deskbar")) {
-        log_e("[LAN_DEV] mDNS begin failed");
+        Serial.println("[LAN_DEV] mDNS begin FAILED");
         return;
     }
+    Serial.println("[LAN_DEV] mDNS responder started");
     s_mdns_started = true;
     s_mdns_timer = lv_timer_create(mdns_browse_cb, 10000, NULL);
     log_i("[LAN_DEV] mDNS browser started");
@@ -387,6 +426,10 @@ void lan_devices_init(void) {
 }
 
 void lan_devices_refresh(void) {
+    // mDNS is started lazily: at boot Wi-Fi is not up yet when init() runs, so
+    // start the browser the first time we know the link is live.
+    if (WiFi.status() == WL_CONNECTED) start_mdns();
+
     s_device_count = 0;
     for (int i = 0; i < s_device_count; i++) device_reset(&s_devices[i]);
 
@@ -497,7 +540,15 @@ bool lan_devices_set_brightness(const char *entity_id, uint8_t brightness) {
 
 void lan_devices_add_ha_server(const char *host, uint16_t port,
                                const char *token, bool ssl) {
-    if (find_ha_by_host_port(host, port) >= 0) return;
+    // If mDNS already discovered this host (empty token), just fill the token.
+    int existing = find_ha_by_host_port(host, port);
+    if (existing >= 0) {
+        strncpy(s_ha_servers[existing].token, token, sizeof(s_ha_servers[existing].token) - 1);
+        s_ha_servers[existing].token[sizeof(s_ha_servers[existing].token) - 1] = '\0';
+        s_ha_servers[existing].ssl = ssl;
+        lan_devices_save_config();
+        return;
+    }
     if (s_ha_server_count >= 4) return;
     lan_ha_server_t *s = &s_ha_servers[s_ha_server_count++];
     memset(s, 0, sizeof(*s));

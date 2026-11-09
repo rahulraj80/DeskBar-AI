@@ -419,6 +419,7 @@ void serial_cli_task(void *param) {
             Serial.println("  telemetry             - Check buffered telemetry records");
             Serial.println("  telemetry flush       - Manually flush batch telemetry to server");
           Serial.println("  lan open                - Open the LAN Devices screen");
+          Serial.println("  lan mdns                - Query mDNS for Home Assistant servers");
           Serial.println("  lan add <host> <port> <token> [ssl]  - Add Home Assistant server");
           Serial.println("  lan agent add <name> <host> <port> [base]  - Add HTTP agent");
           Serial.println("  lan list                - List HA servers, agents, and devices");
@@ -1508,6 +1509,8 @@ void serial_cli_task(void *param) {
               lvgl_port_unlock();
             }
             Serial.println("[CLI] OK: LAN Devices screen closed");
+          } else if (cmd.equalsIgnoreCase("lan mdns")) {
+            lan_devices_mdns_debug();
           } else if (cmd.equalsIgnoreCase("lan list")) {
             Serial.println("\n========== LAN DEVICES ==========");
             Serial.printf("HA Servers (%d):\n", lan_devices_ha_server_count());
