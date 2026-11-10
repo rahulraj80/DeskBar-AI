@@ -565,7 +565,7 @@ directly on the CLI task overflowed the stack canary.
 
 **Scrolling:** the LAN panel must stay scrollable (vertical) or rows below the first screenful are unreachable.
 
-**Keyboard layout (LAN sign-in):** 422 px wide on the right (form panel 218 px on the left). lv_btnmatrix rows are equal height, so it is a 3-row main keyboard (~41 px rows) over a second 1-row keyboard (~28 px: keyboard, ←, space, →, OK). `lv_keyboard_set_map()` is global, so the 3-row maps are installed while the LAN screen is open and the stock maps restored on close. Port steps use the stock numeric keyboard at full height.
+**Keyboard layout (LAN sign-in):** 422 px wide on the right (form panel 218 px on the left). lv_btnmatrix rows are equal height, so it is a 3-row main keyboard (~41 px rows) over a second 1-row keyboard (~28 px: keyboard, ←, space, →, OK). `lv_keyboard_set_map()` is global, so the 3-row maps are installed while the LAN screen is open and the stock maps restored on close. Port steps use the stock numeric keyboard at full height. `lv_keyboard` bottom-aligns itself, so set `LV_ALIGN_TOP_LEFT` before positioning.
 
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
