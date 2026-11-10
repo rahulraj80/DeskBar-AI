@@ -569,6 +569,8 @@ directly on the CLI task overflowed the stack canary.
 
 **mDNS never runs in the LVGL task:** `MDNS.queryService` blocks ~3 s (plus 2 s per `queryHost`); in an LVGL timer it froze the UI every 10 s (laggy keyboard). It now runs on a `lan_mdns` task, only while the LAN screen is open with no keyboard or job active; the LVGL timer just applies results.
 
+**Screenshots:** `screenshot` renders (`lv_refr_now`) on the serial_cli task, whose stack is now 12 KB; at 6 KB a screenshot of a symbols-mode keyboard overflowed it and corrupted the heap, causing later crashes that were test-harness artifacts.
+
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded

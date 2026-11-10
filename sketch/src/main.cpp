@@ -264,7 +264,7 @@ void setup() {
   createTaskChecked(serial_debug_beacon_task, "debugBeacon", 4 * 1024, 1, 1);
 
   // Core 0 (System Core - lower priority than LVGL priority 5)
-  createTaskChecked(serial_cli_task, "serial_cli", 6 * 1024, 2, 0);
+  createTaskChecked(serial_cli_task, "serial_cli", 12 * 1024, 2, 0);  // screenshot (lv_refr_now) renders on this task
   createTaskChecked(web_server_task, "web_server", 8 * 1024, 2, 0);
 
   // Initialize clock screen + breathing timer. init_main_menu_task() is also

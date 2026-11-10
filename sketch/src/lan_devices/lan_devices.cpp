@@ -1558,7 +1558,9 @@ void lan_devices_close(void) {
     // These were children of s_screen; clear them so the next open recreates
     // them instead of touching freed objects.
     s_kb_panel = NULL;
-    if (s_kb_keyboard) lankb_restore_maps(s_kb_keyboard);
+    // Restore via the bottom keyboard (USER_1 mode, map unchanged) so the main
+    // keyboard is not re-shaped right before it is deleted.
+    if (s_kb_bottom) lankb_restore_maps(s_kb_bottom);
     s_kb_keyboard = NULL;
     s_kb_cont = NULL;
     s_kb_bottom = NULL;
