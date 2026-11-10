@@ -553,6 +553,10 @@ does not gate on `WiFi.status()` (reads WL_IDLE while usable), and prints
 `[LAN_DEV] mDNS ...` to Serial, since
 boot runs `lan_devices_init()` before the link exists. Credentials stored in NVS namespace `lan_dev`. Example: `lan add 192.168.3.50 8123 eyJ...`
 
+**Stack note:** the LVGL and serial-CLI tasks have only 6 KB stacks, so every HA HTTP
+request runs on a short-lived 12 KB `lan_net` worker task (the caller waits). Doing HTTP
+directly on the CLI task overflowed the stack canary.
+
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded
 card with accent top/bottom bars, glyph and the label baked into the PNG (blue accent).
 No separate text label object.
