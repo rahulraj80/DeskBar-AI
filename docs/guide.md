@@ -567,6 +567,8 @@ directly on the CLI task overflowed the stack canary.
 
 **Keyboard layout (LAN sign-in):** 422 px wide on the right (form panel 218 px on the left). lv_btnmatrix rows are equal height, so it is a 3-row main keyboard (~41 px rows) over a second 1-row keyboard (~28 px: keyboard, ←, space, →, OK). `lv_keyboard_set_map()` is global, so the 3-row maps are installed while the LAN screen is open and the stock maps restored on close. Port steps use the stock numeric keyboard at full height. Every ctrl map must have exactly one entry per button (the special-chars row has 12 keys; LVGL's stock map has 11 and the last key got a huge width). `lv_keyboard` bottom-aligns itself, so set `LV_ALIGN_TOP_LEFT` before positioning.
 
+**mDNS never runs in the LVGL task:** `MDNS.queryService` blocks ~3 s (plus 2 s per `queryHost`); in an LVGL timer it froze the UI every 10 s (laggy keyboard). It now runs on a `lan_mdns` task, only while the LAN screen is open with no keyboard or job active; the LVGL timer just applies results.
+
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded

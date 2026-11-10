@@ -53,6 +53,8 @@ static lv_obj_t *s_icon_add = NULL;
 static lv_obj_t *s_icon_config = NULL;
 
 static lv_obj_t *s_kb_panel = NULL;
+static volatile bool s_job_running = false, s_job_done = false;
+static bool s_kb_visible(void) { return s_kb_panel && !lv_obj_has_flag(s_kb_panel, LV_OBJ_FLAG_HIDDEN); }
 static lv_obj_t *s_kb_textarea = NULL;
 static lv_obj_t *s_kb_keyboard = NULL;
 static lv_obj_t *s_kb_done_btn = NULL;
@@ -450,53 +452,63 @@ bool lan_devices_login(const char *host, uint16_t port, const char *user,
  *  mDNS discovery
  * ======================================================================== */
 
-static void mdns_browse_cb(lv_timer_t *t) {
-    // Do NOT gate on WiFi.status()==WL_CONNECTED: on this unit it can read
-    // WL_IDLE_STATUS (0) while the link is actually usable. Gate on the radio
-    // being on instead.
-    if (WiFi.getMode() == WIFI_OFF) return;
+/* mDNS queries block for ~3 s (queryService) and up to 2 s more per queryHost.
+ * Doing that inside an LVGL timer froze the UI and made the keyboard laggy, so the
+ * query runs on its own task; the LVGL timer only applies finished results. */
+struct MdnsHit { char host[16]; uint16_t port; };
+static MdnsHit s_mdns_hits[4];
+static volatile int s_mdns_hit_count = 0;
+static volatile bool s_mdns_running = false, s_mdns_ready = false;
 
+static void mdns_task(void *) {
     int n = MDNS.queryService("home-assistant", "tcp");
-    static int s_last_n = -999;
-    if (n != s_last_n) {
-        s_last_n = n;
-        Serial.printf("[LAN_DEV] mDNS queryService(home-assistant) -> %d\n", n);
-    }
-    if (n <= 0) return;
-
-    for (int i = 0; i < n; i++) {
-        // Use the resolved IPv4 address, not the mDNS hostname: the UUID-style
-        // name (e.g. ae4da978...7) is not resolvable for a plain HTTPClient.
-        // On a cached query MDNS.address(i) can read 0, so fall back to an
-        // explicit host lookup.
+    int cnt = 0;
+    for (int i = 0; i < n && cnt < 4; i++) {
         IPAddress ip = MDNS.address(i);
         uint16_t port = MDNS.port(i);
         String hn = MDNS.hostname(i);
-        if ((uint32_t)ip == 0) {
-            ip = MDNS.queryHost(hn, 2000);
-        }
-
-        char host[64];
-        if ((uint32_t)ip != 0) {
-            snprintf(host, sizeof(host), "%s", ip.toString().c_str());
-        } else {
-            hn.toCharArray(host, sizeof(host));
-        }
-        Serial.printf("[LAN_DEV] mdns[%d] addr=%s resolved=%s\n",
-                      i, hn.c_str(), host);
-
-        if (find_ha_by_host_port(host, port) >= 0) continue;
-        if (s_ha_server_count >= 4) continue;
-
-        lan_ha_server_t *s = &s_ha_servers[s_ha_server_count++];
-        memset(s, 0, sizeof(*s));
-        strncpy(s->host, host, sizeof(s->host) - 1);
-        s->port = port;
-        s->ssl = false;
-        s->discovered = true;
-        Serial.printf("[LAN_DEV] Discovered HA at %s:%u (token needed)\n", host, port);
+        if ((uint32_t)ip == 0) ip = MDNS.queryHost(hn, 2000);
+        if ((uint32_t)ip == 0) continue;   // never store the unresolvable UUID hostname
+        snprintf(s_mdns_hits[cnt].host, sizeof(s_mdns_hits[cnt].host), "%s", ip.toString().c_str());
+        s_mdns_hits[cnt].port = port;
+        cnt++;
     }
-    lan_devices_save_config();
+    s_mdns_hit_count = cnt;
+    s_mdns_ready = true;
+    vTaskDelete(NULL);
+}
+
+static void mdns_browse_cb(lv_timer_t *t) {
+    if (WiFi.getMode() == WIFI_OFF) return;
+
+    if (s_mdns_ready) {
+        s_mdns_ready = false;
+        s_mdns_running = false;
+        bool added = false;
+        for (int i = 0; i < s_mdns_hit_count; i++) {
+            if (find_ha_by_host_port(s_mdns_hits[i].host, s_mdns_hits[i].port) >= 0) continue;
+            if (s_ha_server_count >= 4) break;
+            lan_ha_server_t *s = &s_ha_servers[s_ha_server_count++];
+            memset(s, 0, sizeof(*s));
+            strncpy(s->host, s_mdns_hits[i].host, sizeof(s->host) - 1);
+            s->port = s_mdns_hits[i].port;
+            s->discovered = true;
+            added = true;
+            Serial.printf("[LAN_DEV] Discovered HA at %s:%u (sign-in needed)\n", s->host, s->port);
+        }
+        if (added) {
+            lan_devices_save_config();
+            if (s_screen_open && s_scroll && !s_job_running && !s_kb_visible()) lan_devices_ui_refresh();
+        }
+        return;
+    }
+
+    // Only browse while the LAN screen is open, no job is running and no
+    // keyboard is up (keep the CPU free for typing).
+    if (!s_screen_open || s_mdns_running || s_job_running || s_kb_visible()) return;
+    s_mdns_running = true;
+    if (xTaskCreatePinnedToCore(mdns_task, "lan_mdns", 8 * 1024, NULL, 1, NULL, 1) != pdPASS)
+        s_mdns_running = false;
 }
 
 static void start_mdns(void);
@@ -1043,7 +1055,6 @@ static struct {
     char entity[64];
     bool login_ok; char err[64];
 } s_job;
-static volatile bool s_job_running = false, s_job_done = false;
 static lv_timer_t *s_poll_timer = NULL;
 static lv_obj_t *s_status_lbl = NULL;
 
