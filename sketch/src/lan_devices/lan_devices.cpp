@@ -153,9 +153,9 @@ static void extract_location(JsonObject &attrs, char *out, size_t outsz) {
 
 static const char *HA_CLIENT_ID = "http://deskbar.local/";
 
-static int ha_http(const lan_ha_server_t *srv, const char *method, const char *path,
-                   const char *ctype, const String &body, const char *bearer,
-                   String &resp) {
+static int ha_http_impl(const lan_ha_server_t *srv, const char *method, const char *path,
+                        const char *ctype, const String &body, const char *bearer,
+                        String &resp) {
     if (WiFi.status() != WL_CONNECTED) return -1;
     char url[300];
     snprintf(url, sizeof(url), "%s://%s:%u%s",
@@ -180,6 +180,29 @@ static int ha_http(const lan_ha_server_t *srv, const char *method, const char *p
     if (code > 0) resp = http.getString();
     http.end();
     return code;
+}
+
+/* The LVGL (6 KB) and serial CLI tasks have small stacks; HTTPClient needs more.
+ * Run every request on a short-lived worker task and wait for it. */
+struct HaJob {
+    const lan_ha_server_t *srv; const char *method; const char *path;
+    const char *ctype; const String *body; const char *bearer; String *resp;
+    int code; volatile bool done;
+};
+
+static int ha_http(const lan_ha_server_t *srv, const char *method, const char *path,
+                   const char *ctype, const String &body, const char *bearer,
+                   String &resp) {
+    HaJob job = {srv, method, path, ctype, &body, bearer, &resp, -1, false};
+    BaseType_t ok = xTaskCreatePinnedToCore([](void *p) {
+        HaJob *j = (HaJob *)p;
+        j->code = ha_http_impl(j->srv, j->method, j->path, j->ctype, *j->body, j->bearer, *j->resp);
+        j->done = true;
+        vTaskDelete(NULL);
+    }, "lan_net", 12 * 1024, &job, 3, NULL, 1);
+    if (ok != pdPASS) return ha_http_impl(srv, method, path, ctype, body, bearer, resp);
+    while (!job.done) vTaskDelay(pdMS_TO_TICKS(10));
+    return job.code;
 }
 
 /* Exchange an auth code or refresh token for an access token. */
