@@ -22,6 +22,7 @@ static const char *NVS_NS = "lan_dev";
 
 static lan_device_t s_devices[64];
 static int s_device_count = 0;
+static int s_srv_state[4] = {0, 0, 0, 0};  // per server: 0 unknown, 1 connected, 2 failed
 static int s_refresh_state = 0;  // 0 none, 1 ok, 2 failed
 
 static lan_ha_server_t s_ha_servers[4];
@@ -634,14 +635,17 @@ static void lan_devices_refresh_net(void) {
     for (int i = 0; i < s_device_count; i++) device_reset(&s_devices[i]);
 
     s_refresh_state = 0;
+    for (int i = 0; i < 4; i++) s_srv_state[i] = 0;
     for (int i = 0; i < s_ha_server_count; i++) {
         if (!has_creds(&s_ha_servers[i])) continue;
         int got = 64 - s_device_count;
         if (ha_get_states(&s_ha_servers[i], s_devices + s_device_count, &got)) {
             s_device_count += got;
             s_refresh_state = 1;
+            s_srv_state[i] = 1;
             break;
         }
+        s_srv_state[i] = 2;
         s_refresh_state = 2;
     }
     Serial.printf("[LAN_DEV] Refresh: %d devices (task %s, stack free %u B)\n", s_device_count,
@@ -1446,13 +1450,15 @@ static void lan_devices_ui_refresh(void) {
         lv_obj_align(nm, LV_ALIGN_LEFT_MID, 8, -9);
 
         char sub[96];
+        int ss = (i < 4) ? s_srv_state[i] : 0;
         const char *st = !signed_in ? "not signed in"
-                         : (s_refresh_state == 2 ? "sign-in failed or server unreachable"
-                                                 : (s_device_count ? "connected" : "signed in"));
+                         : (ss == 2 ? "unreachable or sign-in failed"
+                                    : (ss == 1 ? "connected" : "signed in"));
+        bool bad = !signed_in || ss == 2;
         snprintf(sub, sizeof(sub), "%s:%u  -  %s", srv->host, srv->port, st);
         lv_obj_t *sb = lv_label_create(row);
         lv_label_set_text(sb, sub);
-        lv_obj_set_style_text_color(sb, lv_color_hex(signed_in && s_refresh_state != 2 ? 0x00E5A0 : 0xFFB020), 0);
+        lv_obj_set_style_text_color(sb, lv_color_hex(bad ? 0xFFB020 : 0x00E5A0), 0);
         lv_obj_set_style_text_font(sb, &lv_font_montserrat_14, 0);
         lv_obj_align(sb, LV_ALIGN_LEFT_MID, 8, 9);
 

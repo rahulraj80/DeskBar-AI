@@ -571,6 +571,8 @@ directly on the CLI task overflowed the stack canary.
 
 **Screenshots:** `screenshot` renders (`lv_refr_now`) on the serial_cli task, whose stack is now 12 KB; at 6 KB a screenshot of a symbols-mode keyboard overflowed it and corrupted the heap, causing later crashes that were test-harness artifacts.
 
+**Per-server status:** each server row shows its own state (connected / signed in / unreachable or sign-in failed / not signed in), not one global flag.
+
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded
