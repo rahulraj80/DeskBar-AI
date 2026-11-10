@@ -421,6 +421,7 @@ void serial_cli_task(void *param) {
           Serial.println("  lan open                - Open the LAN Devices screen");
           Serial.println("  lan mdns                - Query mDNS for Home Assistant servers");
           Serial.println("  lan add <host> <port> <token> [ssl]  - Add Home Assistant server");
+          Serial.println("  lan login <host> <port> <user> <password>  - Sign in to Home Assistant");
           Serial.println("  lan agent add <name> <host> <port> [base]  - Add HTTP agent");
           Serial.println("  lan list                - List HA servers, agents, and devices");
           Serial.println("  lan refresh             - Refresh device list from HA");
@@ -1517,7 +1518,7 @@ void serial_cli_task(void *param) {
             for (int i = 0; i < lan_devices_ha_server_count(); i++) {
               const lan_ha_server_t *s = lan_devices_ha_server_get(i);
               Serial.printf("  %d: %s:%u ssl=%d token=%s\n", i, s->host, s->port,
-                            s->ssl ? 1 : 0, s->token[0] ? "set" : "(none)");
+                            s->ssl ? 1 : 0, s->refresh[0] ? "login" : (s->token[0] ? "token" : "(none)"));
             }
             Serial.printf("Agents (%d):\n", lan_devices_agent_count());
             for (int i = 0; i < lan_devices_agent_count(); i++) {
@@ -1560,6 +1561,17 @@ void serial_cli_task(void *param) {
             if (port == 0) port = 8123;
             lan_devices_add_ha_server(host.c_str(), port, token.c_str(), ssl);
             Serial.printf("[CLI LAN] OK: Added HA server %s:%u (ssl=%d)\n", host.c_str(), port, ssl ? 1 : 0);
+          } else if (cmd.startsWith("lan login ")) {
+            // lan login <host> <port> <user> <password>
+            String a = cmd.substring(10); a.trim();
+            String p[4]; int n = 0;
+            while (n < 3) { int sp = a.indexOf(' '); if (sp < 0) break; p[n++] = a.substring(0, sp); a = a.substring(sp + 1); a.trim(); }
+            if (n < 3 || !a.length()) { Serial.println("[CLI LAN] Usage: lan login <host> <port> <user> <password>"); cmd = ""; continue; }
+            char err[64] = "";
+            if (lan_devices_login(p[0].c_str(), (uint16_t)p[1].toInt(), p[2].c_str(), a.c_str(), false, err, sizeof(err)))
+              Serial.println("[CLI LAN] OK: signed in");
+            else
+              Serial.printf("[CLI LAN] ERROR: %s\n", err);
           } else if (cmd.startsWith("lan agent add ")) {
             String rest = cmd.substring(14);
             rest.trim();

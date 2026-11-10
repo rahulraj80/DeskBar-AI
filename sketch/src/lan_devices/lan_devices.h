@@ -44,7 +44,8 @@ typedef struct {
 typedef struct {
     char  host[128];       // hostname or IP
     uint16_t port;         // 8123 typically
-    char  token[256];      // long-lived access token
+    char  token[384];      // access token (long-lived, or short-lived from login)
+    char  refresh[160];    // refresh token from username/password login (empty = manual token)
     bool  ssl;             // https vs http
     bool  discovered;      // true if found via mDNS
 } lan_ha_server_t;
@@ -81,6 +82,12 @@ bool lan_devices_set_brightness(const char *entity_id, uint8_t brightness);
 void lan_devices_add_ha_server(const char *host, uint16_t port,
                                const char *token, bool ssl);
 void lan_devices_remove_ha_server(int idx);
+
+/* Sign in to a Home Assistant server with username + password (HA login flow).
+ * Stores only the refresh token, never the password. On failure returns false
+ * and writes a short human-readable reason into err. */
+bool lan_devices_login(const char *host, uint16_t port, const char *user,
+                       const char *pass, bool ssl, char *err, size_t errsz);
 
 /* Add / remove a generic HTTP agent */
 void lan_devices_add_agent(const char *name, const char *host,

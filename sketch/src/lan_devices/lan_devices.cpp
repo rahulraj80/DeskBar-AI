@@ -32,6 +32,7 @@ static int s_agent_count = 0;
 /* Temporary storage for multi-step keyboard flows */
 static char s_temp_host[128];
 static uint16_t s_temp_port;
+static char s_temp_user[96];
 static char s_temp_agent_name[64];
 static char s_temp_agent_host[128];
 static uint16_t s_temp_agent_port;
@@ -60,6 +61,8 @@ static enum {
     KB_NONE,
     KB_ADD_HOST,
     KB_ADD_PORT,
+    KB_ADD_USER,
+    KB_ADD_PASS,
     KB_ADD_TOKEN,
     KB_AGENT_NAME,
     KB_AGENT_HOST,
@@ -88,6 +91,8 @@ static int find_agent_by_host_port(const char *host, uint16_t port) {
     }
     return -1;
 }
+
+static bool has_creds(const lan_ha_server_t *s) { return s->token[0] || s->refresh[0]; }
 
 static void device_reset(lan_device_t *d) {
     memset(d, 0, sizeof(*d));
@@ -146,116 +151,268 @@ static void extract_location(JsonObject &attrs, char *out, size_t outsz) {
  *  HTTP helpers
  * ======================================================================== */
 
-static bool ha_call_service(lan_ha_server_t *srv, const char *domain,
-                            const char *service, const char *entity_id) {
-    char url[256];
-    snprintf(url, sizeof(url),
-             "%s://%s:%u/api/services/%s/%s",
-             srv->ssl ? "https" : "http", srv->host, srv->port,
-             domain, service);
+static const char *HA_CLIENT_ID = "http://deskbar.local/";
 
-    if (WiFi.status() != WL_CONNECTED) return false;
+static int ha_http(const lan_ha_server_t *srv, const char *method, const char *path,
+                   const char *ctype, const String &body, const char *bearer,
+                   String &resp) {
+    if (WiFi.status() != WL_CONNECTED) return -1;
+    char url[300];
+    snprintf(url, sizeof(url), "%s://%s:%u%s",
+             srv->ssl ? "https" : "http", srv->host, srv->port, path);
 
     static HTTPClient http;
-    static WiFiClientSecure client;
+    static WiFiClient plain;
+    static WiFiClientSecure secure;
     http.end();
-    client.setInsecure();
-    http.begin(client, url);
-    http.addHeader("Authorization", ("Bearer " + String(srv->token)).c_str());
-    http.addHeader("Content-Type", "application/json");
-
-    char body[128];
-    snprintf(body, sizeof(body), "{\"entity_id\":\"%s\"}", entity_id);
-
-    int code = http.POST((uint8_t *)body, strlen(body));
+    if (srv->ssl) {
+        secure.setInsecure();
+        http.begin(secure, url);
+    } else {
+        http.begin(plain, url);
+    }
+    http.setTimeout(8000);
+    if (bearer && *bearer) http.addHeader("Authorization", String("Bearer ") + bearer);
+    if (ctype) http.addHeader("Content-Type", ctype);
+    int code = (strcmp(method, "GET") == 0)
+                   ? http.GET()
+                   : http.sendRequest(method, (uint8_t *)body.c_str(), body.length());
+    if (code > 0) resp = http.getString();
     http.end();
-    return (code == 200);
+    return code;
+}
+
+/* Exchange an auth code or refresh token for an access token. */
+static bool ha_token_request(lan_ha_server_t *srv, const char *form, bool *got_refresh) {
+    String resp;
+    int code = ha_http(srv, "POST", "/auth/token",
+                       "application/x-www-form-urlencoded", String(form), NULL, resp);
+    if (code != 200) {
+        log_e("[LAN_DEV] /auth/token -> %d", code);
+        return false;
+    }
+    JsonDocument doc;
+    if (deserializeJson(doc, resp)) return false;
+    const char *at = doc["access_token"] | "";
+    if (!*at) return false;
+    strncpy(srv->token, at, sizeof(srv->token) - 1);
+    srv->token[sizeof(srv->token) - 1] = '\0';
+    const char *rt = doc["refresh_token"] | "";
+    if (*rt) {
+        strncpy(srv->refresh, rt, sizeof(srv->refresh) - 1);
+        srv->refresh[sizeof(srv->refresh) - 1] = '\0';
+        if (got_refresh) *got_refresh = true;
+    }
+    return true;
+}
+
+static bool ha_refresh_access(lan_ha_server_t *srv) {
+    if (!srv->refresh[0]) return false;
+    String form = String("grant_type=refresh_token&client_id=") + HA_CLIENT_ID +
+                  "&refresh_token=" + srv->refresh;
+    return ha_token_request(srv, form.c_str(), NULL);
+}
+
+/* Authenticated request; transparently refreshes an expired access token once. */
+static int ha_authed(lan_ha_server_t *srv, const char *method, const char *path,
+                     const String &body, String &resp) {
+    if (!srv->token[0] && !ha_refresh_access(srv)) return -401;
+    int code = ha_http(srv, method, path, "application/json", body, srv->token, resp);
+    if (code == 401 && srv->refresh[0] && ha_refresh_access(srv))
+        code = ha_http(srv, method, path, "application/json", body, srv->token, resp);
+    return code;
+}
+
+static bool ha_call_service(lan_ha_server_t *srv, const char *domain,
+                            const char *service, const char *entity_id,
+                            int brightness = -1) {
+    char path[96];
+    snprintf(path, sizeof(path), "/api/services/%s/%s", domain, service);
+    JsonDocument b;
+    b["entity_id"] = entity_id;
+    if (brightness >= 0) b["brightness"] = brightness;
+    String body, resp;
+    serializeJson(b, body);
+    return ha_authed(srv, "POST", path, body, resp) == 200;
+}
+
+static int cmp_devices(const void *a, const void *b) {
+    const lan_device_t *x = (const lan_device_t *)a, *y = (const lan_device_t *)b;
+    int c = strcmp(x->location, y->location);
+    return c ? c : strcmp(x->name, y->name);
+}
+
+static void fill_device(lan_device_t *d, const char *id, const char *name,
+                        const char *state, const char *area, int brightness,
+                        const char *unit) {
+    device_reset(d);
+    strncpy(d->entity_id, id, sizeof(d->entity_id) - 1);
+    strncpy(d->state, state, sizeof(d->state) - 1);
+    if (unit && *unit && strlen(state) + strlen(unit) + 1 < sizeof(d->state)) {
+        strcat(d->state, " ");
+        strcat(d->state, unit);
+    }
+    if (name && *name) strncpy(d->name, name, sizeof(d->name) - 1);
+    else {
+        const char *dot = strchr(id, '.');
+        pretty_name(dot ? dot + 1 : id, d->name, sizeof(d->name));
+    }
+    strncpy(d->location, (area && *area) ? area : "General", sizeof(d->location) - 1);
+    device_set_type(d, id);
+    d->brightness = (uint8_t)brightness;
+}
+
+/* Preferred path: one small server-side template that returns only the
+ * controllable entities WITH their area (room). /api/states carries no area
+ * and can be hundreds of KB on a real install. */
+static bool ha_get_via_template(lan_ha_server_t *srv, lan_device_t *out, int *out_count) {
+    static const char *TPL =
+        "{% set ns = namespace(l=[]) %}"
+        "{% for s in states if s.domain in ['light','switch','cover','fan'] "
+        "or (s.domain == 'sensor' and s.attributes.device_class in ['temperature','humidity']) %}"
+        "{% set ns.l = ns.l + [{'i': s.entity_id, 'n': s.name, 's': s.state, "
+        "'a': area_name(s.entity_id) or 'General', "
+        "'b': s.attributes.brightness or 0, 'u': s.attributes.unit_of_measurement or ''}] %}"
+        "{% endfor %}{{ ns.l[:64] | tojson }}";
+    JsonDocument req;
+    req["template"] = TPL;
+    String body, resp;
+    serializeJson(req, body);
+    int code = ha_authed(srv, "POST", "/api/template", body, resp);
+    if (code != 200) {
+        log_w("[LAN_DEV] /api/template -> %d (falling back to /api/states)", code);
+        return false;
+    }
+    JsonDocument doc;
+    if (deserializeJson(doc, resp)) return false;
+    int n = 0, max_out = *out_count;
+    for (JsonObject o : doc.as<JsonArray>()) {
+        if (n >= max_out) break;
+        fill_device(&out[n], o["i"] | "", o["n"] | "", o["s"] | "unknown",
+                    o["a"] | "General", o["b"] | 0, o["u"] | "");
+        n++;
+    }
+    qsort(out, n, sizeof(lan_device_t), cmp_devices);
+    *out_count = n;
+    return true;
 }
 
 static bool ha_get_states(lan_ha_server_t *srv, lan_device_t *out, int *out_count) {
-    char url[256];
-    snprintf(url, sizeof(url),
-             "%s://%s:%u/api/states",
-             srv->ssl ? "https" : "http", srv->host, srv->port);
+    if (ha_get_via_template(srv, out, out_count)) return true;
 
-    if (WiFi.status() != WL_CONNECTED) return false;
+    // Fallback (non-admin users can't render templates): read /api/states and
+    // keep only the fields and domains we show.
+    String resp;
+    int code = ha_authed(srv, "GET", "/api/states", "", resp);
+    if (code != 200) return false;
 
-    static HTTPClient http;
-    static WiFiClientSecure client;
-    http.end();
-    client.setInsecure();
-    http.begin(client, url);
-    http.addHeader("Authorization", ("Bearer " + String(srv->token)).c_str());
-
-    int code = http.GET();
-    if (code != 200) {
-        http.end();
-        return false;
-    }
-
-    static char jsonBuf[4096];
-    WiFiClient *stream = http.getStreamPtr();
-    size_t idx = 0;
-    uint32_t deadline = millis() + 8000;
-    while (millis() < deadline && idx < sizeof(jsonBuf) - 1) {
-        if (!stream->connected()) break;
-        size_t avail = stream->available();
-        if (avail == 0) { vTaskDelay(pdMS_TO_TICKS(10)); continue; }
-        size_t toRead = min(avail, sizeof(jsonBuf) - 1 - idx);
-        int r = stream->read((uint8_t *)(jsonBuf + idx), toRead);
-        if (r <= 0) break;
-        idx += r;
-    }
-    jsonBuf[idx] = '\0';
-    http.end();
-
-    static JsonDocument doc;
-    doc.clear();
-    DeserializationError err = deserializeJson(doc, jsonBuf);
+    JsonDocument filter;
+    filter[0]["entity_id"] = true;
+    filter[0]["state"] = true;
+    filter[0]["attributes"]["friendly_name"] = true;
+    filter[0]["attributes"]["brightness"] = true;
+    filter[0]["attributes"]["device_class"] = true;
+    filter[0]["attributes"]["unit_of_measurement"] = true;
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, resp, DeserializationOption::Filter(filter));
     if (err) {
         log_e("[LAN_DEV] HA states parse failed: %s", err.c_str());
         return false;
     }
-
-    JsonArray arr = doc.as<JsonArray>();
-    int n = 0;
-    int max_out = *out_count;
-    for (JsonObject obj : arr) {
+    int n = 0, max_out = *out_count;
+    for (JsonObject o : doc.as<JsonArray>()) {
         if (n >= max_out) break;
-        const char *entity_id = obj["entity_id"] | "";
-        if (!entity_id || !*entity_id) continue;
-
-        const char *state = obj["state"] | "unknown";
-        JsonObject attrs = obj["attributes"].as<JsonObject>();
-
-        strncpy(out[n].entity_id, entity_id, sizeof(out[n].entity_id) - 1);
-        out[n].entity_id[sizeof(out[n].entity_id) - 1] = '\0';
-        strncpy(out[n].state, state, sizeof(out[n].state) - 1);
-        out[n].state[sizeof(out[n].state) - 1] = '\0';
-
-        const char *fname = obj["attributes"]["friendly_name"] | "";
-        const char *dot = strchr(entity_id, '.');
-        const char *base = dot ? dot + 1 : entity_id;
-        if (*fname) {
-            strncpy(out[n].name, fname, sizeof(out[n].name) - 1);
-        } else {
-            pretty_name(base, out[n].name, sizeof(out[n].name));
+        const char *id = o["entity_id"] | "";
+        if (!*id) continue;
+        char dom[16] = "";
+        const char *dot = strchr(id, '.');
+        if (dot && (size_t)(dot - id) < sizeof(dom)) { memcpy(dom, id, dot - id); dom[dot - id] = 0; }
+        bool ok = !strcmp(dom, "light") || !strcmp(dom, "switch") || !strcmp(dom, "cover") ||
+                  !strcmp(dom, "fan");
+        if (!strcmp(dom, "sensor")) {
+            const char *dc = o["attributes"]["device_class"] | "";
+            ok = !strcmp(dc, "temperature") || !strcmp(dc, "humidity");
         }
-        out[n].name[sizeof(out[n].name) - 1] = '\0';
-
-        extract_location(attrs, out[n].location, sizeof(out[n].location));
-        device_set_type(&out[n], entity_id);
-
-        if (attrs.containsKey("brightness"))
-            out[n].brightness = (uint8_t)attrs["brightness"].as<int>();
-        if (attrs.containsKey("current_temperature"))
-            out[n].temperature = attrs["current_temperature"].as<float>();
-        if (attrs.containsKey("current_humidity"))
-            out[n].humidity = attrs["current_humidity"].as<float>();
-
+        if (!ok) continue;
+        fill_device(&out[n], id, o["attributes"]["friendly_name"] | "", o["state"] | "unknown",
+                    "General", o["attributes"]["brightness"] | 0,
+                    o["attributes"]["unit_of_measurement"] | "");
         n++;
     }
+    qsort(out, n, sizeof(lan_device_t), cmp_devices);
     *out_count = n;
+    return true;
+}
+
+bool lan_devices_login(const char *host, uint16_t port, const char *user,
+                       const char *pass, bool ssl, char *err, size_t errsz) {
+    auto fail = [&](const char *m) { snprintf(err, errsz, "%s", m); return false; };
+    if (WiFi.status() != WL_CONNECTED) return fail("Wi-Fi is not connected");
+
+    lan_ha_server_t tmp;
+    memset(&tmp, 0, sizeof(tmp));
+    strncpy(tmp.host, host, sizeof(tmp.host) - 1);
+    tmp.port = port;
+    tmp.ssl = ssl;
+
+    // 1. start the login flow
+    JsonDocument j1;
+    j1["client_id"] = HA_CLIENT_ID;
+    j1["handler"][0] = "homeassistant";
+    j1["handler"][1] = nullptr;
+    j1["redirect_uri"] = String(HA_CLIENT_ID) + "?auth_callback=1";
+    String body, resp;
+    serializeJson(j1, body);
+    int code = ha_http(&tmp, "POST", "/auth/login_flow", "application/json", body, NULL, resp);
+    if (code <= 0) return fail("Cannot reach Home Assistant");
+    if (code != 200) return fail("Home Assistant refused sign-in");
+    JsonDocument r1;
+    if (deserializeJson(r1, resp)) return fail("Unexpected reply from server");
+    String flow = r1["flow_id"] | "";
+    if (!flow.length()) return fail("Unexpected reply from server");
+
+    // 2. submit credentials
+    JsonDocument j2;
+    j2["client_id"] = HA_CLIENT_ID;
+    j2["username"] = user;
+    j2["password"] = pass;
+    body = "";
+    serializeJson(j2, body);
+    String path = "/auth/login_flow/" + flow;
+    code = ha_http(&tmp, "POST", path.c_str(), "application/json", body, NULL, resp);
+    if (code != 200) return fail("Sign-in failed");
+    JsonDocument r2;
+    if (deserializeJson(r2, resp)) return fail("Unexpected reply from server");
+    const char *type = r2["type"] | "";
+    if (!strcmp(type, "form")) {
+        const char *step = r2["step_id"] | "";
+        if (strcmp(step, "init") != 0) return fail("Two-factor login is not supported");
+        return fail("Wrong username or password");
+    }
+    if (strcmp(type, "create_entry") != 0) return fail("Sign-in was not accepted");
+    String authcode = r2["result"] | "";
+    if (!authcode.length()) return fail("No auth code returned");
+
+    // 3. exchange the code for tokens
+    String form = String("grant_type=authorization_code&client_id=") + HA_CLIENT_ID +
+                  "&code=" + authcode;
+    bool got_refresh = false;
+    if (!ha_token_request(&tmp, form.c_str(), &got_refresh) || !got_refresh)
+        return fail("Could not get access token");
+
+    int existing = find_ha_by_host_port(host, port);
+    if (existing < 0) {
+        if (s_ha_server_count >= 4) return fail("Server list is full");
+        existing = s_ha_server_count++;
+        memset(&s_ha_servers[existing], 0, sizeof(lan_ha_server_t));
+        strncpy(s_ha_servers[existing].host, host, sizeof(s_ha_servers[existing].host) - 1);
+        s_ha_servers[existing].port = port;
+    }
+    lan_ha_server_t *s = &s_ha_servers[existing];
+    s->ssl = ssl;
+    strncpy(s->token, tmp.token, sizeof(s->token) - 1);
+    strncpy(s->refresh, tmp.refresh, sizeof(s->refresh) - 1);
+    lan_devices_save_config();
     return true;
 }
 
@@ -357,6 +514,8 @@ void lan_devices_save_config(void) {
         prefs.putUShort(key, s_ha_servers[i].port);
         snprintf(key, sizeof(key), "ha%d_token", i);
         prefs.putString(key, s_ha_servers[i].token);
+        snprintf(key, sizeof(key), "ha%d_ref", i);
+        prefs.putString(key, s_ha_servers[i].refresh);
         snprintf(key, sizeof(key), "ha%d_ssl", i);
         prefs.putBool(key, s_ha_servers[i].ssl);
     }
@@ -390,6 +549,9 @@ void lan_devices_load_config(void) {
         snprintf(key, sizeof(key), "ha%d_token", i);
         String tk = prefs.getString(key, "");
         strncpy(s->token, tk.c_str(), sizeof(s->token) - 1);
+        snprintf(key, sizeof(key), "ha%d_ref", i);
+        String rf = prefs.getString(key, "");
+        strncpy(s->refresh, rf.c_str(), sizeof(s->refresh) - 1);
         snprintf(key, sizeof(key), "ha%d_ssl", i);
         s->ssl = prefs.getBool(key, false);
         s->discovered = true;
@@ -434,7 +596,7 @@ void lan_devices_refresh(void) {
     for (int i = 0; i < s_device_count; i++) device_reset(&s_devices[i]);
 
     for (int i = 0; i < s_ha_server_count; i++) {
-        if (!s_ha_servers[i].token[0]) continue;
+        if (!has_creds(&s_ha_servers[i])) continue;
         int got = 64 - s_device_count;
         if (ha_get_states(&s_ha_servers[i], s_devices + s_device_count, &got)) {
             s_device_count += got;
@@ -461,7 +623,7 @@ bool lan_devices_toggle(const char *entity_id) {
     }
 
     for (int i = 0; i < s_ha_server_count; i++) {
-        if (!s_ha_servers[i].token[0]) continue;
+        if (!has_creds(&s_ha_servers[i])) continue;
 
         const char *service = "toggle";
         if (strcasecmp(domain, "light") == 0 ||
@@ -513,27 +675,8 @@ bool lan_devices_toggle(const char *entity_id) {
 
 bool lan_devices_set_brightness(const char *entity_id, uint8_t brightness) {
     for (int i = 0; i < s_ha_server_count; i++) {
-        if (!s_ha_servers[i].token[0]) continue;
-        char url[256];
-        snprintf(url, sizeof(url),
-                 "%s://%s:%u/api/services/light/turn_on",
-                 s_ha_servers[i].ssl ? "https" : "http",
-                 s_ha_servers[i].host, s_ha_servers[i].port);
-        if (WiFi.status() != WL_CONNECTED) return false;
-        static HTTPClient http;
-        static WiFiClientSecure client;
-        http.end();
-        client.setInsecure();
-        http.begin(client, url);
-        http.addHeader("Authorization", ("Bearer " + String(s_ha_servers[i].token)).c_str());
-        http.addHeader("Content-Type", "application/json");
-        char body[160];
-        snprintf(body, sizeof(body),
-                 "{\"entity_id\":\"%s\",\"brightness\":%u}",
-                 entity_id, brightness);
-        int code = http.POST((uint8_t *)body, strlen(body));
-        http.end();
-        return (code == 200);
+        if (!has_creds(&s_ha_servers[i])) continue;
+        return ha_call_service(&s_ha_servers[i], "light", "turn_on", entity_id, brightness);
     }
     return false;
 }
@@ -545,6 +688,7 @@ void lan_devices_add_ha_server(const char *host, uint16_t port,
     if (existing >= 0) {
         strncpy(s_ha_servers[existing].token, token, sizeof(s_ha_servers[existing].token) - 1);
         s_ha_servers[existing].token[sizeof(s_ha_servers[existing].token) - 1] = '\0';
+        s_ha_servers[existing].refresh[0] = '\0';
         s_ha_servers[existing].ssl = ssl;
         lan_devices_save_config();
         return;
@@ -688,8 +832,10 @@ static void kb_panel_create(void) {
     lv_obj_add_flag(s_kb_keyboard, LV_OBJ_FLAG_HIDDEN);
 }
 
-static void kb_panel_show(const char *title_text, const char *placeholder, int max_len) {
+static void kb_panel_show(const char *title_text, const char *placeholder, int max_len,
+                          bool password = false) {
     kb_panel_create();
+    lv_textarea_set_password_mode(s_kb_textarea, password);
     lv_label_set_text(s_kb_title, title_text);
     lv_textarea_set_text(s_kb_textarea, "");
     lv_textarea_set_max_length(s_kb_textarea, max_len);
@@ -710,7 +856,9 @@ static void on_kb_done_click(lv_event_t *e) {
     if (!s_kb_textarea) return;
 
     const char *text = lv_textarea_get_text(s_kb_textarea);
-    if (!text || !*text) return;
+    if (!text) return;
+    // Only the username step may be left empty (= use an access token instead).
+    if (!*text && s_kb_mode != KB_ADD_USER) return;
 
     switch (s_kb_mode) {
         case KB_ADD_HOST:
@@ -721,9 +869,36 @@ static void on_kb_done_click(lv_event_t *e) {
         case KB_ADD_PORT:
             s_temp_port = (uint16_t)atoi(text);
             if (s_temp_port == 0) s_temp_port = 8123;
-            s_kb_mode = KB_ADD_TOKEN;
-            kb_panel_show("Long-lived access token", "eyJ...", 256);
+            s_kb_mode = KB_ADD_USER;
+            kb_panel_show("Home Assistant username\n(leave empty to paste a token)", "username", 64);
             break;
+        case KB_ADD_USER:
+            if (!*text) {
+                s_kb_mode = KB_ADD_TOKEN;
+                kb_panel_show("Long-lived access token", "eyJ...", 256);
+            } else {
+                strncpy(s_temp_user, text, sizeof(s_temp_user) - 1);
+                s_kb_mode = KB_ADD_PASS;
+                kb_panel_show("Home Assistant password", "password", 64, true);
+            }
+            break;
+        case KB_ADD_PASS: {
+            char err[64] = "";
+            lv_label_set_text(s_kb_title, "Signing in...");
+            lv_refr_now(NULL);
+            if (lan_devices_login(s_temp_host, s_temp_port, s_temp_user, text, false,
+                                  err, sizeof(err))) {
+                memset(s_temp_user, 0, sizeof(s_temp_user));
+                kb_panel_hide();
+                lan_devices_refresh();
+                lan_devices_ui_refresh();
+            } else {
+                s_kb_mode = KB_ADD_USER;
+                String t = String(err) + "\nRe-enter username";
+                kb_panel_show(t.c_str(), "username", 64);
+            }
+            break;
+        }
         case KB_ADD_TOKEN:
             lan_devices_add_ha_server(s_temp_host, s_temp_port, text, false);
             kb_panel_hide();
@@ -771,6 +946,15 @@ static void on_refresh_click(lv_event_t *e) {
 }
 
 static void on_add_click(lv_event_t *e) {
+    // A server found by mDNS but not signed in yet: skip the host/port steps.
+    for (int i = 0; i < s_ha_server_count; i++) {
+        if (has_creds(&s_ha_servers[i])) continue;
+        strncpy(s_temp_host, s_ha_servers[i].host, sizeof(s_temp_host) - 1);
+        s_temp_port = s_ha_servers[i].port;
+        s_kb_mode = KB_ADD_USER;
+        kb_panel_show("Sign in to Home Assistant\nUsername (empty = token)", "username", 64);
+        return;
+    }
     s_kb_mode = KB_ADD_HOST;
     kb_panel_show("Home Assistant host / IP", "192.168.3.50", 64);
 }
@@ -964,7 +1148,7 @@ static void lan_devices_ui_refresh(void) {
         lv_obj_align(empty, LV_ALIGN_CENTER, 0, 2);
 
         lv_obj_t *hint = lv_label_create(s_scroll);
-        lv_label_set_text(hint, "Tap + to add a server, or use serial: lan add <host> <port> <token>");
+        lv_label_set_text(hint, "Tap + to sign in to your Home Assistant.");
         lv_obj_set_style_text_color(hint, lv_color_hex(0x00E5FF), 0);
         lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
         lv_obj_align(hint, LV_ALIGN_CENTER, 0, 34);
@@ -988,7 +1172,7 @@ static void lan_devices_ui_refresh(void) {
         lv_obj_align(empty, LV_ALIGN_CENTER, 0, 2);
 
         lv_obj_t *hint = lv_label_create(s_scroll);
-        lv_label_set_text(hint, "Check HA server token, then tap ⟳ to refresh.");
+        lv_label_set_text(hint, "Tap + to sign in again, or ⟳ to refresh.");
         lv_obj_set_style_text_color(hint, lv_color_hex(0x00E5FF), 0);
         lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
         lv_obj_align(hint, LV_ALIGN_CENTER, 0, 34);
