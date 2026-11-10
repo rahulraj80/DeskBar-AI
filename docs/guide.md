@@ -573,6 +573,8 @@ directly on the CLI task overflowed the stack canary.
 
 **Per-server status:** each server row shows its own state (connected / signed in / unreachable or sign-in failed / not signed in), not one global flag.
 
+**Screen lifetime:** the LAN screen can be deleted behind our back (transition auto-delete, idle->clock). It registers `LV_EVENT_DELETE`, and every timer/job checks `lan_screen_alive()` (`lv_obj_is_valid`) before touching `s_scroll`; otherwise a finishing job rebuilt a freed list and crashed (X pressed ~0.3 s after opening).
+
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded

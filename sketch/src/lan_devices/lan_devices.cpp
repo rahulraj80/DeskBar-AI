@@ -78,6 +78,7 @@ static enum {
 } s_kb_mode = KB_NONE;
 
 static void lan_devices_ui_refresh(void);
+static bool lan_screen_alive(void);
 
 
 /* ========================================================================
@@ -499,14 +500,14 @@ static void mdns_browse_cb(lv_timer_t *t) {
         }
         if (added) {
             lan_devices_save_config();
-            if (s_screen_open && s_scroll && !s_job_running && !s_kb_visible()) lan_devices_ui_refresh();
+            if (lan_screen_alive() && !s_job_running && !s_kb_visible()) lan_devices_ui_refresh();
         }
         return;
     }
 
     // Only browse while the LAN screen is open, no job is running and no
     // keyboard is up (keep the CPU free for typing).
-    if (!s_screen_open || s_mdns_running || s_job_running || s_kb_visible()) return;
+    if (!lan_screen_alive() || s_mdns_running || s_job_running || s_kb_visible()) return;
     s_mdns_running = true;
     if (xTaskCreatePinnedToCore(mdns_task, "lan_mdns", 8 * 1024, NULL, 1, NULL, 1) != pdPASS)
         s_mdns_running = false;
@@ -1062,6 +1063,43 @@ static struct {
 static lv_timer_t *s_poll_timer = NULL;
 static lv_obj_t *s_status_lbl = NULL;
 
+/* The LAN screen can be deleted by someone else (screen transitions with auto-delete,
+ * idle -> clock). Drop every pointer into it so no timer/job touches freed objects. */
+static void lan_screen_forget(void) {
+    s_screen_open = false;
+    s_screen = NULL;
+    s_scroll = NULL;
+    s_close_btn = NULL;
+    s_icon_refresh = NULL;
+    s_icon_add = NULL;
+    s_icon_config = NULL;
+    s_kb_panel = NULL;
+    s_kb_cont = NULL;
+    s_kb_keyboard = NULL;
+    s_kb_bottom = NULL;
+    s_kb_textarea = NULL;
+    s_kb_done_btn = NULL;
+    s_kb_title = NULL;
+    s_status_lbl = NULL;
+    s_kb_cancel_btn = NULL;
+    s_kb_eye_btn = NULL;
+    s_kb_eye_lbl = NULL;
+    s_kb_mode = KB_NONE;
+}
+
+static bool lan_screen_alive(void) {
+    if (!s_screen_open || !s_screen || !s_scroll) return false;
+    if (!lv_obj_is_valid(s_screen) || !lv_obj_is_valid(s_scroll)) {
+        lan_screen_forget();
+        return false;
+    }
+    return true;
+}
+
+static void lan_screen_deleted_cb(lv_event_t *e) {
+    if (lv_event_get_target(e) == s_screen) lan_screen_forget();
+}
+
 static void job_task(void *) {
     if (s_job.kind == 2) {
         s_job.login_ok = lan_devices_login(s_job.host, s_job.port, s_job.user, s_job.pass,
@@ -1081,7 +1119,7 @@ static void job_poll_cb(lv_timer_t *t) {
     s_job_running = false;
     s_poll_timer = NULL;
     lv_timer_del(t);
-    if (!s_screen_open) return;
+    if (!lan_screen_alive()) return;
     if (s_job.kind == 2) {
         if (!s_job.login_ok) {
             s_kb_mode = KB_ADD_USER;
@@ -1395,7 +1433,7 @@ static void add_header_icons(void) {
 static int s_next_row_y = 0;
 
 static void lan_devices_ui_refresh(void) {
-    if (!s_scroll) return;
+    if (!lan_screen_alive()) return;
 
     lv_obj_clean(s_scroll);
 
@@ -1517,6 +1555,7 @@ void lan_devices_open(void) {
     s_screen_open = true;
 
     s_screen = lv_obj_create(NULL);
+    lv_obj_add_event_cb(s_screen, lan_screen_deleted_cb, LV_EVENT_DELETE, NULL);
     lv_obj_set_size(s_screen, 640, 172);
     lv_obj_set_style_bg_color(s_screen, lv_color_hex(0x0A0C10), 0);
     lv_obj_set_style_bg_opa(s_screen, 255, 0);
