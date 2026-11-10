@@ -965,6 +965,7 @@ static void kb_panel_create(void) {
     lankb_install_maps(s_kb_keyboard);
     lv_keyboard_set_mode(s_kb_keyboard, LV_KEYBOARD_MODE_TEXT_LOWER);
     lv_obj_set_size(s_kb_keyboard, KB_W, KB_MAIN_H);
+    lv_obj_set_align(s_kb_keyboard, LV_ALIGN_TOP_LEFT);  // lv_keyboard defaults to bottom-aligned
     lv_obj_set_pos(s_kb_keyboard, 0, 0);
     lv_obj_set_style_bg_opa(s_kb_keyboard, 0, 0);
     lv_obj_set_style_border_width(s_kb_keyboard, 0, 0);
@@ -978,6 +979,7 @@ static void kb_panel_create(void) {
     lv_keyboard_set_map(s_kb_bottom, LV_KEYBOARD_MODE_USER_1, (const char **)lankb_bottom, lankb_ctrl_bottom);
     lv_keyboard_set_mode(s_kb_bottom, LV_KEYBOARD_MODE_USER_1);
     lv_obj_set_size(s_kb_bottom, KB_W, KB_BOTTOM_H);
+    lv_obj_set_align(s_kb_bottom, LV_ALIGN_TOP_LEFT);
     lv_obj_set_pos(s_kb_bottom, 0, KB_MAIN_H);
     lv_obj_set_style_bg_opa(s_kb_bottom, 0, 0);
     lv_obj_set_style_border_width(s_kb_bottom, 0, 0);
