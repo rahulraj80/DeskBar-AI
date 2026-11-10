@@ -563,6 +563,8 @@ directly on the CLI task overflowed the stack canary.
 
 **Password step:** an eye button between OK and Cancel toggles showing/hiding the typed password (hidden by default each time).
 
+**Scrolling:** the LAN panel must stay scrollable (vertical) or rows below the first screenful are unreachable.
+
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded

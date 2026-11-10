@@ -638,7 +638,8 @@ void lan_devices_refresh(void) {
         }
         s_refresh_state = 2;
     }
-    log_i("[LAN_DEV] Refresh: %d devices", s_device_count);
+    Serial.printf("[LAN_DEV] Refresh: %d devices (task %s, stack free %u B)\n", s_device_count,
+                  pcTaskGetName(NULL), (unsigned)uxTaskGetStackHighWaterMark(NULL) * 4);
 }
 
 int lan_devices_count(void) { return s_device_count; }
@@ -1335,7 +1336,8 @@ void lan_devices_open(void) {
     lv_obj_set_align(s_scroll, LV_ALIGN_CENTER);
     lv_obj_set_style_bg_color(s_scroll, lv_color_hex(0x0A0C10), 0);
     lv_obj_set_style_bg_opa(s_scroll, 0, 0);
-    lv_obj_clear_flag(s_scroll, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_scroll, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(s_scroll, LV_DIR_VER);
 
     lan_devices_refresh();
     lan_devices_ui_refresh();
