@@ -561,7 +561,7 @@ directly on the CLI task overflowed the stack canary.
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded
 card with accent top/bottom bars, glyph and the label baked into the PNG (blue accent).
-No separate text label object.
+No separate text label object (label is faux-bold so it matches the others' weight).
 
 **Add server / agent keyboard** mirrors Settings → Wi-Fi: a LEFT form panel
 (title + textarea + OK/Cancel) with the LVGL keyboard on the RIGHT (352 px,
