@@ -73,6 +73,11 @@ static enum {
 
 static void lan_devices_ui_refresh(void);
 
+/* Rebuilding the list deletes s_scroll's children, including the button whose
+ * event handler is running (refresh / toggle). Do that after the handler returns. */
+static void ui_refresh_async_cb(void *) { lan_devices_ui_refresh(); }
+static void lan_devices_ui_refresh_async(void) { lv_async_call(ui_refresh_async_cb, NULL); }
+
 /* ========================================================================
  *  Helpers
  * ======================================================================== */
@@ -969,7 +974,7 @@ static void on_close_click(lv_event_t *e) {
 
 static void on_refresh_click(lv_event_t *e) {
     lan_devices_refresh();
-    lan_devices_ui_refresh();
+    lan_devices_ui_refresh_async();
 }
 
 static void start_signin(int idx) {
@@ -1010,7 +1015,7 @@ static void on_device_toggle(lv_event_t *e) {
     const lan_device_t *d = &s_devices[idx];
     if (!d->controllable) return;
     lan_devices_toggle(d->entity_id);
-    lan_devices_ui_refresh();
+    lan_devices_ui_refresh_async();
 }
 
 /* ========================================================================

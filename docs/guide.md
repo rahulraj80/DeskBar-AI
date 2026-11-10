@@ -559,6 +559,8 @@ directly on the CLI task overflowed the stack canary.
 
 **Server rows:** the screen lists each Home Assistant server (found by mDNS or added) with its status (not signed in / connected / sign-in failed) and a Sign in button, so a discovered server is always visible even before login.
 
+**Rebuild rule:** refresh/toggle handlers live on children of the scroll panel, so the list rebuild is deferred with `lv_async_call` — cleaning the panel inside the button's own handler crashed (LoadProhibited).
+
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded
