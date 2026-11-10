@@ -494,8 +494,15 @@ mDNS and controlled through plain HTTP REST.
 
 **Home Assistant** (the hub):
 - mDNS discovery: `_home-assistant._tcp.local.` finds HA servers on LAN
-- Manual add: host, port, long-lived access token (stored in NVS)
-- `GET /api/states` → all entities with `entity_id`, `state`, `attributes`
+- **Sign in with username + password** (no token hunting): `POST /auth/login_flow` →
+  `/auth/login_flow/<id>` → `/auth/token`. Only the refresh token is stored in NVS
+  (never the password); the short-lived access token is refreshed automatically on
+  401. 2-factor accounts are not supported — those can still paste a long-lived token.
+- Tap **+**: a server found by mDNS skips straight to username/password; otherwise
+  host → port → username → password (leave username empty to paste a token instead)
+- Device list: one `POST /api/template` call returns only light/switch/cover/fan and
+  temperature/humidity sensors **with their HA area** (room grouping); falls back to a
+  filtered `GET /api/states` for non-admin users
 - `POST /api/services/{domain}/{service}` → control (toggle, turn_on, etc.)
 - mDNS discovery starts lazily when Wi-Fi is up (`lan_devices_refresh()`), uses the resolved IPv4 address (the mDNS hostname is not resolvable for HTTP),
 does not gate on `WiFi.status()` (reads WL_IDLE while usable), and prints
@@ -533,7 +540,8 @@ location with toggles. Do NOT use a literal unicode cross for a button glyph —
 lan open                                # Open the LAN Devices screen
 lan close                               # Close it (back to menu)
 lan mdns                                # Diagnostic: query mDNS for HA servers
-lan add <host> <port> <token> [ssl]     # Add Home Assistant server
+lan add <host> <port> <token> [ssl]     # Add Home Assistant server (token)
+lan login <host> <port> <user> <password>  # Add server by signing in
 lan agent add <name> <host> <port> [base]  # Add HTTP agent (Pi/mobile/desktop)
 lan list                                # List servers, agents, devices
 lan refresh                             # Refresh device list from HA
@@ -544,6 +552,10 @@ mDNS discovery starts lazily when Wi-Fi is up (`lan_devices_refresh()`), uses th
 does not gate on `WiFi.status()` (reads WL_IDLE while usable), and prints
 `[LAN_DEV] mDNS ...` to Serial, since
 boot runs `lan_devices_init()` before the link exists. Credentials stored in NVS namespace `lan_dev`. Example: `lan add 192.168.3.50 8123 eyJ...`
+
+**Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded
+card with accent top/bottom bars, glyph and the label baked into the PNG (blue accent).
+No separate text label object.
 
 **Add server / agent keyboard** mirrors Settings → Wi-Fi: a LEFT form panel
 (title + textarea + OK/Cancel) with the LVGL keyboard on the RIGHT (352 px,
