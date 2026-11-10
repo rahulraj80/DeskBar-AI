@@ -57,6 +57,9 @@ static lv_obj_t *s_kb_textarea = NULL;
 static lv_obj_t *s_kb_keyboard = NULL;
 static lv_obj_t *s_kb_done_btn = NULL;
 static lv_obj_t *s_kb_title = NULL;
+static lv_obj_t *s_kb_cancel_btn = NULL;
+static lv_obj_t *s_kb_eye_btn = NULL;
+static lv_obj_t *s_kb_eye_lbl = NULL;
 
 static enum {
     KB_NONE,
@@ -837,6 +840,7 @@ static void kb_panel_create(void) {
                         LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *cancel_btn = lv_btn_create(s_kb_panel);
+    s_kb_cancel_btn = cancel_btn;
     lv_obj_set_size(cancel_btn, 128, 40);
     lv_obj_align(cancel_btn, LV_ALIGN_BOTTOM_RIGHT, -2, -2);
     lv_obj_set_style_bg_color(cancel_btn, lv_color_hex(0x333333), 0);
@@ -848,6 +852,25 @@ static void kb_panel_create(void) {
     lv_obj_set_style_text_font(cancel_lbl, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(cancel_lbl, lv_color_hex(0xFFFFFF), 0);
     lv_obj_add_event_cb(cancel_btn, kb_cancel_cb, LV_EVENT_CLICKED, NULL);
+
+    // Show/hide-password toggle, only visible on the password step.
+    s_kb_eye_btn = lv_btn_create(s_kb_panel);
+    lv_obj_set_size(s_kb_eye_btn, 50, 40);
+    lv_obj_align(s_kb_eye_btn, LV_ALIGN_BOTTOM_MID, 0, -2);
+    lv_obj_set_style_bg_color(s_kb_eye_btn, lv_color_hex(0x333333), 0);
+    lv_obj_set_style_border_color(s_kb_eye_btn, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_border_width(s_kb_eye_btn, 1, 0);
+    s_kb_eye_lbl = lv_label_create(s_kb_eye_btn);
+    lv_label_set_text(s_kb_eye_lbl, LV_SYMBOL_EYE_CLOSE);
+    lv_obj_center(s_kb_eye_lbl);
+    lv_obj_set_style_text_font(s_kb_eye_lbl, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(s_kb_eye_lbl, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_add_event_cb(s_kb_eye_btn, [](lv_event_t *e) {
+        bool hidden = lv_textarea_get_password_mode(s_kb_textarea);
+        lv_textarea_set_password_mode(s_kb_textarea, !hidden);
+        lv_label_set_text(s_kb_eye_lbl, hidden ? LV_SYMBOL_EYE_OPEN : LV_SYMBOL_EYE_CLOSE);
+    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_flag(s_kb_eye_btn, LV_OBJ_FLAG_HIDDEN);
 
     // --- RIGHT keyboard (350 px, full height), like WiFi settings ---
     s_kb_keyboard = lv_keyboard_create(s_screen);
@@ -868,6 +891,16 @@ static void kb_panel_show(const char *title_text, const char *placeholder, int m
                           bool password = false) {
     kb_panel_create();
     lv_textarea_set_password_mode(s_kb_textarea, password);
+    // Password step: OK | eye | Cancel; other steps: OK | Cancel.
+    int bw = password ? 100 : 128;
+    lv_obj_set_width(s_kb_done_btn, bw);
+    lv_obj_set_width(s_kb_cancel_btn, bw);
+    if (password) {
+        lv_label_set_text(s_kb_eye_lbl, LV_SYMBOL_EYE_CLOSE);
+        lv_obj_clear_flag(s_kb_eye_btn, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(s_kb_eye_btn, LV_OBJ_FLAG_HIDDEN);
+    }
     lv_label_set_text(s_kb_title, title_text);
     lv_textarea_set_text(s_kb_textarea, "");
     lv_textarea_set_max_length(s_kb_textarea, max_len);
@@ -1341,5 +1374,8 @@ void lan_devices_close(void) {
     s_kb_textarea = NULL;
     s_kb_done_btn = NULL;
     s_kb_title = NULL;
+    s_kb_cancel_btn = NULL;
+    s_kb_eye_btn = NULL;
+    s_kb_eye_lbl = NULL;
     log_i("[LAN_DEV] Screen closed, back to menu");
 }

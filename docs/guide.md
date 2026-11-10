@@ -561,6 +561,8 @@ directly on the CLI task overflowed the stack canary.
 
 **Rebuild rule:** refresh/toggle handlers live on children of the scroll panel, so the list rebuild is deferred with `lv_async_call` — cleaning the panel inside the button's own handler crashed (LoadProhibited).
 
+**Password step:** an eye button between OK and Cancel toggles showing/hiding the typed password (hidden by default each time).
+
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded
