@@ -1015,14 +1015,14 @@ static void add_device_row(lv_obj_t *parent, const lan_device_t *d, int y) {
 
     // Icon
     lv_obj_t *icon = lv_label_create(row);
-    const char *ic = "⚙";
+    const char *ic = LV_SYMBOL_SETTINGS;
     switch (d->type) {
-        case LAN_DEV_SWITCH: ic = "🔌"; break;
-        case LAN_DEV_LIGHT:  ic = "💡"; break;
-        case LAN_DEV_COVER:  ic = "🪟"; break;
-        case LAN_DEV_FAN:    ic = "🌀"; break;
-        case LAN_DEV_SENSOR: ic = "📊"; break;
-        default:             ic = "⚙"; break;
+        case LAN_DEV_SWITCH: ic = LV_SYMBOL_POWER; break;
+        case LAN_DEV_LIGHT:  ic = LV_SYMBOL_CHARGE; break;
+        case LAN_DEV_COVER:  ic = LV_SYMBOL_UP; break;
+        case LAN_DEV_FAN:    ic = LV_SYMBOL_LOOP; break;
+        case LAN_DEV_SENSOR: ic = LV_SYMBOL_EYE_OPEN; break;
+        default:             ic = LV_SYMBOL_SETTINGS; break;
     }
     lv_label_set_text(icon, ic);
     lv_obj_set_style_text_font(icon, &lv_font_montserrat_20, 0);
@@ -1195,7 +1195,7 @@ static void lan_devices_ui_refresh(void) {
         lv_obj_align(empty, LV_ALIGN_CENTER, 0, 2);
 
         lv_obj_t *hint = lv_label_create(s_scroll);
-        lv_label_set_text(hint, "Tap + to sign in again, or ⟳ to refresh.");
+        lv_label_set_text(hint, "Tap + to sign in, or " LV_SYMBOL_REFRESH " to refresh.");
         lv_obj_set_style_text_color(hint, lv_color_hex(0x00E5FF), 0);
         lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
         lv_obj_align(hint, LV_ALIGN_CENTER, 0, 34);
