@@ -4,10 +4,10 @@
 ![ESP32-S3](https://img.shields.io/badge/SoC-ESP32--S3-blue?logo=espressif)
 ![Flash/PSRAM](https://img.shields.io/badge/Memory-16MB%20Flash%20%2F%208MB%20PSRAM-orange)
 ![Display](https://img.shields.io/badge/Display-3.49%22%20Capacitive%20Touch%20(640x172)-green)
-![Firmware](https://img.shields.io/badge/Version-v2.5.1-brightgreen)
+![Firmware](https://img.shields.io/badge/Version-v2.6.8-brightgreen)
 ![License](https://img.shields.io/badge/License-CC--BY--NC--SA--4.0-lightgrey)
 
-**DeskBar AI** is an extensive architectural evolution of the TuneBar project for the official [Waveshare ESP32-S3-Touch-LCD-3.49](https://docs.waveshare.com/ESP32-S3-Touch-LCD-3.49?variant=ESP32-S3-Touch-LCD-3.49) development platform. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart desktop companion, and distributed telemetry station with high-fidelity acoustic processing, advanced power and breathing profile management, dynamic crowd-sourced battery discharge calibration, 6-axis digital spirit level, 6-language international radio, local SD & LAN media streaming, zero-bitmap procedural vector themes, and complete privacy controls.
+**DeskBar AI** is an extensive architectural evolution of the TuneBar project for the official [Waveshare ESP32-S3-Touch-LCD-3.49](https://docs.waveshare.com/ESP32-S3-Touch-LCD-3.49?variant=ESP32-S3-Touch-LCD-3.49) development platform. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart desktop companion, and distributed telemetry station with high-fidelity acoustic processing, advanced power and breathing profile management, dynamic crowd-sourced battery discharge calibration, 6-axis digital spirit level, 6-language international radio, local SD & LAN media streaming, **Home Assistant device control (LAN Devices)**, zero-bitmap procedural vector themes, and complete privacy controls.
 
 ---
 
@@ -68,15 +68,32 @@ DeskBar AI runs on the 3.49-inch capacitive touch screen development board power
       <td align="center">
         <b>Main Menu Launcher Carousel</b><br>
         <a href="document/app_menu.gif"><img src="document/app_menu.gif" width="100%" alt="Main Menu Carousel" /></a><br>
-        <small><i>(Smooth horizontal scrolling across all 6 application cards)</i></small>
+        <small><i>(Smooth horizontal scrolling across all 7 application cards)</i></small>
       </td>
       <td>
         <small>
           <b>Neon Card-Based Navigation Hub</b><br>
-          • <b>Ultra-Crisp 640×172 Carousel</b>: Horizontal swipe launcher featuring 6 custom neon application cards.<br>
-          • <b>Visual Categories</b>: <b>CLIMATE</b> (Cyan), <b>RADIO</b> (Pink), <b>MUSIC</b> (Purple), <b>AI VOICE</b> (Emerald), <b>SYSTEM</b> (Gold), and <b>SETTINGS</b> (Slate).<br>
+          • <b>Ultra-Crisp 640×172 Carousel</b>: Horizontal swipe launcher featuring 7 custom neon application cards.<br>
+          • <b>Visual Categories</b>: <b>CLIMATE</b> (Cyan), <b>RADIO</b> (Pink), <b>MUSIC</b> (Purple), <b>AI VOICE</b> (Emerald), <b>LAN DEVICES</b> (Blue), <b>SYSTEM</b> (Gold), and <b>SETTINGS</b> (Slate).<br>
           • <b>Ambient Audio Breathing</b>: Active card pulses gently in rhythm with background playback.<br>
           • <b>Inertial Touch Scrolling</b>: Responsive touch drag with snappy center-screen snapping.
+        </small>
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <b>LAN Devices — Home Assistant Control</b><br>
+        <a href="document/screen_lan_devices_scrolled.png"><img src="document/screen_lan_devices_scrolled.png" width="100%" alt="LAN Devices" /></a><br>
+        <a href="document/screen_lan_signin_password.png"><img src="document/screen_lan_signin_password.png" width="100%" alt="LAN Devices sign-in" /></a>
+      </td>
+      <td>
+        <small>
+          <b>Local Smart-Home Remote (HTTP only, no cloud)</b><br>
+          • <b>Auto-Discovery</b>: Finds Home Assistant on your LAN via mDNS and shows live connection status.<br>
+          • <b>Sign In With Username &amp; Password</b>: no long-lived token hunting; only a refresh token is stored, never your password (token entry still available).<br>
+          • <b>Rooms &amp; Toggles</b>: Lights, switches, covers and fans grouped by Home Assistant area with on-screen switches, plus temperature/humidity readouts.<br>
+          • <b>Responsive</b>: all network work runs on background tasks; roomy 422&nbsp;px keyboard with show/hide-password.<br>
+          • Details: <a href="docs/LAN_DEVICES.md">docs/LAN_DEVICES.md</a>.
         </small>
       </td>
     </tr>
@@ -282,6 +299,7 @@ To keep this overview concise, detailed architecture guides are organized in the
 * **[📖 Touch Gestures & Complete User Guide](docs/USER_GUIDE.md)**: Comprehensive gesture maps, screen switching hierarchies, and settings configuration.
 * **[⚡ Hardware Pinouts, Silicon Quirks & DRAM Optimization](docs/HARDWARE_AND_DRAM.md)**: Deep-dive into ES7210 clock divider fixes, DMA frame stride unpacking, and FreeRTOS PSRAM optimization.
 * **[🔊 Audio Pipeline & Microphone Hardware Master Reference](docs/AUDIO_HARDWARE_LEARNINGS.md)**: In-depth ES7210/ES8311 I2S register maps, gain staging, and DMA double-buffering.
+* **[🏠 LAN Devices — Home Assistant Control](docs/LAN_DEVICES.md)**: Auto-discovery, username/password sign-in, room-grouped device toggles, and CLI.
 * **[🌐 Web Remote REST API & Serial CLI](docs/REST_API_AND_CLI.md)**: Complete table of embedded HTTP REST endpoints and interactive USB CLI commands.
 * **[📐 6-Axis IMU, Spirit Level & Auto-Rotation](docs/IMU_AND_SPIRIT_LEVEL.md)**: Inclinometer physics, bullseye bubble mechanics, and 8-step guided calibration wizard.
 * **[🔄 On-Device Multi-Repo Firmware OTA Manager](docs/FIRMWARE_OTA.md)**: Split carousel UI, dynamic GitHub catalog generation, and battery safety guards.

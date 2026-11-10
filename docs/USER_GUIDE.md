@@ -12,11 +12,11 @@ DeskBar AI transforms the Waveshare ESP32-S3-Touch-LCD-3.49 into a responsive, a
                       Swipe UP (↑)
                              ▼
                 [ MAIN MENU CAROUSEL ] (ui_Screen_MainMenu)
-       [CLIMATE]  [RADIO]  [MUSIC]  [AI VOICE]  [SYSTEM]  [SETTINGS]
-          │          │        │         │          │          │
-          ▼          ▼        ▼         ▼          ▼          ▼
-       Weather     Radio    Player  AI Voice    Utility    Settings
-       Screen     Screen    Screen   Screen      Screen     Overlay
+       [CLIMATE]  [RADIO]  [MUSIC]  [AI VOICE]  [LAN DEVICES]  [SYSTEM]  [SETTINGS]
+          │          │        │         │            │            │          │
+          ▼          ▼        ▼         ▼            ▼            ▼          ▼
+       Weather     Radio    Player  AI Voice   Home Assistant  Utility   Settings
+       Screen     Screen    Screen   Screen    device list     Screen    Overlay
 ```
 
 ### From Clock / Weather / Alarm Panels (`ui_Screen_Info`):
@@ -25,7 +25,7 @@ DeskBar AI transforms the Waveshare ESP32-S3-Touch-LCD-3.49 into a responsive, a
 - **Tap Screen**: Wakes display from ambient breathing mode to full configured active brightness.
 
 ### From Main Menu Carousel (`ui_Screen_MainMenu`):
-- **Drag Left / Right ($\leftarrow / \rightarrow$)**: Smoothly pan across the 6 neon application cards: **CLIMATE**, **RADIO**, **MUSIC**, **AI VOICE**, **SYSTEM**, and **SETTINGS**.
+- **Drag Left / Right ($\leftarrow / \rightarrow$)**: Smoothly pan across the 7 neon application cards: **CLIMATE**, **RADIO**, **MUSIC**, **AI VOICE**, **LAN DEVICES**, **SYSTEM**, and **SETTINGS**.
 - **Tap Any Card**: Launch that application immediately.
 - **Swipe Down ($\downarrow$)**: Quick return to the ambient Nixie Clock face.
 
@@ -57,6 +57,12 @@ DeskBar AI transforms the Waveshare ESP32-S3-Touch-LCD-3.49 into a responsive, a
 - **Tap Spirit Level**: Opens 3-panel 6-axis inclinometer and bubble leveling tool.
 - **Tap Firmware OTA**: Opens on-device firmware manager and community release catalog.
 - **Swipe Up ($\uparrow$)**: Return to Main Menu.
+
+---
+
+## 🏠 LAN Devices (Home Assistant)
+
+Tap the blue **LAN DEVICES** card. Your Home Assistant is discovered automatically; tap **Sign in**, enter your username and password (the eye button reveals what you typed), and your lights, switches, covers and fans appear grouped by room with an on/off switch each. **⟳** refreshes, **+** adds another server, **✕** returns to the menu. Full guide: [LAN_DEVICES.md](LAN_DEVICES.md).
 
 ---
 

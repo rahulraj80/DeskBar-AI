@@ -67,6 +67,17 @@ lan server <ip:port>      # Set LAN HTTP media server address
 lan fetch                 # Index LAN media tracks
 lan play <N>              # Play LAN track N
 
+# LAN Devices (Home Assistant) — see docs/LAN_DEVICES.md
+lan open / lan close      # Open or close the LAN Devices screen
+lan mdns                  # Query mDNS for Home Assistant servers
+lan login <host> <port> <user> <password>   # Sign in (stores refresh token only)
+lan add <host> <port> <token> [ssl]         # Add a server with a long-lived token
+lan agent add <name> <host> <port> [base]   # Add a generic HTTP agent
+lan list                  # List servers, agents and devices
+lan refresh               # Reload the device list
+lan toggle <entity_id>    # Toggle a device, e.g. switch.kitchen
+lan remove <index>        # Remove a server
+
 # Display & Backlight
 bl <low|med|high>         # Set brightness preset
 bl <0-255>                # Set raw PWM duty

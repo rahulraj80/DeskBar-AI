@@ -1,5 +1,10 @@
 ## Version history
 
+### Unreleased (Nov 10th, 2026)
+- **LAN Devices app** (Main Menu, between AI VOICE and SYSTEM): Home Assistant discovery via mDNS, **username/password sign-in** (login flow; only a refresh token is stored), room-grouped device list from a single `/api/template` call, per-device toggles, per-server status, generic HTTP agents, and `lan ...` serial CLI.
+- **New menu tile** matching the other app cards (blue accent) and a **422 px sign-in keyboard** with taller key rows, a shorter bottom row, evenly spaced symbols layout and a show/hide-password eye button.
+- **Stability**: all network work and mDNS now run on background tasks (no UI freezes or laggy keys); list rebuilds are deferred out of button handlers; LAN screen lifetime guards; serial CLI stack raised to 12 KB.
+
 ### 2.5.1 (Oct 17th, 2026)
 - **Visual Hierarchy Refinement**: Exchanged the positions of the countdown renewal timer and "30-DAY ACCESS" badge in the Cloud & PIN setup modal:
   - Countdown timer `(%02us)` placed on the sub-header row beside `"WEB ACCESS CODE:"`.
