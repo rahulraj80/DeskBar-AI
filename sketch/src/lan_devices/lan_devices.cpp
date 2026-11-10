@@ -790,11 +790,84 @@ const lan_agent_t *lan_devices_agent_get(int idx) {
  * LEFT (title + textarea + OK/Cancel) and the keyboard on the RIGHT
  * (350 px wide, full height). Both live on the LAN screen and are re-used for
  * every step; the step just changes the title/placeholder. */
+/* ---------- Keyboard layout: 3 tall key rows + a shorter bottom row ----------
+ * lv_btnmatrix gives every row the same height, so the bottom row (keyboard, <,
+ * space, >, OK) is a second lv_keyboard stacked under a 3-row main keyboard.
+ * lv_keyboard_set_map() is global, so the 3-row maps are installed while the LAN
+ * screen is open and the stock 4-row maps are restored on close. */
+#define LANKB_BTN(w) (LV_BTNMATRIX_CTRL_POPOVER | (w))
+#define LANKB_FLAGS (LV_BTNMATRIX_CTRL_NO_REPEAT | LV_BTNMATRIX_CTRL_CLICK_TRIG | LV_BTNMATRIX_CTRL_CHECKED)
+#define LANKB_B1 LANKB_BTN(1)
+#define LANKB_CK1 (LV_BTNMATRIX_CTRL_CHECKED | LANKB_BTN(1))
+
+static const char *const lankb_lc3[] = {"1#", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", LV_SYMBOL_BACKSPACE, "\n",
+    "ABC", "a", "s", "d", "f", "g", "h", "j", "k", "l", LV_SYMBOL_NEW_LINE, "\n",
+    "_", "-", "z", "x", "c", "v", "b", "n", "m", ".", ",", ":", ""};
+static const char *const lankb_uc3[] = {"1#", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", LV_SYMBOL_BACKSPACE, "\n",
+    "abc", "A", "S", "D", "F", "G", "H", "J", "K", "L", LV_SYMBOL_NEW_LINE, "\n",
+    "_", "-", "Z", "X", "C", "V", "B", "N", "M", ".", ",", ":", ""};
+static const char *const lankb_sp3[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", LV_SYMBOL_BACKSPACE, "\n",
+    "abc", "+", "&", "/", "*", "=", "%", "!", "?", "#", "<", ">", "\n",
+    "\\", "@", "$", "(", ")", "{", "}", "[", "]", ";", "\"", "'", ""};
+static const lv_btnmatrix_ctrl_t lankb_ctrl_lc3[] = {
+    LANKB_FLAGS | 5, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LV_BTNMATRIX_CTRL_CHECKED | 7,
+    LANKB_FLAGS | 6, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LV_BTNMATRIX_CTRL_CHECKED | 7,
+    LANKB_CK1, LANKB_CK1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_CK1, LANKB_CK1, LANKB_CK1};
+static const lv_btnmatrix_ctrl_t lankb_ctrl_sp3[] = {
+    LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LV_BTNMATRIX_CTRL_CHECKED | 2,
+    LANKB_FLAGS | 2, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1,
+    LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1};
+static const char *const lankb_bottom[] = {LV_SYMBOL_KEYBOARD, LV_SYMBOL_LEFT, " ", LV_SYMBOL_RIGHT, LV_SYMBOL_OK, ""};
+static const lv_btnmatrix_ctrl_t lankb_ctrl_bottom[] = {
+    LANKB_FLAGS | 2, LV_BTNMATRIX_CTRL_CHECKED | 2, 6, LV_BTNMATRIX_CTRL_CHECKED | 2, LANKB_FLAGS | 2};
+
+/* Stock LVGL 4-row maps, restored when the LAN screen closes. */
+static const char *const stock_lc[] = {"1#", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", LV_SYMBOL_BACKSPACE, "\n",
+    "ABC", "a", "s", "d", "f", "g", "h", "j", "k", "l", LV_SYMBOL_NEW_LINE, "\n",
+    "_", "-", "z", "x", "c", "v", "b", "n", "m", ".", ",", ":", "\n",
+    LV_SYMBOL_KEYBOARD, LV_SYMBOL_LEFT, " ", LV_SYMBOL_RIGHT, LV_SYMBOL_OK, ""};
+static const char *const stock_uc[] = {"1#", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", LV_SYMBOL_BACKSPACE, "\n",
+    "abc", "A", "S", "D", "F", "G", "H", "J", "K", "L", LV_SYMBOL_NEW_LINE, "\n",
+    "_", "-", "Z", "X", "C", "V", "B", "N", "M", ".", ",", ":", "\n",
+    LV_SYMBOL_KEYBOARD, LV_SYMBOL_LEFT, " ", LV_SYMBOL_RIGHT, LV_SYMBOL_OK, ""};
+static const char *const stock_sp[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", LV_SYMBOL_BACKSPACE, "\n",
+    "abc", "+", "&", "/", "*", "=", "%", "!", "?", "#", "<", ">", "\n",
+    "\\", "@", "$", "(", ")", "{", "}", "[", "]", ";", "\"", "'", "\n",
+    LV_SYMBOL_KEYBOARD, LV_SYMBOL_LEFT, " ", LV_SYMBOL_RIGHT, LV_SYMBOL_OK, ""};
+static const lv_btnmatrix_ctrl_t stock_ctrl_lc[] = {
+    LANKB_FLAGS | 5, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LANKB_B1 + 3, LV_BTNMATRIX_CTRL_CHECKED | 7,
+    LANKB_FLAGS | 6, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LANKB_B1 + 2, LV_BTNMATRIX_CTRL_CHECKED | 7,
+    LANKB_CK1, LANKB_CK1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_CK1, LANKB_CK1, LANKB_CK1,
+    LANKB_FLAGS | 2, LV_BTNMATRIX_CTRL_CHECKED | 2, 6, LV_BTNMATRIX_CTRL_CHECKED | 2, LANKB_FLAGS | 2};
+static const lv_btnmatrix_ctrl_t stock_ctrl_sp[] = {
+    LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LV_BTNMATRIX_CTRL_CHECKED | 2,
+    LANKB_FLAGS | 2, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1,
+    LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1, LANKB_B1,
+    LANKB_FLAGS | 2, LV_BTNMATRIX_CTRL_CHECKED | 2, 6, LV_BTNMATRIX_CTRL_CHECKED | 2, LANKB_FLAGS | 2};
+
+static const int KB_W = 422;         // keyboard width (was 352)
+static const int KB_MAIN_H = 136;    // 3 key rows, ~41 px each (was 38)
+static const int KB_BOTTOM_H = 36;   // bottom row ~28 px (was 38)
+static lv_obj_t *s_kb_cont = NULL;
+static lv_obj_t *s_kb_bottom = NULL;
+
+static void lankb_install_maps(lv_obj_t *kb) {
+    lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_TEXT_UPPER, (const char **)lankb_uc3, lankb_ctrl_lc3);
+    lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_SPECIAL, (const char **)lankb_sp3, lankb_ctrl_sp3);
+    lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_TEXT_LOWER, (const char **)lankb_lc3, lankb_ctrl_lc3);
+}
+
+static void lankb_restore_maps(lv_obj_t *kb) {
+    lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_TEXT_UPPER, (const char **)stock_uc, stock_ctrl_lc);
+    lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_SPECIAL, (const char **)stock_sp, stock_ctrl_sp);
+    lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_TEXT_LOWER, (const char **)stock_lc, stock_ctrl_lc);
+}
+
 static void on_kb_done_click(lv_event_t *e);
 
 static void kb_panel_hide(void) {
     if (s_kb_panel) lv_obj_add_flag(s_kb_panel, LV_OBJ_FLAG_HIDDEN);
-    if (s_kb_keyboard) lv_obj_add_flag(s_kb_keyboard, LV_OBJ_FLAG_HIDDEN);
+    if (s_kb_cont) lv_obj_add_flag(s_kb_cont, LV_OBJ_FLAG_HIDDEN);
     s_kb_mode = KB_NONE;
 }
 
@@ -805,7 +878,7 @@ static void kb_panel_create(void) {
 
     // --- LEFT form panel (280 px, full height) ---
     s_kb_panel = lv_obj_create(s_screen);
-    lv_obj_set_size(s_kb_panel, 288, 172);
+    lv_obj_set_size(s_kb_panel, 640 - KB_W, 172);
     lv_obj_set_align(s_kb_panel, LV_ALIGN_TOP_LEFT);
     lv_obj_clear_flag(s_kb_panel, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_radius(s_kb_panel, 0, 0);
@@ -816,20 +889,20 @@ static void kb_panel_create(void) {
     lv_obj_set_style_pad_all(s_kb_panel, 6, 0);
 
     s_kb_title = lv_label_create(s_kb_panel);
-    lv_obj_set_width(s_kb_title, 268);
+    lv_obj_set_width(s_kb_title, 640 - KB_W - 20);
     lv_label_set_long_mode(s_kb_title, LV_LABEL_LONG_WRAP);
     lv_obj_align(s_kb_title, LV_ALIGN_TOP_LEFT, 2, 4);
     lv_obj_set_style_text_font(s_kb_title, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(s_kb_title, lv_color_hex(0xFFFFFF), 0);
 
     s_kb_textarea = lv_textarea_create(s_kb_panel);
-    lv_obj_set_size(s_kb_textarea, 268, 40);
+    lv_obj_set_size(s_kb_textarea, 640 - KB_W - 20, 40);
     lv_obj_align(s_kb_textarea, LV_ALIGN_TOP_LEFT, 2, 44);
     lv_textarea_set_one_line(s_kb_textarea, true);
     lv_obj_set_style_text_font(s_kb_textarea, &lv_font_montserrat_14, 0);
 
     s_kb_done_btn = lv_btn_create(s_kb_panel);
-    lv_obj_set_size(s_kb_done_btn, 128, 40);
+    lv_obj_set_size(s_kb_done_btn, 98, 40);
     lv_obj_align(s_kb_done_btn, LV_ALIGN_BOTTOM_LEFT, 2, -2);
     lv_obj_set_style_bg_color(s_kb_done_btn, lv_color_hex(0x0088cc), 0);
     lv_obj_set_style_bg_opa(s_kb_done_btn, 255, 0);
@@ -843,7 +916,7 @@ static void kb_panel_create(void) {
 
     lv_obj_t *cancel_btn = lv_btn_create(s_kb_panel);
     s_kb_cancel_btn = cancel_btn;
-    lv_obj_set_size(cancel_btn, 128, 40);
+    lv_obj_set_size(cancel_btn, 98, 40);
     lv_obj_align(cancel_btn, LV_ALIGN_BOTTOM_RIGHT, -2, -2);
     lv_obj_set_style_bg_color(cancel_btn, lv_color_hex(0x333333), 0);
     lv_obj_set_style_border_color(cancel_btn, lv_color_hex(0x888888), 0);
@@ -857,7 +930,7 @@ static void kb_panel_create(void) {
 
     // Show/hide-password toggle, only visible on the password step.
     s_kb_eye_btn = lv_btn_create(s_kb_panel);
-    lv_obj_set_size(s_kb_eye_btn, 50, 40);
+    lv_obj_set_size(s_kb_eye_btn, 44, 40);
     lv_obj_align(s_kb_eye_btn, LV_ALIGN_BOTTOM_MID, 0, -2);
     lv_obj_set_style_bg_color(s_kb_eye_btn, lv_color_hex(0x333333), 0);
     lv_obj_set_style_border_color(s_kb_eye_btn, lv_color_hex(0x888888), 0);
@@ -874,19 +947,50 @@ static void kb_panel_create(void) {
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_add_flag(s_kb_eye_btn, LV_OBJ_FLAG_HIDDEN);
 
-    // --- RIGHT keyboard (350 px, full height), like WiFi settings ---
-    s_kb_keyboard = lv_keyboard_create(s_screen);
-    lv_obj_set_size(s_kb_keyboard, 352, lv_pct(100));
-    lv_obj_set_align(s_kb_keyboard, LV_ALIGN_TOP_RIGHT);
+    // --- RIGHT keyboard: container with the gradient, 3-row main keyboard on top
+    //     and a shorter bottom row below ---
+    s_kb_cont = lv_obj_create(s_screen);
+    lv_obj_set_size(s_kb_cont, KB_W, 172);
+    lv_obj_set_align(s_kb_cont, LV_ALIGN_TOP_RIGHT);
+    lv_obj_clear_flag(s_kb_cont, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_radius(s_kb_cont, 0, 0);
+    lv_obj_set_style_border_width(s_kb_cont, 0, 0);
+    lv_obj_set_style_pad_all(s_kb_cont, 0, 0);
+    lv_obj_set_style_bg_color(s_kb_cont, lv_color_hex(0x117200), 0);
+    lv_obj_set_style_bg_opa(s_kb_cont, 255, 0);
+    lv_obj_set_style_bg_grad_color(s_kb_cont, lv_color_hex(0x143201), 0);
+    lv_obj_set_style_bg_grad_dir(s_kb_cont, LV_GRAD_DIR_VER, 0);
+
+    s_kb_keyboard = lv_keyboard_create(s_kb_cont);
+    lankb_install_maps(s_kb_keyboard);
     lv_keyboard_set_mode(s_kb_keyboard, LV_KEYBOARD_MODE_TEXT_LOWER);
+    lv_obj_set_size(s_kb_keyboard, KB_W, KB_MAIN_H);
+    lv_obj_set_pos(s_kb_keyboard, 0, 0);
+    lv_obj_set_style_bg_opa(s_kb_keyboard, 0, 0);
+    lv_obj_set_style_border_width(s_kb_keyboard, 0, 0);
+    lv_obj_set_style_pad_left(s_kb_keyboard, 4, 0);
+    lv_obj_set_style_pad_right(s_kb_keyboard, 4, 0);
+    lv_obj_set_style_pad_top(s_kb_keyboard, 4, 0);
+    lv_obj_set_style_pad_bottom(s_kb_keyboard, 0, 0);
     lv_keyboard_set_textarea(s_kb_keyboard, s_kb_textarea);
-    lv_obj_set_style_bg_color(s_kb_keyboard, lv_color_hex(0x117200), 0);
-    lv_obj_set_style_bg_opa(s_kb_keyboard, 255, 0);
-    lv_obj_set_style_bg_grad_color(s_kb_keyboard, lv_color_hex(0x143201), 0);
-    lv_obj_set_style_bg_grad_dir(s_kb_keyboard, LV_GRAD_DIR_VER, 0);
+
+    s_kb_bottom = lv_keyboard_create(s_kb_cont);
+    lv_keyboard_set_map(s_kb_bottom, LV_KEYBOARD_MODE_USER_1, (const char **)lankb_bottom, lankb_ctrl_bottom);
+    lv_keyboard_set_mode(s_kb_bottom, LV_KEYBOARD_MODE_USER_1);
+    lv_obj_set_size(s_kb_bottom, KB_W, KB_BOTTOM_H);
+    lv_obj_set_pos(s_kb_bottom, 0, KB_MAIN_H);
+    lv_obj_set_style_bg_opa(s_kb_bottom, 0, 0);
+    lv_obj_set_style_border_width(s_kb_bottom, 0, 0);
+    lv_obj_set_style_pad_left(s_kb_bottom, 4, 0);
+    lv_obj_set_style_pad_right(s_kb_bottom, 4, 0);
+    lv_obj_set_style_pad_top(s_kb_bottom, 4, 0);
+    lv_obj_set_style_pad_bottom(s_kb_bottom, 4, 0);
+    lv_keyboard_set_textarea(s_kb_bottom, s_kb_textarea);
+    lv_obj_add_event_cb(s_kb_bottom, [](lv_event_t *e) { on_kb_done_click(e); }, LV_EVENT_READY, NULL);
+    lv_obj_add_event_cb(s_kb_bottom, kb_cancel_cb, LV_EVENT_CANCEL, NULL);
 
     lv_obj_add_flag(s_kb_panel, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(s_kb_keyboard, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_kb_cont, LV_OBJ_FLAG_HIDDEN);
 }
 
 static void kb_panel_show(const char *title_text, const char *placeholder, int max_len,
@@ -894,7 +998,7 @@ static void kb_panel_show(const char *title_text, const char *placeholder, int m
     kb_panel_create();
     lv_textarea_set_password_mode(s_kb_textarea, password);
     // Password step: OK | eye | Cancel; other steps: OK | Cancel.
-    int bw = password ? 100 : 128;
+    int bw = password ? 72 : 98;
     lv_obj_set_width(s_kb_done_btn, bw);
     lv_obj_set_width(s_kb_cancel_btn, bw);
     if (password) {
@@ -908,14 +1012,24 @@ static void kb_panel_show(const char *title_text, const char *placeholder, int m
     lv_textarea_set_max_length(s_kb_textarea, max_len);
     lv_textarea_set_placeholder_text(s_kb_textarea, placeholder);
 
-    // Numeric keyboard for ports/hosts, full text for the rest.
+    // Numeric keyboard (stock 4-row, full height) for ports; split text keyboard otherwise.
     bool numeric = (max_len <= 6);
+    if (numeric) {
+        lv_obj_add_flag(s_kb_bottom, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_height(s_kb_keyboard, 172);
+        lv_obj_set_style_pad_bottom(s_kb_keyboard, 4, 0);
+    } else {
+        lv_obj_clear_flag(s_kb_bottom, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_height(s_kb_keyboard, KB_MAIN_H);
+        lv_obj_set_style_pad_bottom(s_kb_keyboard, 0, 0);
+    }
     lv_keyboard_set_mode(s_kb_keyboard,
                          numeric ? LV_KEYBOARD_MODE_NUMBER : LV_KEYBOARD_MODE_TEXT_LOWER);
     lv_keyboard_set_textarea(s_kb_keyboard, s_kb_textarea);
+    lv_keyboard_set_textarea(s_kb_bottom, s_kb_textarea);
 
     lv_obj_clear_flag(s_kb_panel, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(s_kb_keyboard, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(s_kb_cont, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_state(s_kb_textarea, LV_STATE_FOCUSED);
 }
 
@@ -1431,7 +1545,10 @@ void lan_devices_close(void) {
     // These were children of s_screen; clear them so the next open recreates
     // them instead of touching freed objects.
     s_kb_panel = NULL;
+    if (s_kb_keyboard) lankb_restore_maps(s_kb_keyboard);
     s_kb_keyboard = NULL;
+    s_kb_cont = NULL;
+    s_kb_bottom = NULL;
     s_kb_textarea = NULL;
     s_kb_done_btn = NULL;
     s_kb_title = NULL;
