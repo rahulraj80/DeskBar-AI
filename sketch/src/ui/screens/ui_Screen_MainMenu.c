@@ -12,7 +12,6 @@ lv_obj_t * ui_MainMenu_Image_MusicPlayer = NULL;
 lv_obj_t * ui_MainMenu_Label_MusicTitle = NULL;
 lv_obj_t * ui_MainMenu_Image_ChatBot = NULL;
 lv_obj_t * ui_MainMenu_Image_LANDevices = NULL;
-lv_obj_t * ui_MainMenu_Label_LANDevices = NULL;
 lv_obj_t * ui_MainMenu_Image_Information = NULL;
 lv_obj_t * ui_MainMenu_Image_Utility = NULL;
 lv_obj_t * ui_MainMenu_Image_Config = NULL;
@@ -559,14 +558,6 @@ void ui_Screen_MainMenu_screen_init(void)
     lv_obj_clear_flag(ui_MainMenu_Image_LANDevices,
                       LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE |
                       LV_OBJ_FLAG_SCROLLABLE);     /// Flags
-
-    ui_MainMenu_Label_LANDevices = lv_label_create(ui_MainMenu_Panel_Menu);
-    lv_label_set_text(ui_MainMenu_Label_LANDevices, "LAN Devices");
-    lv_obj_set_style_text_color(ui_MainMenu_Label_LANDevices, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_text_font(ui_MainMenu_Label_LANDevices, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_align(ui_MainMenu_Label_LANDevices, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_width(ui_MainMenu_Label_LANDevices, 136);
-    lv_obj_align(ui_MainMenu_Label_LANDevices, LV_ALIGN_LEFT_MID, 612, 152);
 
     ui_MainMenu_Image_Utility = lv_img_create(ui_MainMenu_Panel_Menu);
     lv_img_set_src(ui_MainMenu_Image_Utility, &ui_img_images_utility_png);
@@ -1244,7 +1235,6 @@ void ui_Screen_MainMenu_screen_destroy(void)
     ui_MainMenu_Label_MusicTitle = NULL;
     ui_MainMenu_Image_ChatBot = NULL;
     ui_MainMenu_Image_LANDevices = NULL;
-    ui_MainMenu_Label_LANDevices = NULL;
     ui_MainMenu_Image_Information = NULL;
     ui_MainMenu_Image_Utility = NULL;
     ui_MainMenu_Image_Config = NULL;
