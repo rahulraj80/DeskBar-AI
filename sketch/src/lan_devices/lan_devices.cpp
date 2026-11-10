@@ -76,10 +76,6 @@ static enum {
 
 static void lan_devices_ui_refresh(void);
 
-/* Rebuilding the list deletes s_scroll's children, including the button whose
- * event handler is running (refresh / toggle). Do that after the handler returns. */
-static void ui_refresh_async_cb(void *) { lan_devices_ui_refresh(); }
-static void lan_devices_ui_refresh_async(void) { lv_async_call(ui_refresh_async_cb, NULL); }
 
 /* ========================================================================
  *  Helpers
@@ -202,6 +198,8 @@ struct HaJob {
 static int ha_http(const lan_ha_server_t *srv, const char *method, const char *path,
                    const char *ctype, const String &body, const char *bearer,
                    String &resp) {
+    if (strcmp(pcTaskGetName(NULL), "lan_job") == 0)
+        return ha_http_impl(srv, method, path, ctype, body, bearer, resp);
     HaJob job = {srv, method, path, ctype, &body, bearer, &resp, -1, false};
     BaseType_t ok = xTaskCreatePinnedToCore([](void *p) {
         HaJob *j = (HaJob *)p;
@@ -619,11 +617,7 @@ void lan_devices_init(void) {
     }
 }
 
-void lan_devices_refresh(void) {
-    // mDNS is started lazily: at boot Wi-Fi is not up yet when init() runs, so
-    // start the browser the first time we know the link is live.
-    if (WiFi.status() == WL_CONNECTED) start_mdns();
-
+static void lan_devices_refresh_net(void) {
     s_device_count = 0;
     for (int i = 0; i < s_device_count; i++) device_reset(&s_devices[i]);
 
@@ -640,6 +634,13 @@ void lan_devices_refresh(void) {
     }
     Serial.printf("[LAN_DEV] Refresh: %d devices (task %s, stack free %u B)\n", s_device_count,
                   pcTaskGetName(NULL), (unsigned)uxTaskGetStackHighWaterMark(NULL) * 4);
+}
+
+void lan_devices_refresh(void) {
+    // mDNS is started lazily: at boot Wi-Fi is not up yet when init() runs, so
+    // start the browser the first time we know the link is live.
+    if (WiFi.status() == WL_CONNECTED) start_mdns();
+    lan_devices_refresh_net();
 }
 
 int lan_devices_count(void) { return s_device_count; }
@@ -918,6 +919,65 @@ static void kb_panel_show(const char *title_text, const char *placeholder, int m
     lv_obj_add_state(s_kb_textarea, LV_STATE_FOCUSED);
 }
 
+/* ---------- Background job (never block the LVGL task) ---------- */
+static struct {
+    int kind;                 // 1 refresh, 2 login + refresh, 3 toggle + refresh
+    char host[128]; uint16_t port;
+    char user[96]; char pass[96];
+    char entity[64];
+    bool login_ok; char err[64];
+} s_job;
+static volatile bool s_job_running = false, s_job_done = false;
+static lv_timer_t *s_poll_timer = NULL;
+static lv_obj_t *s_status_lbl = NULL;
+
+static void job_task(void *) {
+    if (s_job.kind == 2) {
+        s_job.login_ok = lan_devices_login(s_job.host, s_job.port, s_job.user, s_job.pass,
+                                           false, s_job.err, sizeof(s_job.err));
+        memset(s_job.pass, 0, sizeof(s_job.pass));
+    } else if (s_job.kind == 3) {
+        lan_devices_toggle(s_job.entity);
+    }
+    if (s_job.kind != 2 || s_job.login_ok) lan_devices_refresh_net();
+    s_job_done = true;
+    vTaskDelete(NULL);
+}
+
+static void job_poll_cb(lv_timer_t *t) {
+    if (!s_job_done) return;
+    s_job_done = false;
+    s_job_running = false;
+    s_poll_timer = NULL;
+    lv_timer_del(t);
+    if (!s_screen_open) return;
+    if (s_job.kind == 2) {
+        if (!s_job.login_ok) {
+            s_kb_mode = KB_ADD_USER;
+            String m = String(s_job.err) + "\nRe-enter username";
+            kb_panel_show(m.c_str(), "username", 64);
+            return;
+        }
+        memset(s_job.user, 0, sizeof(s_job.user));
+        kb_panel_hide();
+    }
+    lan_devices_ui_refresh();
+}
+
+static void job_start(int kind) {
+    if (s_job_running) return;
+    s_job.kind = kind;
+    s_job_done = false;
+    s_job_running = true;
+    if (s_status_lbl) lv_label_set_text(s_status_lbl, kind == 2 ? "Signing in..." : "Loading...");
+    if (xTaskCreatePinnedToCore(job_task, "lan_job", 12 * 1024, NULL, 3, NULL, 1) != pdPASS) {
+        s_job_running = false;
+        if (s_status_lbl) lv_label_set_text(s_status_lbl, "");
+        return;
+    }
+    s_poll_timer = lv_timer_create(job_poll_cb, 150, NULL);
+}
+
 static void on_kb_done_click(lv_event_t *e) {
     if (!s_kb_textarea) return;
 
@@ -948,28 +1008,20 @@ static void on_kb_done_click(lv_event_t *e) {
                 kb_panel_show("Home Assistant password", "password", 64, true);
             }
             break;
-        case KB_ADD_PASS: {
-            char err[64] = "";
+        case KB_ADD_PASS:
+            strncpy(s_job.host, s_temp_host, sizeof(s_job.host) - 1);
+            s_job.port = s_temp_port;
+            strncpy(s_job.user, s_temp_user, sizeof(s_job.user) - 1);
+            strncpy(s_job.pass, text, sizeof(s_job.pass) - 1);
             lv_label_set_text(s_kb_title, "Signing in...");
-            lv_refr_now(NULL);
-            if (lan_devices_login(s_temp_host, s_temp_port, s_temp_user, text, false,
-                                  err, sizeof(err))) {
-                memset(s_temp_user, 0, sizeof(s_temp_user));
-                kb_panel_hide();
-                lan_devices_refresh();
-                lan_devices_ui_refresh();
-            } else {
-                s_kb_mode = KB_ADD_USER;
-                String t = String(err) + "\nRe-enter username";
-                kb_panel_show(t.c_str(), "username", 64);
-            }
+            memset(s_temp_user, 0, sizeof(s_temp_user));
+            job_start(2);
             break;
-        }
         case KB_ADD_TOKEN:
             lan_devices_add_ha_server(s_temp_host, s_temp_port, text, false);
             kb_panel_hide();
-            lan_devices_refresh();
             lan_devices_ui_refresh();
+            job_start(1);
             break;
         case KB_AGENT_NAME:
             strncpy(s_temp_agent_name, text, sizeof(s_temp_agent_name) - 1);
@@ -1007,8 +1059,7 @@ static void on_close_click(lv_event_t *e) {
 }
 
 static void on_refresh_click(lv_event_t *e) {
-    lan_devices_refresh();
-    lan_devices_ui_refresh_async();
+    job_start(1);
 }
 
 static void start_signin(int idx) {
@@ -1048,8 +1099,9 @@ static void on_device_toggle(lv_event_t *e) {
     if (idx < 0 || idx >= s_device_count) return;
     const lan_device_t *d = &s_devices[idx];
     if (!d->controllable) return;
-    lan_devices_toggle(d->entity_id);
-    lan_devices_ui_refresh_async();
+    if (s_job_running) return;
+    strncpy(s_job.entity, d->entity_id, sizeof(s_job.entity) - 1);
+    job_start(3);
 }
 
 /* ========================================================================
@@ -1137,6 +1189,12 @@ static void add_header_icons(void) {
     lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
     lv_obj_align(title, LV_ALIGN_TOP_LEFT, 16, 12);
+
+    s_status_lbl = lv_label_create(s_scroll);
+    lv_label_set_text(s_status_lbl, s_job_running ? "Loading..." : "");
+    lv_obj_set_style_text_color(s_status_lbl, lv_color_hex(0x00E5FF), 0);
+    lv_obj_set_style_text_font(s_status_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_align(s_status_lbl, LV_ALIGN_TOP_LEFT, 16, 40);
 
     // Refresh icon
     s_icon_refresh = lv_btn_create(s_scroll);
@@ -1339,8 +1397,9 @@ void lan_devices_open(void) {
     lv_obj_add_flag(s_scroll, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scroll_dir(s_scroll, LV_DIR_VER);
 
-    lan_devices_refresh();
+    if (WiFi.status() == WL_CONNECTED) start_mdns();
     lan_devices_ui_refresh();
+    job_start(1);
 
     lv_scr_load_anim(s_screen, LV_SCR_LOAD_ANIM_OVER_TOP, 300, 0, false);
     log_i("[LAN_DEV] Screen opened");
@@ -1376,6 +1435,7 @@ void lan_devices_close(void) {
     s_kb_textarea = NULL;
     s_kb_done_btn = NULL;
     s_kb_title = NULL;
+    s_status_lbl = NULL;
     s_kb_cancel_btn = NULL;
     s_kb_eye_btn = NULL;
     s_kb_eye_lbl = NULL;

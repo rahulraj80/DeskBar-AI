@@ -559,7 +559,7 @@ directly on the CLI task overflowed the stack canary.
 
 **Server rows:** the screen lists each Home Assistant server (found by mDNS or added) with its status (not signed in / connected / sign-in failed) and a Sign in button, so a discovered server is always visible even before login.
 
-**Rebuild rule:** refresh/toggle handlers live on children of the scroll panel, so the list rebuild is deferred with `lv_async_call` — cleaning the panel inside the button's own handler crashed (LoadProhibited).
+**Never block the LVGL task:** refresh, sign-in and toggle run as a `lan_job` background task (12 KB stack; HTTP runs inline there). A 150 ms LVGL timer polls for completion and then rebuilds the list; the header shows "Loading..."/"Signing in...". Blocking inside button handlers plus deleting the pressed button left LVGL's `event_head` dangling (crash in `_lv_event_mark_deleted` on the 2nd refresh).
 
 **Password step:** an eye button between OK and Cancel toggles showing/hiding the typed password (hidden by default each time).
 
