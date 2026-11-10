@@ -557,6 +557,8 @@ boot runs `lan_devices_init()` before the link exists. Credentials stored in NVS
 request runs on a short-lived 12 KB `lan_net` worker task (the caller waits). Doing HTTP
 directly on the CLI task overflowed the stack canary.
 
+**Server rows:** the screen lists each Home Assistant server (found by mDNS or added) with its status (not signed in / connected / sign-in failed) and a Sign in button, so a discovered server is always visible even before login.
+
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded

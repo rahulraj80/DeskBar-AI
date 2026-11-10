@@ -22,6 +22,7 @@ static const char *NVS_NS = "lan_dev";
 
 static lan_device_t s_devices[64];
 static int s_device_count = 0;
+static int s_refresh_state = 0;  // 0 none, 1 ok, 2 failed
 
 static lan_ha_server_t s_ha_servers[4];
 static int s_ha_server_count = 0;
@@ -618,13 +619,16 @@ void lan_devices_refresh(void) {
     s_device_count = 0;
     for (int i = 0; i < s_device_count; i++) device_reset(&s_devices[i]);
 
+    s_refresh_state = 0;
     for (int i = 0; i < s_ha_server_count; i++) {
         if (!has_creds(&s_ha_servers[i])) continue;
         int got = 64 - s_device_count;
         if (ha_get_states(&s_ha_servers[i], s_devices + s_device_count, &got)) {
             s_device_count += got;
+            s_refresh_state = 1;
             break;
         }
+        s_refresh_state = 2;
     }
     log_i("[LAN_DEV] Refresh: %d devices", s_device_count);
 }
@@ -968,6 +972,18 @@ static void on_refresh_click(lv_event_t *e) {
     lan_devices_ui_refresh();
 }
 
+static void start_signin(int idx) {
+    strncpy(s_temp_host, s_ha_servers[idx].host, sizeof(s_temp_host) - 1);
+    s_temp_port = s_ha_servers[idx].port;
+    s_kb_mode = KB_ADD_USER;
+    kb_panel_show("Sign in to Home Assistant\nUsername (empty = token)", "username", 64);
+}
+
+static void on_server_signin(lv_event_t *e) {
+    intptr_t idx = (intptr_t)lv_event_get_user_data(e);
+    if (idx >= 0 && idx < s_ha_server_count) start_signin((int)idx);
+}
+
 static void on_add_click(lv_event_t *e) {
     // A server found by mDNS but not signed in yet: skip the host/port steps.
     for (int i = 0; i < s_ha_server_count; i++) {
@@ -1184,23 +1200,58 @@ static void lan_devices_ui_refresh(void) {
         return;
     }
 
+    // One row per Home Assistant server: shows it is found, and lets the user sign in.
+    for (int i = 0; i < s_ha_server_count; i++) {
+        const lan_ha_server_t *srv = &s_ha_servers[i];
+        bool signed_in = has_creds(srv);
+        lv_obj_t *row = lv_obj_create(s_scroll);
+        lv_obj_set_size(row, 608, 52);
+        lv_obj_set_style_bg_color(row, lv_color_hex(0x161C28), 0);
+        lv_obj_set_style_bg_opa(row, 255, 0);
+        lv_obj_set_style_border_color(row, lv_color_hex(0x2A6FD6), 0);
+        lv_obj_set_style_border_width(row, 1, 0);
+        lv_obj_set_style_radius(row, 8, 0);
+        lv_obj_set_style_pad_all(row, 6, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_align(row, LV_ALIGN_TOP_LEFT, 8, s_next_row_y);
+
+        lv_obj_t *nm = lv_label_create(row);
+        lv_label_set_text(nm, "Home Assistant");
+        lv_obj_set_style_text_color(nm, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_font(nm, &lv_font_montserrat_16, 0);
+        lv_obj_align(nm, LV_ALIGN_LEFT_MID, 8, -9);
+
+        char sub[96];
+        const char *st = !signed_in ? "not signed in"
+                         : (s_refresh_state == 2 ? "sign-in failed or server unreachable"
+                                                 : (s_device_count ? "connected" : "signed in"));
+        snprintf(sub, sizeof(sub), "%s:%u  -  %s", srv->host, srv->port, st);
+        lv_obj_t *sb = lv_label_create(row);
+        lv_label_set_text(sb, sub);
+        lv_obj_set_style_text_color(sb, lv_color_hex(signed_in && s_refresh_state != 2 ? 0x00E5A0 : 0xFFB020), 0);
+        lv_obj_set_style_text_font(sb, &lv_font_montserrat_14, 0);
+        lv_obj_align(sb, LV_ALIGN_LEFT_MID, 8, 9);
+
+        lv_obj_t *btn = lv_btn_create(row);
+        lv_obj_set_size(btn, 130, 38);
+        lv_obj_align(btn, LV_ALIGN_RIGHT_MID, -6, 0);
+        lv_obj_set_style_bg_color(btn, lv_color_hex(0x0088cc), 0);
+        lv_obj_add_event_cb(btn, on_server_signin, LV_EVENT_CLICKED, (void *)(intptr_t)i);
+        lv_obj_t *bl = lv_label_create(btn);
+        lv_label_set_text(bl, signed_in ? "Re-sign in" : "Sign in");
+        lv_obj_center(bl);
+        lv_obj_set_style_text_font(bl, &lv_font_montserrat_16, 0);
+        s_next_row_y += 58;
+    }
+
     // No devices but have servers
     if (s_device_count == 0) {
-        lv_obj_t *empty = lv_label_create(s_scroll);
-        lv_label_set_text(empty, "No devices found on LAN.");
-        lv_obj_set_style_text_color(empty, lv_color_hex(0x888888), 0);
-        lv_obj_set_style_text_font(empty, &lv_font_montserrat_16, 0);
-        lv_obj_set_width(empty, 620);
-        lv_obj_set_style_text_align(empty, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_align(empty, LV_ALIGN_CENTER, 0, 2);
-
         lv_obj_t *hint = lv_label_create(s_scroll);
-        lv_label_set_text(hint, "Tap + to sign in, or " LV_SYMBOL_REFRESH " to refresh.");
-        lv_obj_set_style_text_color(hint, lv_color_hex(0x00E5FF), 0);
+        lv_label_set_text(hint, !has_creds(&s_ha_servers[0]) ? "Sign in to see your lights and switches."
+                                                            : "No lights, switches or sensors found.");
+        lv_obj_set_style_text_color(hint, lv_color_hex(0x888888), 0);
         lv_obj_set_style_text_font(hint, &lv_font_montserrat_14, 0);
-        lv_obj_align(hint, LV_ALIGN_CENTER, 0, 34);
-        lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_width(hint, 600);
+        lv_obj_align(hint, LV_ALIGN_TOP_LEFT, 16, s_next_row_y + 2);
 
         lv_obj_set_size(s_scroll, 640, 172);
         lv_obj_set_scrollbar_mode(s_scroll, LV_SCROLLBAR_MODE_AUTO);
