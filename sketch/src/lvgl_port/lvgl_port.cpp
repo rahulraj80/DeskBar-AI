@@ -314,6 +314,8 @@ static void WAVESHARE_349_lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *da
   }
 }
 
+extern "C" void *lvgl_port_mux_handle(void) { return (void *)lvgl_mux; }
+
 bool lvgl_port_lock(int timeout_ms) {
   if (!lvgl_mux) return false;
   const TickType_t timeout_ticks = (timeout_ms == -1) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);

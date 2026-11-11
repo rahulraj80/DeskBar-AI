@@ -575,6 +575,8 @@ directly on the CLI task overflowed the stack canary.
 
 **Screen lifetime:** the LAN screen can be deleted behind our back (transition auto-delete, idle->clock). It registers `LV_EVENT_DELETE`, and every timer/job checks `lan_screen_alive()` (`lv_obj_is_valid`) before touching `s_scroll`; otherwise a finishing job rebuilt a freed list and crashed (X pressed ~0.3 s after opening).
 
+**LVGL thread-safety (root cause of the late random crashes):** every LVGL call from a task other than the LVGL task must hold `lvgl_port_lock()`. `setup()` used to call `init_main_menu_task(NULL)` unlocked while the LVGL task was already rendering (also the OTA boot toast and the network task's `lv_async_call`); the corrupted heap/event chain crashed minutes later in unrelated code (✕, refresh). Debug with `pio run -e esp32-s3-devkitc1-n16r8-lockcheck`: it prints `[LOCKCHK] <fn> from task <name> ..., caller <addr>` for any unlocked call; resolve the address with `xtensa-esp32s3-elf-addr2line`.
+
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded

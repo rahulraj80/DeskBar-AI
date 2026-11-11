@@ -1581,10 +1581,6 @@ void lan_devices_close(void) {
     if (!s_screen_open) return;
     s_screen_open = false;
 
-    if (s_kb_panel) {
-        lv_obj_del_async(s_kb_panel);
-        s_kb_panel = NULL;
-    }
 
     // Switch to the persistent MainMenu screen instantly so the LAN screen is
     // no longer active, then defer freeing it. This function runs from the

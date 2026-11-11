@@ -1,3 +1,4 @@
+#include "lvgl_port/lvgl_port.h"
 #include "network.h"
 #include "esp32-hal.h"
 #include "file/file.h"
@@ -484,14 +485,18 @@ void wifi_connect_task(void *param) {
     if (WiFi.status() == WL_CONNECTED) {
       wifi_need_connect = false;
 
-      lv_async_call(
-          [](void *param) {
-            lv_timer_t *timer = (lv_timer_t *)param;
-            if (timer) {
-              lv_timer_resume(timer);//resume wifi check timer
-            }
-          },
-          wifi_check_timer);
+      // lv_async_call allocates an LVGL timer: hold the LVGL lock (network task).
+      if (lvgl_port_lock(-1)) {
+        lv_async_call(
+            [](void *param) {
+              lv_timer_t *timer = (lv_timer_t *)param;
+              if (timer) {
+                lv_timer_resume(timer);//resume wifi check timer
+              }
+            },
+            wifi_check_timer);
+        lvgl_port_unlock();
+      }
 
       break;
     }

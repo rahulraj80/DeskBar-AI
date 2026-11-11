@@ -1,3 +1,4 @@
+#include "lvgl_port/lvgl_port.h"
 #include "updater.h"
 #include "lcd_bl_bsp/lcd_bl_pwm_bsp.h"
 #include "network/network.h"
@@ -384,6 +385,7 @@ void ota_post_boot_toast(void) {
     prefs.putString("last_ver", TUNEBAR_VERSION_STR);
     prefs.end();
 
+    if (!lvgl_port_lock(-1)) return;  // called from setup(); LVGL task is already running
     lv_async_call([](void *p) {
       lv_obj_t *toast = lv_obj_create(lv_layer_top());
       lv_obj_set_size(toast, 440, 36);
@@ -409,6 +411,7 @@ void ota_post_boot_toast(void) {
         lv_timer_del(t);
       }, 4000, toast);
     }, NULL);
+    lvgl_port_unlock();
   } else {
     if (last_ver.length() == 0) {
       prefs.putString("last_ver", TUNEBAR_VERSION_STR);

@@ -272,7 +272,13 @@ void setup() {
   // too to guarantee breath_timer exists even if the boot-screen event is
   // delayed or missed. enter_clock_breathing() is idempotent (guarded by
   // clock_face_active), so calling it from both places is safe.
-  init_main_menu_task(NULL);
+  // init_main_menu_task() is an LVGL timer callback; the LVGL task is already
+  // rendering here, so it must run under the LVGL lock (unlocked, its label
+  // updates corrupted LVGL's heap/event chain and caused later random crashes).
+  if (lvgl_port_lock(-1)) {
+    init_main_menu_task(NULL);
+    lvgl_port_unlock();
+  }
 
   // Ensure backlight is on after init (enter_clock_breathing() sets this, but
   // make sure regardless of timing):
