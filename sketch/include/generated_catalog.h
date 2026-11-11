@@ -14,10 +14,21 @@ struct CatalogItem {
   uint32_t size_bytes;
 };
 
-#define GENERATED_CATALOG_COUNT 2
+#define GENERATED_CATALOG_COUNT 3
 
-static const CatalogItem s_generated_catalog[2] = {
-  // [0] v2.6.7
+static const CatalogItem s_generated_catalog[3] = {
+  // [0] v2.7.0
+  {
+    "v2.7.0", "MINOR", 0x00B0FF, "Nov 11, 2026", "4.01 MB",
+    "• LAN Devices with Home Assistant sign-in; crash fixes\n"
+    "• New LAN DEVICES app: control Home Assistant lights, switches, covers and fans, grouped by room.\n"
+    "• Sign in with your Home Assistant username and password (no long-lived token needed).\n"
+    "• Roomier sign-in keyboard with show/hide password.\n"
+    "• Fixes random crashes and unexpected returns to the clock (LVGL thread-safety).",
+    "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.7.0.bin",
+    4200000
+  },
+  // [1] v2.6.7
   {
     "v2.6.7", "PATCH", 0x00FF88, "Nov 09, 2026", "3.10 MB",
     "• Automated multi-tenant telemetry and device registration guard.\n"
@@ -28,7 +39,7 @@ static const CatalogItem s_generated_catalog[2] = {
     "https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.7.bin",
     3250224
   },
-  // [1] v2.6.8
+  // [2] v2.6.8
   {
     "v2.6.8", "PATCH", 0x00FF88, "Nov 09, 2026", "4.08 MB",
     "• Web remote page links (OTA registry, release downloads) now use rahulraj80/DeskBar-AI\n"
@@ -40,8 +51,9 @@ static const CatalogItem s_generated_catalog[2] = {
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
+  j += "{\"version\":\"2.7.0\",\"type\":\"minor\",\"build\":285,\"date\":\"Nov 11, 2026\",\"size\":\"4.01 MB\",\"size_bytes\":4200000,\"changelog\":\"• LAN Devices with Home Assistant sign-in; crash fixes • New LAN DEVICES app: control Home Assistant lights, switches, covers and fans, grouped by room. • Sign in with your Home Assistant username and password (no long-lived token needed). • Roomier sign-in keyboard with show/hide password. • Fixes random crashes and unexpected returns to the clock (LVGL thread-safety).\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.7.0.bin\"},";
   j += "{\"version\":\"2.6.7\",\"type\":\"patch\",\"build\":248,\"date\":\"Nov 09, 2026\",\"size\":\"3.10 MB\",\"size_bytes\":3250224,\"changelog\":\"• Automated multi-tenant telemetry and device registration guard. • 4-Row 3-State IMU posture panel with active/inverted tracking. • High-precision shelf inclinometer and uphill air bubble physics. • Dynamic isometric chassis diagram in calibration wizard. • Clock breathing interaction wake fix.\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.7.bin\"},";
-  j += "{\"version\":\"2.6.8\",\"type\":\"patch\",\"build\":256,\"date\":\"Nov 09, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Web remote page links (OTA registry, release downloads) now use rahulraj80/DeskBar-AI • Completes the v2.6.7 OTA slug fix — no path still relies on GitHub's rename redirect\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.8.bin\"}";
+  j += "{\"version\":\"2.6.8\",\"type\":\"patch\",\"build\":284,\"date\":\"Nov 09, 2026\",\"size\":\"4.08 MB\",\"size_bytes\":4283408,\"changelog\":\"• Web remote page links (OTA registry, release downloads) now use rahulraj80/DeskBar-AI • Completes the v2.6.7 OTA slug fix — no path still relies on GitHub's rename redirect\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.6.8.bin\"}";
   j += "]}";
   return j;
 }
