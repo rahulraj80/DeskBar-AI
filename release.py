@@ -130,7 +130,7 @@ def update_catalog(next_ver_str, rel_type, message, build_num):
         entry["type"] = rel_type
         entry["build"] = build_num
         entry["date"] = now_date
-        entry["title"] = f"TuneBar v{next_ver_str}: {message}"
+        entry["title"] = f"DeskBar AI v{next_ver_str}: {message}"
         if message not in entry.get("changelog", ""):
             entry["changelog"] = changelog_bullet + "\n" + entry.get("changelog", "")
     else:
@@ -197,11 +197,11 @@ def main():
 
     # 5. Git Add & Commit
     commit_msg = f"{rel_type}({next_tag}): {message}"
-    run_cmd(["git", "add", "-A"])
-    run_cmd([
-        "git", "commit", "-m", commit_msg,
-        "--author=Rahul_Azure <rahul.raj@gmail.com>"
-    ])
+    # Stage only the release artefacts (never `git add -A`: it sweeps in
+    # unrelated work-in-progress). Author comes from the machine's git config.
+    run_cmd(["git", "add", "sketch/include/version.h", "releases/firmware_catalog.json",
+             "sketch/include/generated_catalog.h"])
+    run_cmd(["git", "commit", "-m", commit_msg])
 
     # Update version.h with real git hash if desired
     real_hash = run_cmd(["git", "rev-parse", "--short", "HEAD"])

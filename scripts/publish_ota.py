@@ -99,6 +99,23 @@ def main():
     print(f" Retention Policy: Maximum {max_ver} versions in Git", flush=True)
     print(f"=======================================================", flush=True)
 
+    # 0. Consistency guards. v2.6.9-v2.6.11 were "published" without a version
+    # bump or catalog entry: the binaries reported 2.6.8 and the catalog kept
+    # pointing at pruned files (OTA 404). Never again.
+    built_ver = get_current_version()
+    if built_ver != ver:
+        print(f"[FATAL ERROR] sketch/include/version.h says {built_ver}, not {ver}. "
+              f"Bump with release.py first so the binary reports the version it is published as.", flush=True)
+        sys.exit(1)
+    try:
+        with open(CATALOG_JSON_PATH, "r", encoding="utf-8") as f:
+            _cat = json.load(f)
+    except Exception:
+        _cat = {"releases": []}
+    if not any(r.get("version") in (ver, ver_tag) for r in _cat.get("releases", [])):
+        print(f"[FATAL ERROR] releases/firmware_catalog.json has no entry for {ver}. Run release.py first.", flush=True)
+        sys.exit(1)
+
     # 1. Verify build_phase1/firmware.bin exists
     if not os.path.exists(BUILD_BIN_PATH):
         print(f"[FATAL ERROR] Source binary not found at: {BUILD_BIN_PATH}", flush=True)
@@ -153,6 +170,16 @@ def main():
                 if r.get("version") in [ver, ver_tag]:
                     r["size"] = bin_size
                     break
+            # Drop entries whose binary is not retained: a catalog entry must
+            # never point at a pruned (404) file.
+            kept = []
+            for r in releases:
+                fname = r.get("url", "").rsplit("/", 1)[-1]
+                if fname in keep_bins:
+                    kept.append(r)
+                else:
+                    print(f"  - Catalog: dropping v{r.get('version')} ({fname} not retained)", flush=True)
+            cat_data["releases"] = kept
             with open(CATALOG_JSON_PATH, "w", encoding="utf-8") as f:
                 json.dump(cat_data, f, indent=2)
         except Exception as e:
@@ -174,8 +201,7 @@ def main():
     st = run_cmd(["git", "status", "--porcelain"])
     if st:
         run_cmd([
-            "git", "commit", "-m", f"ota: publish TuneBar {ver_tag} for OTA deployment (retained top {max_ver} versions)",
-            "--author=Rahul_Azure <rahul.raj@gmail.com>"
+            "git", "commit", "-m", f"ota: publish DeskBar AI {ver_tag} for OTA deployment (retained top {max_ver} versions)"
         ])
         print("--- Pushing to GitHub origin main ---", flush=True)
         run_cmd(["git", "push", "origin", "main"])

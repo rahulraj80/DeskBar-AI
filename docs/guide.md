@@ -577,6 +577,8 @@ directly on the CLI task overflowed the stack canary.
 
 **LVGL thread-safety (root cause of the late random crashes):** every LVGL call from a task other than the LVGL task must hold `lvgl_port_lock()`. `setup()` used to call `init_main_menu_task(NULL)` unlocked while the LVGL task was already rendering (also the OTA boot toast and the network task's `lv_async_call`); the corrupted heap/event chain crashed minutes later in unrelated code (✕, refresh). Debug with `pio run -e esp32-s3-devkitc1-n16r8-lockcheck`: it prints `[LOCKCHK] <fn> from task <name> ..., caller <addr>` for any unlocked call; resolve the address with `xtensa-esp32s3-elf-addr2line`.
 
+**Release flow (fixed 2026-11-11):** `python3 release.py <patch|minor|major> "<summary>" --no-build` bumps `version.h`, adds/updates the catalog entry, tags and pushes; build on `auto`, flash `0x1A0000`, verify; then `python3 scripts/publish_ota.py vX.Y.Z`. `publish_ota.py` refuses to publish unless `version.h` and a catalog entry match the version, and it drops catalog entries whose binary was pruned (v2.6.9–v2.6.11 had been published without a bump, leaving the feed pointing at 404s). `pio run` builds only the shipping envs (`default_envs`).
+
 **Glyphs:** device rows and hints use `LV_SYMBOL_*` only (emoji/unicode arrows render as empty boxes in the Montserrat subset).
 
 **Main-menu tile** (`ui_img_images_lan_png`) follows the other tiles: 136×146 rounded

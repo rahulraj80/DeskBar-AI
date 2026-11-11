@@ -1123,8 +1123,7 @@ static void job_poll_cb(lv_timer_t *t) {
     if (s_job.kind == 2) {
         if (!s_job.login_ok) {
             s_kb_mode = KB_ADD_USER;
-            String m = String(s_job.err) + "\nRe-enter username";
-            kb_panel_show(m.c_str(), "username", 64);
+            kb_panel_show(s_job.err, "username", 64);  // 2 lines max: title must not overlap the textarea
             return;
         }
         memset(s_job.user, 0, sizeof(s_job.user));

@@ -4,7 +4,7 @@
 ![ESP32-S3](https://img.shields.io/badge/SoC-ESP32--S3-blue?logo=espressif)
 ![Flash/PSRAM](https://img.shields.io/badge/Memory-16MB%20Flash%20%2F%208MB%20PSRAM-orange)
 ![Display](https://img.shields.io/badge/Display-3.49%22%20Capacitive%20Touch%20(640x172)-green)
-![Firmware](https://img.shields.io/badge/Version-v2.6.8-brightgreen)
+![Firmware](https://img.shields.io/badge/Version-v2.7.0-brightgreen)
 ![License](https://img.shields.io/badge/License-CC--BY--NC--SA--4.0-lightgrey)
 
 **DeskBar AI** is an extensive architectural evolution of the TuneBar project for the official [Waveshare ESP32-S3-Touch-LCD-3.49](https://docs.waveshare.com/ESP32-S3-Touch-LCD-3.49?variant=ESP32-S3-Touch-LCD-3.49) development platform. What began as a palm-sized internet radio has been re-engineered into an autonomous **AI Voice Assistant**, smart desktop companion, and distributed telemetry station with high-fidelity acoustic processing, advanced power and breathing profile management, dynamic crowd-sourced battery discharge calibration, 6-axis digital spirit level, 6-language international radio, local SD & LAN media streaming, **Home Assistant device control (LAN Devices)**, zero-bitmap procedural vector themes, and complete privacy controls.
