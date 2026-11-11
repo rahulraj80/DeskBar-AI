@@ -528,7 +528,7 @@ server/agent configuration. Flash at ~44.5% of 7 MB app slot.
 house+network icon replaces climate icon; empty state shows config hint when no
 HA servers, device hint when none found. Flash at ~44.5% of 7 MB app slot.
 
-**v2.7.0** (build 285, 2026-11-11) — first release of LAN Devices with Home Assistant username/password sign-in, the 422 px keyboard, background network jobs and the LVGL thread-safety fix; OTA catalog repaired.
+**v2.7.0** (build 285, 3,285,440 B, published to OTA 2026-11-11; catalog now lists only binaries that exist: v2.7.0) — first release of LAN Devices with Home Assistant username/password sign-in, the 422 px keyboard, background network jobs and the LVGL thread-safety fix; OTA catalog repaired.
 
 **LAN Devices icon-based UI** — action icons in header (`LV_SYMBOL_REFRESH`,
 `LV_SYMBOL_PLUS`, `LV_SYMBOL_SETTINGS`, `LV_SYMBOL_CLOSE`); multi-step keyboard
