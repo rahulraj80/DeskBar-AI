@@ -1,3 +1,4 @@
+#include "diag/boot_info.h"
 #include "web_remote.h"
 #include <WebServer.h>
 #include <WiFi.h>
@@ -85,6 +86,9 @@ static void handle_status() {
         "{\"active_screen\":\"%s\",\"clock_active\":%d,\"bl_off\":%d,\"bl_state\":%d,\"vol\":%d,"
         "\"batt_v\":%.2f,\"batt_pct\":%d,\"heap\":%u,\"psram\":%u,"
         "\"dram_free\":%u,\"dram_pct\":%d,\"uptime_s\":%u,"
+        "\"fw_version\":\"%s\",\"fw_build\":%u,\"fw_git\":\"%s\",\"fw_date\":\"%s\","
+        "\"boot_count\":%u,\"reset_reason\":\"%s\",\"reset_reason_code\":%d,\"last_reset_crash\":%d,"
+        "\"prior_uptime_s\":%u,\"prior_action\":\"%s\","
         "\"rssi\":%d,\"audio_running\":%d,\"alarm_enabled\":%d,"
         "\"alarm_time\":\"%s\",\"alarm_active\":%d,\"catalog\":%d,"
         "\"catalog_name\":\"%s\",\"radio_lang\":%d,\"radio_lang_code\":\"%s\",\"radio_lang_name\":\"%s\","
@@ -98,6 +102,10 @@ static void handle_status() {
         (int)audio.getVolume(), volt, pct,
         (unsigned int)dram_free, (unsigned int)ESP.getFreePsram(),
         (unsigned int)(dram_free / 1024), (int)dram_used_pct, uptime_s,
+        boot_info_version(), (unsigned)boot_info_build(), boot_info_git_hash(), boot_info_build_date(),
+        (unsigned)boot_info_boot_count(), boot_info_reset_reason_str(), boot_info_reset_reason(),
+        boot_info_last_reset_was_crash() ? 1 : 0,
+        (unsigned)boot_info_prior_uptime_s(), boot_info_prior_action(),
         (WiFi.status() == WL_CONNECTED) ? (int)WiFi.RSSI() : 0,
         audio.isRunning() ? 1 : 0,
         alarm_is_enabled() ? 1 : 0,

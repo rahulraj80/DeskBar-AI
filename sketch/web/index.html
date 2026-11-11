@@ -59,7 +59,7 @@
 <body>
 <div class="container">
   <div class="header">
-    <div class="title">📻 TuneBar Web Remote</div>
+    <div class="title">📻 DeskBar AI Web Remote</div>
     <div class="badge" id="badge-status">ONLINE</div>
   </div>
 
@@ -80,7 +80,7 @@
       <div class="stat-chip"><span>Battery</span><strong id="stat-batt">--</strong></div>
       <div class="stat-chip"><span>WiFi RSSI</span><strong id="stat-wifi">--</strong></div>
       <div class="stat-chip"><span>Display</span><strong id="stat-screen">--</strong></div>
-      <div class="stat-chip"><span>Boot Count</span><strong id="stat-boot">--</strong></div>
+      <div class="stat-chip"><span>Boot / Last Reset</span><strong id="stat-boot">--</strong></div>
     </div>
     <div style="background:#0c121e;padding:8px 10px;border-radius:8px;border:1px solid #1f2b3e;display:flex;flex-direction:column;gap:5px;font-size:0.78rem">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -588,6 +588,11 @@ function toggleAlarm() {
   .catch(console.error);
 }
 
+function fmtDur(s) {
+  const d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60, x = s % 60;
+  return (d ? d + 'd ' : '') + (d || h ? h + 'h ' : '') + m + 'm ' + x + 's';
+}
+
 function refreshData(data) {
   document.getElementById('stat-dram').innerText = (data.dram_free || Math.round(data.heap/1024)) + ' KB Free (' + (data.dram_pct || 65) + '% used)';
   document.getElementById('stat-psram').innerText = (data.psram / 1048576).toFixed(1) + ' MB Free';
@@ -607,8 +612,10 @@ function refreshData(data) {
   }
   document.getElementById('stat-wifi').innerText = data.rssi + ' dBm';
   document.getElementById('stat-screen').innerText = data.bl_off ? 'Locked/Off' : ('BL: ' + ['Low','Med','High'][data.bl_state]);
-  document.getElementById('stat-boot').innerText = (data.boot_count || 1) + ' boots';
-  document.getElementById('stat-uptime').innerText = 'Uptime: ' + Math.floor(data.uptime_s / 60) + 'm ' + (data.uptime_s % 60) + 's';
+  document.getElementById('stat-boot').innerText = '#' + (data.boot_count || 1) + ' \u00b7 ' + (data.reset_reason || '?') + (data.last_reset_crash ? ' \u26a0' : '');
+  document.getElementById('stat-boot').title = data.last_reset_crash ? ('Crashed after ' + fmtDur(data.prior_uptime_s || 0) + ' (last action: ' + (data.prior_action || '?') + ')') : '';
+  document.getElementById('stat-boot').style.color = data.last_reset_crash ? '#f59e0b' : '';
+  document.getElementById('stat-uptime').innerText = (data.fw_version ? 'v' + data.fw_version + ' #' + data.fw_build + ' \u00b7 ' : '') + 'Up ' + fmtDur(data.uptime_s || 0);
 
   const telemBtn = document.getElementById('telem-cloud-btn');
   if (telemBtn && data.telem_url) {

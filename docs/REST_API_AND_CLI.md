@@ -30,6 +30,7 @@ DeskBar AI hosts an embedded, high-performance HTTP REST API on port 80. All end
 | `/api/imu` | `GET/POST` | `autorotate=<0\|1>&rotate=<0\|180>` | Returns 6-axis accelerometer, gyroscope, temperature, and orientation JSON; controls auto-rotation. |
 | `/api/imu/stream` | `GET` | *none* | Server-Sent Events (SSE) live streaming 10 Hz real-time motion and orientation telemetry. |
 | `/api/update` | `POST` | `multipart/form-data (firmware.bin)` | Direct browser/curl firmware upload & flash endpoint over Wi-Fi LAN; verifies binary and restarts. |
+| `/api/status` | `GET` | *none* | Device state JSON, including `fw_version`, `fw_build`, `fw_git`, `fw_date`, `uptime_s`, `boot_count`, `reset_reason`, `reset_reason_code`, `last_reset_crash`, `prior_uptime_s`, `prior_action`. |
 | `/api/screenshot` | `GET` | *none* | Dumps live 640×172 RGB24 BMP framebuffer screenshot over HTTP (dynamically rotated to match orientation). |
 
 ---
@@ -40,7 +41,10 @@ Connect over USB serial at **115200 baud** (using `python scripts/safe_serial_mo
 
 ```bash
 # System & Status
-status                    # Print uptime, battery voltage, WiFi RSSI, and audio state
+status                    # FW version/build, uptime, boot # + last reset reason, screen, IP, Wi-Fi, battery, heap
+version                   # Firmware version, build, git hash, build date, uptime, boot count
+crashlog                  # Last reset reason (CRASH flagged) + uptime and last action before it
+crashtest                 # Developer aid: force a panic to verify the reboot diagnostics
 heap                      # Print detailed internal DRAM and external PSRAM breakdown
 touch                     # Wake screen and reset sleep timer
 

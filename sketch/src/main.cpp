@@ -94,6 +94,7 @@ static void usb_bulk_end() {
 #include "lan_stream/lan_stream.h"
 #include "imu/imu_service.h"
 #include "lan_devices/lan_devices.h"
+#include "diag/boot_info.h"
 
 
 extern Audio audio;
@@ -127,28 +128,6 @@ void serial_cli_task(void *param);
 void serial_debug_beacon_task(void *param);
 void web_server_task(void *param);
 
-RTC_NOINIT_ATTR static uint32_t rtc_magic;
-RTC_NOINIT_ATTR static uint32_t rtc_boot_count;
-RTC_NOINIT_ATTR static uint32_t rtc_last_uptime_s;
-RTC_NOINIT_ATTR static char rtc_last_action[48];
-RTC_NOINIT_ATTR static esp_reset_reason_t rtc_last_reset_reason;
-
-static const char* reset_reason_to_str(esp_reset_reason_t r) {
-    switch (r) {
-        case ESP_RST_POWERON:   return "Power-on / Cold Boot";
-        case ESP_RST_EXT:       return "External Pin Reset";
-        case ESP_RST_SW:        return "Software Reset (esp_restart)";
-        case ESP_RST_PANIC:     return "Software Exception / Panic Crash";
-        case ESP_RST_INT_WDT:   return "Interrupt Watchdog Reset";
-        case ESP_RST_TASK_WDT:  return "Task Watchdog Reset";
-        case ESP_RST_WDT:       return "Other Watchdog Reset";
-        case ESP_RST_DEEPSLEEP: return "Deep-sleep Wake";
-        case ESP_RST_BROWNOUT:  return "Brownout Reset (Voltage Dip)";
-        case ESP_RST_SDIO:      return "SDIO Reset";
-        default:                return "Unknown Reset";
-    }
-}
-
 // ############################################################
 extern void init_main_menu_task(lv_timer_t *timer);
 
@@ -165,21 +144,7 @@ void setup() {
   delay(100);
   mbedtls_platform_set_calloc_free(mbedtls_psram_calloc, mbedtls_psram_free);
 
-  esp_reset_reason_t rst_reason = esp_reset_reason();
-  if (rtc_magic != 0x54554E45) { // "TUNE"
-    rtc_magic = 0x54554E45;
-    rtc_boot_count = 1;
-    rtc_last_uptime_s = 0;
-    rtc_last_reset_reason = rst_reason;
-    strncpy(rtc_last_action, "Cold Power-On", sizeof(rtc_last_action));
-  } else {
-    rtc_boot_count++;
-    log_w("[REBOOT MONITOR] Boot #%u | Reset Cause: %d (%s) | Prior Uptime: %us | Prior Action: %s",
-          (unsigned)rtc_boot_count, (int)rst_reason, reset_reason_to_str(rst_reason),
-          (unsigned)rtc_last_uptime_s, rtc_last_action);
-    rtc_last_reset_reason = rst_reason;
-  }
-  strncpy(rtc_last_action, "Booting", sizeof(rtc_last_action));
+  boot_info_init();  // version, boot count, reset reason, prior uptime/action -> Serial
 
   log_i("[TuneBar] by Va&Cob | V%s - %s", current_version, compile_date);
 
@@ -314,7 +279,7 @@ void serial_debug_beacon_task(void *param) {
   static bool s_initial_ping_done = false;
 
   for (;;) {
-    rtc_last_uptime_s = (uint32_t)(esp_timer_get_time() / 1000000ULL);
+    boot_info_tick();
     size_t free_heap = esp_get_free_heap_size();
     size_t min_heap = esp_get_minimum_free_heap_size();
     size_t free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
@@ -460,6 +425,8 @@ void serial_cli_task(void *param) {
             Serial.println("  weather geo ip-api.com- Set IP geolocation provider");
             Serial.println("  weather provider X    - Set weather provider (met.no|open-meteo|weatherapi.com)");
             Serial.println("  weather settings      - Show current weather/geo configuration");
+            Serial.println("  version               - Firmware version, build, uptime, boot count");
+            Serial.println("  crashlog              - Last reset reason + uptime/action before it");
             Serial.println("  reboot                - Restart ESP32-S3");
 #ifdef LAUNCHER_BUILD
             Serial.println("  launcher              - Reboot into the Launcher");
@@ -467,11 +434,21 @@ void serial_cli_task(void *param) {
           } else if (cmd.equalsIgnoreCase("status") || cmd.equalsIgnoreCase("ip")) {
             float volt = 0.0f; uint8_t pct = 0;
             getBatteryStatus(&volt, &pct);
-            Serial.printf("[CLI STATUS] Screen: %s | IP: %s | GW: %s | WiFi: %s | Batt: %.2fV (%d%%) | Heap: %u | PSRAM: %u\n",
+            char up[24];
+            boot_info_format_duration(boot_info_uptime_s(), up, sizeof(up));
+            Serial.printf("[CLI STATUS] FW: v%s #%u | Up: %s | Boot #%u (%s) | Screen: %s | IP: %s | GW: %s | WiFi: %s | Batt: %.2fV (%d%%) | Heap: %u | PSRAM: %u\n",
+                          boot_info_version(), (unsigned)boot_info_build(), up,
+                          (unsigned)boot_info_boot_count(), boot_info_reset_reason_str(),
                           lvgl_port_get_active_screen_name(),
                           WiFi.localIP().toString().c_str(), WiFi.gatewayIP().toString().c_str(),
                           (WiFi.status() == WL_CONNECTED) ? "CONNECTED" : "OFFLINE",
                           volt, pct, (unsigned int)ESP.getFreeHeap(), (unsigned int)ESP.getFreePsram());
+          } else if (cmd.equalsIgnoreCase("version") || cmd.equalsIgnoreCase("ver")) {
+            char up[24];
+            boot_info_format_duration(boot_info_uptime_s(), up, sizeof(up));
+            Serial.printf("[CLI VERSION] DeskBar AI v%s build %u (git %s, built %s) | Up: %s | Boot #%u, last reset: %s\n",
+                          boot_info_version(), (unsigned)boot_info_build(), boot_info_git_hash(),
+                          boot_info_build_date(), up, (unsigned)boot_info_boot_count(), boot_info_reset_reason_str());
           } else if (cmd.equalsIgnoreCase("screen") || cmd.equalsIgnoreCase("screen status")) {
             Serial.printf("[CLI SCREEN] Active: %s\n", lvgl_port_get_active_screen_name());
           } else if (cmd.equalsIgnoreCase("screenshot")) {
@@ -771,13 +748,22 @@ void serial_cli_task(void *param) {
             Serial.println("[CLI LAN] Fetching HTTP directory from LAN server...");
             int count = lan_fetch_files();
             Serial.printf("[CLI LAN] Fetched %d audio files from %s\n", count, lan_get_server());
+          } else if (cmd.equalsIgnoreCase("crashtest")) {
+            // Developer aid: forces a panic so the reboot diagnostics can be verified.
+            Serial.println("[CLI] Forcing a panic (crashtest)...");
+            Serial.flush();
+            boot_info_set_action("crashtest");
+            boot_info_tick();
+            abort();
           } else if (cmd.equalsIgnoreCase("crashlog") || cmd.equalsIgnoreCase("reboot log")) {
-            Serial.printf("[CLI REBOOT LOG] Boot Count: %u | Last Reset Reason: %d (%s) | Prior Uptime: %us | Prior Action: %s\n",
-                          (unsigned)rtc_boot_count, (int)rtc_last_reset_reason, reset_reason_to_str(rtc_last_reset_reason),
-                          (unsigned)rtc_last_uptime_s, rtc_last_action);
+            char prior[24];
+            boot_info_format_duration(boot_info_prior_uptime_s(), prior, sizeof(prior));
+            Serial.printf("[CLI REBOOT LOG] Boot #%u since power-on | Last reset: %s (%d)%s | Uptime before it: %s | Last action before it: %s\n",
+                          (unsigned)boot_info_boot_count(), boot_info_reset_reason_str(), boot_info_reset_reason(),
+                          boot_info_last_reset_was_crash() ? " <- CRASH" : "", prior, boot_info_prior_action());
           } else if (cmd.startsWith("lan play ")) {
             int idx = cmd.substring(9).toInt() - 1;
-            strncpy(rtc_last_action, "LAN Play", sizeof(rtc_last_action));
+            boot_info_set_action("LAN Play");
             if (lan_play(idx)) {
               Serial.printf("[CLI LAN] Playing track %d\n", idx + 1);
             } else {
@@ -844,7 +830,7 @@ void serial_cli_task(void *param) {
             int idx = cmd.substring(11).toInt() - 1;
             if (idx >= 0 && idx < stationListLength) {
               stationIndex = idx;
-              strncpy(rtc_last_action, "Radio Play", sizeof(rtc_last_action));
+              boot_info_set_action("Radio Play");
               audioPlayHOST(stations[stationIndex].url, stations[stationIndex].name);
               Serial.printf("[CLI RADIO] Playing [%d] %s\n", idx + 1, stations[idx].name);
             } else {
