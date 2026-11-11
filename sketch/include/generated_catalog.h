@@ -32,7 +32,7 @@ static const CatalogItem s_generated_catalog[1] = {
 
 static inline String get_generated_catalog_json(void) {
   String j = "{\"repo_id\":\"official\",\"releases\":[";
-  j += "{\"version\":\"2.7.0\",\"type\":\"minor\",\"build\":286,\"date\":\"Nov 11, 2026\",\"size\":\"3.13 MB\",\"size_bytes\":3285440,\"changelog\":\"• LAN Devices with Home Assistant sign-in; crash fixes • New LAN DEVICES app: control Home Assistant lights, switches, covers and fans, grouped by room. • Sign in with your Home Assistant username and password (no long-lived token needed). • Roomier sign-in keyboard with show/hide password. • Fixes random crashes and unexpected returns to the clock (LVGL thread-safety).\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.7.0.bin\"}";
+  j += "{\"version\":\"2.7.0\",\"type\":\"minor\",\"build\":285,\"date\":\"Nov 11, 2026\",\"size\":\"3.13 MB\",\"size_bytes\":3285440,\"changelog\":\"• LAN Devices with Home Assistant sign-in; crash fixes • New LAN DEVICES app: control Home Assistant lights, switches, covers and fans, grouped by room. • Sign in with your Home Assistant username and password (no long-lived token needed). • Roomier sign-in keyboard with show/hide password. • Fixes random crashes and unexpected returns to the clock (LVGL thread-safety).\",\"url\":\"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/firmware-v2.7.0.bin\"}";
   j += "]}";
   return j;
 }

@@ -8,6 +8,7 @@ releases/firmware_catalog.json, and sketch/include/generated_catalog.h.
 import os
 import sys
 import json
+import re
 import subprocess
 import datetime
 
@@ -51,8 +52,22 @@ def main():
         if len(parts) >= 3 and all(p.isdigit() for p in parts[:3]):
             if tuple(int(p) for p in parts[:3]) >= (1, 2, 8):
                 cur_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
-    commit_count = get_git_output(["rev-list", "--count", "HEAD"])
-    build_num = int(commit_count) if commit_count and commit_count.isdigit() else 22
+    # The catalog build number must be the one compiled into the binary
+    # (TUNEBAR_BUILD_NUM in version.h), not "commits so far": re-running this
+    # script after the release commit used to bump it (285 -> 286).
+    build_num = None
+    vh = os.path.join(ROOT_DIR, "sketch", "include", "version.h")
+    try:
+        vtxt = open(vh, encoding="utf-8").read()
+        m_ver = re.search(r'TUNEBAR_VERSION_STR\s+"([^"]+)"', vtxt)
+        m_bld = re.search(r'TUNEBAR_BUILD_NUM\s+(\d+)', vtxt)
+        if m_ver and m_bld and m_ver.group(1) == cur_ver:
+            build_num = int(m_bld.group(1))
+    except OSError:
+        pass
+    if build_num is None:
+        commit_count = get_git_output(["rev-list", "--count", "HEAD"])
+        build_num = int(commit_count) if commit_count and commit_count.isdigit() else 22
     now_date = datetime.date.today().strftime("%b %d, %Y")
 
     # Check binary size if present
@@ -67,7 +82,8 @@ def main():
     for r in releases:
         if r.get("version") == cur_ver or r.get("version") == f"v{cur_ver}":
             found = True
-            r["build"] = build_num
+            if not r.get("build"):
+                r["build"] = build_num
             r["size"] = bin_size
             break
 
@@ -78,7 +94,7 @@ def main():
             "build": build_num,
             "date": now_date,
             "title": f"DeskBar AI v{cur_ver} Firmware Release",
-            "changelog": "• Automated multi-tenant telemetry and device registration guard.\n• 4-Row 3-State IMU posture panel with active/inverted tracking.\n• High-precision shelf inclinometer and uphill air bubble physics.\n• Dynamic isometric chassis diagram in calibration wizard.\n• Clock breathing interaction wake fix.",
+            "changelog": f"• DeskBar AI v{cur_ver}",
             "url": f"https://raw.githubusercontent.com/rahulraj80/DeskBar-AI/main/releases/bin/{bin_name}",
             "size": bin_size
         }
